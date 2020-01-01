@@ -1,0 +1,240 @@
+\documentclass[aps,longbibliography,english,superscriptaddress,prr]{revtex4-1}
+\usepackage[colorlinks=true,urlcolor=blue,citecolor=blue,linkcolor=blue]{hyperref}
+\usepackage[T1]{fontenc}
+%\usepackage[latin9]{inputenc}
+\usepackage{amssymb}
+\usepackage{tabularx}
+%\usepackage{caption}
+\usepackage[plain]{algorithm}
+\usepackage{algpseudocode}
+\usepackage{rotating}
+\usepackage{booktabs}
+%\usepackage{unicode-math}
+%\usepackage{algorithm}% http://ctan.org/pkg/algorithm
+%\usepackage{algpseudocode}% http://ctan.org/pkg/algpseudocode
+\usepackage{xcolor}% http://ctan.org/pkg/xcolor
+\makeatletter
+\newsavebox{\@brx}
+\newcommand{\llangle}[1][]{\savebox{\@brx}{\(\m@th{#1\langle}\)}%
+  \mathopen{\copy\@brx\kern-0.5\wd\@brx\usebox{\@brx}}}
+\newcommand{\rrangle}[1][]{\savebox{\@brx}{\(\m@th{#1\rangle}\)}%
+  \mathclose{\copy\@brx\kern-0.5\wd\@brx\usebox{\@brx}}}
+\makeatother
+
+\usepackage{bbm}
+\usepackage{graphicx, subfigure}
+\usepackage{amsmath,color}
+\usepackage{mathrsfs}
+\usepackage{float}
+\usepackage[normalem]{ulem}
+\usepackage{indentfirst}
+\usepackage{txfonts}
+\usepackage{qcircuit}
+\usepackage{listings}
+
+\lstset{
+    basicstyle=\ttfamily\footnotesize,
+    numberstyle=\scriptsize,
+    % numbers=left,
+    backgroundcolor=\color{gray!10},
+    frame=single,
+    tabsize=2,
+    rulecolor=\color{black!30},
+    title=\lstname,
+    escapeinside={(*}{*)},
+    breaklines=true,
+    breakatwhitespace=true,
+    framextopmargin=2pt,
+    framexbottommargin=2pt,
+    extendedchars=true,
+    inputencoding=utf8,
+    columns=fullflexible,
+}
+
+
+\tolerance=1
+\emergencystretch=\maxdimen
+\hyphenpenalty=1000
+\hbadness=1000
+
+\makeatletter
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% User specified LaTeX commands.
+
+%Journal reference.  Comma sets off: name, vol, page, year
+\def\journal #1, #2, #3, 1#4#5#6{{\sl #1~}{\bf #2}, #3 (1#4#5#6) }
+\def\pr{\journal Phys. Rev., }
+\def\prb{\journal Phys. Rev. B, }
+\def\prl{\journal Phys. Rev. Lett., }
+\def\pl{\journal Phys. Lett., }
+%\def\np{\journal Nucl. Phys., }
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+%\usepackage{CJK}
+%\usepackage[colorlinks, citecolor=blue]{hyperref}
+\DeclareMathOperator*{\argmax}{arg\,max}
+
+%%%%%% Shortcut related
+\newcommand{\<}{\langle}
+\renewcommand{\>}{\rangle}
+%%%%%% Convention related
+\newcommand{\SWAP}{{\rm SWAP}}
+\newcommand{\CNOT}{{\rm CNOT}}
+\newcommand{\X}{{\rm X}}
+\renewcommand{\H}{{\rm H}}
+\newcommand{\Rx}{{\rm Rx}}
+\renewcommand{\v}[1]{{\bf #1}}
+\newcommand{\dataset}{{\mathcal{D}}}
+\newcommand{\wfunc}{{\psi}}
+\newcommand{\SU}{{\rm SU}}
+\newcommand{\UU}{{\rm U}}
+\newcommand{\thetav}{{\boldsymbol{\theta}}}
+\newcommand{\gammav}{{\boldsymbol{\gamma}}}
+\newcommand{\thetai}{{\theta^\alpha_l}}
+\newcommand{\Expect}{{\mathbb{E}}}
+\newcommand{\Tr}{{\rm Tr}}
+\newcommand{\etc}{{\it etc~}}
+\newcommand{\etal}{{\it etal~}}
+\newcommand{\vx}{\mathbf{x}}
+\newcommand{\xset}{\mathbf{X}}
+\newcommand{\fl}{\texttt{fl}}
+\newcommand{\pdata}{\mathbf{\pi}}
+\newcommand{\q}{\mathbf{q}}
+\newcommand{\epdata}{\mathbf{\hat{\pi}}}
+\newcommand{\gammaset}{\boldsymbol{\Gamma}}
+\newcommand{\ei}{{\mathbf{e}_l^\alpha}}
+\newcommand{\vtheta}{{\boldsymbol{\theta}}}
+\newcommand{\sigmag}{{\nu}}
+\newcommand{\sigmai}[2]{{\sigma^{#2}_{#1}}}
+\newcommand{\qi}[1]{{q^{\alpha_{#1}}_{#1}}}
+\newcommand{\BAS}{Bars-and-Stripes}
+\newcommand{\circled}[1]{\raisebox{.5pt}{\textcircled{\raisebox{-.9pt} {#1}}}}
+
+\newcommand{\qexpect}[1]{{\left\langle #1\right\rangle}}
+\newcommand{\expect}[2]{{\mathop{\mathbb{E}}\limits_{\substack{#2}}\left[#1\right]}}
+\newcommand{\var}[2]{{\mathop{\mathrm{Var}}\limits_{\substack{#2}}\left(#1\right)}}
+\newcommand{\pshift}[1]{{p_{\thetav+#1}}}
+\newcommand{\upcite}[1]{\textsuperscript{\cite{#1}}}
+\newcommand{\Eq}[1]{Eq.~(\ref{#1})}
+\newcommand{\Fig}[1]{Fig.~\ref{#1}}
+\newcommand{\Tbl}[1]{Table~\ref{#1}}
+\newcommand{\Ref}[1]{Ref.~\onlinecite{#1}}
+\newcommand{\Sec}[1]{Sec.~\ref{#1}}
+\newcommand{\App}[1]{Appendix \ref{#1}}
+\newcommand{\bra}[1]{\mbox{$\left\langle #1 \right|$}}
+\newcommand{\ket}[1]{\mbox{$\left| #1 \right\rangle$}}
+\newcommand{\braket}[2]{\mbox{$\left\langle #1 | #2 \right\rangle$}}
+\newcommand{\tr}[1]{\mathrm{tr}\mbox{$\left[ #1\right]$}}
+
+\newcommand{\ra}[1]{\renewcommand{\arraystretch}{#1}}
+
+%%%%%% Comment related
+\newcommand{\red}[1]{[{\bf  \color{red}{LW: #1}}]}
+\newcommand{\xred}[1]{[{\bf  \color{red}{\sout{LW: #1}}}]}
+\newcommand{\blue}[1]{[{\bf  \color{blue}{JG: #1}}]}
+\newcommand{\xblue}[1]{[{\bf  \color{blue}{\sout{JG: #1}}}]}
+\newcommand{\material}[1]{\iffalse[{\bf  \color{cyan}{Material: #1}}]\fi}
+
+
+\makeatother
+
+\usepackage{babel}
+
+\begin{document}
+
+\section{Grammar of NiLang}
+
+\begin{itemize}
+    \item Terminals in quotes or lower case.
+    \begin{itemize}
+        \item ident, symbols
+        \item num, numbers
+        \item null, empty statement
+        \item expr, native julia expression.
+        \item expr::Int, native julia expression with integer return value.
+        \item expr::Bool, native julia expression with boolean return value.
+    \end{itemize}
+    \item \{ \}* indiceates zero or more repetitions.
+    \item $[$ $]$  indicates zero or one repetitions.
+\end{itemize}
+
+\begin{lstlisting}
+Function    ::= 'function' Fname '(' Fargs [',' ident '...']; Fargs ')' 'where' '{' Symbols '}'
+                    Statements
+                'end'
+
+Fname       ::= ident
+            |   '(' ident '::' ident ')'
+
+Fargs       ::= ident, Fargs
+            |   ident '::' ident, Fargs
+            |   ident '=' ident, Fargs
+            |   ident '::' ident '=' expr, Fargs
+            |   null
+
+Symbols     ::= ident, Symbols
+            |   ident
+
+
+Statements  ::= Ifstmt Statements
+            |   Whilestmt Statements
+            |   Forstmt Statements
+            |   Callstmt Statements
+            |   Instrstmt Statements
+            |   Revstmt Statements
+            |   @anc Statements
+            |   @routine Statements
+            |   @safe Statements
+            |   null
+
+Ifstmt      ::= 'if' '(' expr::Bool ',' expr::Bool ')'
+                    Statements
+                ['else' 
+                    Statements]
+                'end'
+
+Whilestmt   ::= 'while' '(' expr::Bool ',' expr::Bool ')'
+                    Statements
+                'end'
+
+Forstmt     ::= 'for' ident '=' expr::Int[':' expr::Int] ':' expr::Int
+                    Statements
+                'end'
+
+Callstmt    ::= ident '(' Dataviews ')'
+
+Instrstmt   ::= ident '+=' ident ['(' Dataviews ')']
+            |   ident '-=' ident ['(' Dataviews ')']
+            |   ident '(*$\veebar$*)=' ident ['(' Dataviews ')']
+            |   ident '.+=' ident ['.' '(' Dataviews ')']
+            |   ident '.-=' ident ['.' '(' Dataviews ')']
+            |   ident '.(*$\veebar$*)=' ident ['.' '(' Dataviews ')']
+
+Revstmt     ::= '~' '(' Statements ')'
+
+@routine    ::= '@routine' ident 'begin'
+                    Statements
+                'end'
+            |   '@routine' ident
+
+@anc        ::= '@anc' ident '=' expr
+            |   '@deanc' ident '=' expr
+
+@safe       ::= '@safe' expr
+
+Dataviews   ::= Dataview, Dataviews
+            | null
+
+Dataview    ::= Dataview '[' expr::Int ']'
+            |   ident {'.' ident}*
+            |   ident '(' Dataview ')'
+            |   Constant
+
+Constant    ::= num | '(*$\pi$*)'
+
+\end{lstlisting}
+
+\end{document}

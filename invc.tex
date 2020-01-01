@@ -1,0 +1,614 @@
+\documentclass[aps,twocolumn,longbibliography,english,superscriptaddress,prr]{revtex4-1}
+\usepackage[colorlinks=true,urlcolor=blue,citecolor=blue,linkcolor=blue]{hyperref}
+\usepackage[T1]{fontenc}
+%\usepackage[latin9]{inputenc}
+\usepackage{amssymb}
+\usepackage{tabularx}
+%\usepackage{caption}
+\usepackage[plain]{algorithm}
+\usepackage{algpseudocode}
+\usepackage{rotating}
+\usepackage{booktabs}
+%\usepackage{unicode-math}
+%\usepackage{algorithm}% http://ctan.org/pkg/algorithm
+%\usepackage{algpseudocode}% http://ctan.org/pkg/algpseudocode
+\usepackage{xcolor}% http://ctan.org/pkg/xcolor
+\makeatletter
+\newsavebox{\@brx}
+\newcommand{\llangle}[1][]{\savebox{\@brx}{\(\m@th{#1\langle}\)}%
+  \mathopen{\copy\@brx\kern-0.5\wd\@brx\usebox{\@brx}}}
+\newcommand{\rrangle}[1][]{\savebox{\@brx}{\(\m@th{#1\rangle}\)}%
+  \mathclose{\copy\@brx\kern-0.5\wd\@brx\usebox{\@brx}}}
+\makeatother
+
+\usepackage{bbm}
+\usepackage{graphicx, subfigure}
+\usepackage{amsmath,color}
+\usepackage{mathrsfs}
+\usepackage{float}
+\usepackage[normalem]{ulem}
+\usepackage{indentfirst}
+\usepackage{txfonts}
+\usepackage{qcircuit}
+\usepackage{listings}
+
+\lstset{
+    basicstyle=\ttfamily\footnotesize,
+    numberstyle=\scriptsize,
+    % numbers=left,
+    backgroundcolor=\color{gray!10},
+    frame=single,
+    tabsize=2,
+    rulecolor=\color{black!30},
+    title=\lstname,
+    escapeinside={(*}{*)},
+    breaklines=true,
+    breakatwhitespace=true,
+    framextopmargin=2pt,
+    framexbottommargin=2pt,
+    extendedchars=true,
+    inputencoding=utf8,
+    columns=fullflexible,
+}
+
+
+\tolerance=1
+\emergencystretch=\maxdimen
+\hyphenpenalty=1000
+\hbadness=1000
+
+\makeatletter
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% User specified LaTeX commands.
+
+%Journal reference.  Comma sets off: name, vol, page, year
+\def\journal #1, #2, #3, 1#4#5#6{{\sl #1~}{\bf #2}, #3 (1#4#5#6) }
+\def\pr{\journal Phys. Rev., }
+\def\prb{\journal Phys. Rev. B, }
+\def\prl{\journal Phys. Rev. Lett., }
+\def\pl{\journal Phys. Lett., }
+%\def\np{\journal Nucl. Phys., }
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+%\usepackage{CJK}
+%\usepackage[colorlinks, citecolor=blue]{hyperref}
+\DeclareMathOperator*{\argmax}{arg\,max}
+
+%%%%%% Shortcut related
+\newcommand{\<}{\langle}
+\renewcommand{\>}{\rangle}
+\newcommand{\out}{{\vec{O}}}
+\newcommand{\inp}{{\vec{I}}}
+\newcommand{\vx}{{\vec{x}}}
+\newcommand{\vy}{{\vec{y}}}
+%%%%%% Convention related
+\newcommand{\SWAP}{{\rm SWAP}}
+\newcommand{\CNOT}{{\rm CNOT}}
+\newcommand{\X}{{\rm X}}
+\renewcommand{\H}{{\rm H}}
+\newcommand{\Rx}{{\rm Rx}}
+\renewcommand{\v}[1]{{\bf #1}}
+\newcommand{\dataset}{{\mathcal{D}}}
+\newcommand{\wfunc}{{\psi}}
+\newcommand{\SU}{{\rm SU}}
+\newcommand{\UU}{{\rm U}}
+\newcommand{\thetav}{{\boldsymbol{\theta}}}
+\newcommand{\gammav}{{\boldsymbol{\gamma}}}
+\newcommand{\thetai}{{\theta^\alpha_l}}
+\newcommand{\Expect}{{\mathbb{E}}}
+\newcommand{\Tr}{{\rm Tr}}
+\newcommand{\etc}{{\it etc~}}
+\newcommand{\etal}{{\it etal~}}
+\newcommand{\xset}{\mathbf{X}}
+\newcommand{\fl}{\texttt{fl}}
+\newcommand{\pdata}{\mathbf{\pi}}
+\newcommand{\q}{\mathbf{q}}
+\newcommand{\epdata}{\mathbf{\hat{\pi}}}
+\newcommand{\gammaset}{\boldsymbol{\Gamma}}
+\newcommand{\ei}{{\mathbf{e}_l^\alpha}}
+\newcommand{\vtheta}{{\boldsymbol{\theta}}}
+\newcommand{\sigmag}{{\nu}}
+\newcommand{\sigmai}[2]{{\sigma^{#2}_{#1}}}
+\newcommand{\qi}[1]{{q^{\alpha_{#1}}_{#1}}}
+\newcommand{\BAS}{Bars-and-Stripes}
+\newcommand{\circled}[1]{\raisebox{.5pt}{\textcircled{\raisebox{-.9pt} {#1}}}}
+
+\newcommand{\qexpect}[1]{{\left\langle #1\right\rangle}}
+\newcommand{\expect}[2]{{\mathop{\mathbb{E}}\limits_{\substack{#2}}\left[#1\right]}}
+\newcommand{\var}[2]{{\mathop{\mathrm{Var}}\limits_{\substack{#2}}\left(#1\right)}}
+\newcommand{\pshift}[1]{{p_{\thetav+#1}}}
+\newcommand{\upcite}[1]{\textsuperscript{\cite{#1}}}
+\newcommand{\Eq}[1]{Eq.~(\ref{#1})}
+\newcommand{\Fig}[1]{Fig.~\ref{#1}}
+\newcommand{\Tbl}[1]{Table~\ref{#1}}
+\newcommand{\Ref}[1]{Ref.~\onlinecite{#1}}
+\newcommand{\Sec}[1]{Sec.~\ref{#1}}
+\newcommand{\App}[1]{Appendix \ref{#1}}
+\newcommand{\bra}[1]{\mbox{$\left\langle #1 \right|$}}
+\newcommand{\ket}[1]{\mbox{$\left| #1 \right\rangle$}}
+\newcommand{\braket}[2]{\mbox{$\left\langle #1 | #2 \right\rangle$}}
+\newcommand{\tr}[1]{\mathrm{tr}\mbox{$\left[ #1\right]$}}
+
+\newcommand{\ra}[1]{\renewcommand{\arraystretch}{#1}}
+
+%%%%%% Comment related
+\newcommand{\red}[1]{[{\bf  \color{red}{LW: #1}}]}
+\newcommand{\xred}[1]{[{\bf  \color{red}{\sout{LW: #1}}}]}
+\newcommand{\blue}[1]{[{\bf  \color{blue}{JG: #1}}]}
+\newcommand{\xblue}[1]{[{\bf  \color{blue}{\sout{JG: #1}}}]}
+\newcommand{\material}[1]{\iffalse[{\bf  \color{cyan}{Material: #1}}]\fi}
+
+
+\makeatother
+
+\usepackage{babel}
+
+\begin{document}
+
+\title{Why we should develop reversible programming - the machine learning perspective}
+
+\author{Jin-Guo Liu}
+\author{Tai-Ne Zhao}
+%\email{cacate0129@iphy.ac.cn}
+\affiliation{Institute of Physics, Chinese Academy of Sciences, Beijing 100190, China}
+\author{Lei Wang}
+\email{wanglei@iphy.ac.cn}
+\affiliation{Institute of Physics, Chinese Academy of Sciences, Beijing 100190, China}
+\affiliation{CAS Center for Excellence in Topological Quantum Computation, University of Chinese Academy of Sciences, Beijing 100190, China}
+\affiliation{Songshan Lake Materials Laboratory, Dongguan, Guangdong 523808, China}
+
+\begin{abstract}
+    This paper considers instruction level differential programming, i.e. knowing only the backward rule of basic instructions like +, -, * and /, differentiate a program with proper performance. We will review briefly why instruction level automatic differentiation is hard for current machine learning package even for a source to source automatic differentiation package. Then we propose a reversible Turing machine implementation to achieve instruction level automatic differentiation.
+\end{abstract}
+\maketitle
+
+\section{Automatic differentiation}
+There are two basic modes of automatic differentiation~\cite{thelongpaper}, the tangent mode\cite{forwarddiff} and the adjoint mode.
+Consider a multi-in ($\vec{x}$) multi-out ($\vec{y}$) function $f$, the tangent mode computes a column of its Jacobian $\frac{\partial \vec{y}}{\partial x_i}$ efficiently, where $x_i$ is single input variable and $\vec{y}$ is multiple output variables.
+Whereas the adjoint mode computes a row of Jacobian $\frac{\partial y_i}{\partial \vec{x}}$ efficiently.
+
+Most popular automatic differentiation package implements the adjoint mode differentation, because they are computational more efficient in most optimization applications, where the output loss is always a scalar.
+Implementing adjoint mode AD requires tracing a program and its intermediate state backward, which requires storing extra information
+\begin{enumerate}
+    \item computational graph,
+    \item and intermediate result caching.
+\end{enumerate}
+The computational graph is a DAG that stores function calls from inputs to results. Intermediate results are usually the input variable of a function, it is nessesary to compute the adjoint of the function.
+In Pytorch~\cite{Paszke2017} and Flux~\cite{FluxPaper}, every variable (tensor) has a tracker field that stores its parent (data and function that generate this variable) information in computational graph and intermediate state. TensorFlow~\cite{Tensorflow2015} implements a static computational graph before actual computing happens.
+Source to source automatic differentiation package Zygote~\cite{Innes2019} use a intermediate representation SSA as the computational graph, so that it can back propagate over a native julia code. Still, intermediate caching is nessesary.
+
+Since every computational process is compiled to instructs, these instructions is a natural sequential computational graphs. These instructions are from a finite set of `+', `-', `*', `/', conditional jump statements et. al. With instruction level computational graph, we do not need to define primitives like \texttt{exp}, or even linear algebras functions like singular value decomposition~\cite{} and eigenvalue decomposition. where the manually derived backwards rule still faces the degenerate spectrum problem (gradients explodes), instruction level AD will return reasonable gradients. With instruction level AD, people don't worry about inplace functions, which may be a huge problem in traditional approaches. We can back propagate over a quantum simulator, where all instructions are reversible two level unitaries (i.e. Jacobian rotation).
+We don't need extra effort to learn meta parameters.~\cite{} Neural ODE is much easier to design~\cite{Chen2018}.
+
+However, people don't use instructions computational graph for practical reasons. The cost of memorizing the computational graph and intermediate caching kills the performance for more than two orders (as we will show latter).
+A even more serious problem is the memory consumption for caching intermediate results increases linearly as time. Even in many traditional deep network like recurrent neural network and residual neural networks, where the depth is only several thousand, this memory cost can be a nightmare.
+
+In this paper, we introduce a high performance instruction level AD by making a program time reversible.
+Making use of reversibility like information buffer~\cite{Maclaurin2015} can reduce the memory allocations in recurrent neural network~\cite{MacKay2018} and residual neural networks~\cite{Behrmann2018}. However, the use of reversiblity in these cases are not general purposed.
+We develop a domain specific language (DSL) in \texttt{Julia} that implements reversible Turing machine. In the past, the reversible Turing machine is not a widely used computational model for having either polynomial overhead in computational time or additional memory cost that propotional to computational time.
+There has been some prototypes of reversible languages like \texttt{Janus}, where reversible control flows are introduced. Our DSL borrows the design of reversible control flow, meanwhile provides abstraction and memory management. With these additional features, differentiating over a general program requires less than 100 lines.
+In this paper, we show that in many useful applications, the computational overhead is just a constant factor. Only in some worst cases, it is equivalent to a traditional machine learning framework that cache every input.
+
+\subsection{Computing Jacobians, Hessians and more}
+\subsection{First order gradient}
+Given a node $\vec y = f(\vec x)$ in a computational graph, we can propagate the Jacobians in tangent mode like
+\begin{align}
+    J^\out_{x_i} = \sum\limits_j J^\out_{y_j} J^{y_j}_{x_i}
+\end{align}
+and the adjoint mode
+\begin{align}
+    J^{y_j}_\inp = \sum\limits_j J^{y_j}_{x_i} J_\inp^{x_i}
+\end{align}
+
+Here, $\inp$ is the inputs and $\out$ is the outputs.
+This result can be obtained diagrammatically.
+
+
+With reversible programming, $f^{-1}$ is used for uncomputing intermediate results, $J^\vy_\vx \equiv (J_\vy^\vx)^{-1}$ can also be obtained during uncomputing.
+
+\subsection{Second order gradient}
+
+\subsection{Gradient on ancilla problem}
+Ancilla can also carry gradients during computation, sometimes these gradients can not be uncomputed even if their parents can be uncomputed regoriously. In these case, we simply ``drop" the gradient field instead of raising an error. In this subsection, we prove doing this is safe, i.e. does not have effect on rest parts of program.
+
+Ancilla is the fixed point of a function, which means 
+\begin{align}
+    \begin{split}
+    &b, y \leftarrow f(x, a)\; \text{, where } b==a\\
+    &\frac{\partial b}{\partial x} = 0
+    \end{split}
+\end{align}
+
+During the computation, the gradient field does not have any effect to the value. The key question is will the loss of gradient part in ancilla affect the reversibility of the gradient part of argument variables.
+The gradient of argument variable is defined as $\frac{\partial L}{\partial x} = \frac{\partial L}{\partial y}\frac{\partial y}{\partial x} + \frac{\partial L}{\partial b}\frac{\partial b}{\partial x}$, where the second term vanish naturally.
+
+\subsection{Taylor propagation}
+The hessian back propagation rule is
+
+\begin{align}
+    \begin{split}
+        H^f_{y_L,y_L'} &= 0\\
+        H^f_{y_{i-1},y_{i-1}'} &= J^{y_i}_{y_{i-1}} H^f_{y_i, y_i'} J^{y_i'}_{y_{i-1}'} + J^f_{y_i} H^{y_i}_{y_{i-1}, y_{i-1}'}
+    \end{split}
+\end{align}
+\subsection{A new training scheme}
+We compute the output as
+\begin{equation}
+    y = f(x),
+\end{equation}
+and we have an expected output $\hat{y}$. In traditional machine learning, we define a loss and minimize it. However, this is not how human brain works.~\cite{Hintoncomment}
+Since the $\hat{y}$ is different with $y$, the network start to "think", if the output is $\hat{y}$, what should the input (including network parameters) be?
+So, we feed $\hat{y}$ back to the output end of network, and inverse the tape, with the runtime information generated by the input image. The network will compute a different value to network parameters, then the network feel "confused", and chose a value between old and new values.
+
+Let's look at the folloing example
+\begin{minipage}{.44\textwidth}
+\begin{lstlisting}[basicstyle=\small\ttfamily,columns=fullflexible]
+function f(x::Ref, y::Ref)
+    add!(y, x)
+    exp!(x)
+    neg!(x)
+    exp!(y)
+    add!(x, y)
+    return x, y
+end
+
+function invf(x::Ref, y::Ref)
+    sub!(x, y)
+    log!(y)
+    neg!(x)
+    log!(x)
+    sub!(y, x)
+    return x, y
+end
+
+x, y = Ref(0.3), Ref(1.6)
+for i=1:100
+    x = Ref(0.3)
+    f(x, y)
+    x[] = 1.0
+    invf(x, y)
+end
+\end{lstlisting}
+\end{minipage}
+
+$f(x, y)$ computes $e^{(y+x)} - e^x$ and stores the output in $x$, the target is to find a $y$ that make the output $x$ equal to the target value $1$.
+After $200$ steps training, $y$ runs into the fixed point and $x$ is equal to $1$ upto machine precision.
+
+This training is similar the recursive convergence method that widely used in mathematics and physics.
+However, in programming language but it has a loophole, it is vulnarable to loss of injectivity.
+For example, if the result is accumulated to another variable $z += x$, and take $z$ as the loss, then the loss can not accumulated to the target value correctly since the inverse of above operation is $z -= x$ and $x$ is unchanged in the inverse run.
+This is because the redundancy introduced in operation $z = z+e^x$, which keeps both $x$ and $z$, the change of $z$ shifting $z$ directly is apparently a lazier approach to fit $z$ with target value $1$, to figure out the correct causality, corresponding change in output side to $x$ and $y$ are required. This redundancy can be detected by computing the entanglement entropy (or mutual information) between two output datas. We call this type of invertibility inference, which should be avoided in this type of training. Then how shall we calculate $f(x) = e^x$ like functions, which are not partly invertible from the numeric perspective? Here we introduce the notion of "weak invertibility"
+\begin{align}
+    &@assert y == 0\\
+    &\fl(y) += exp(\fl(x))\\
+    &\fl(x) -= log(y)
+\end{align}
+We can keep $x$ to ensure numerical invertibility, meanwhile erase most informations inside it. Since $x$ is effectively $0$, thus no redundancy (or entanglement entropy) in output, in this way, the above training is still valid.
+
+\subsection{Compactness of data}
+Measure of compactness by entanglement entropy.
+In invertible programming, we define the entanglement between output space garbage space as the compactness of information.
+
+If the output information is compact, then we have
+$(x, x_a)\rightarrow (y, y_a)$
+
+mutual information is
+\begin{align}
+    I(x, y) = S(x, y) - S(x) - S(y)\\
+    S(x, x_a) = S(y, y_a)\\
+    I(x, x_a) = 0\\
+    I(y, y_a) = S(y, y_a) - S(y_a)
+\end{align}
+
+\section{Time Space Tradeoff}
+Comparing with irreversible programming, reversible programming consumes more memory.
+Data have different life cycles, some are more persistent, like database, some are transiant like an ancilla variable in register that live only in several clock cycle.
+
+
+\section{A Invertible Programming Style}
+\subsection{How does a general program work}
+In a mordern programming language, functions are pushed to a global stack for scheduling. The memory layout of a function is consisted of input arguments, a function frame with informations like return address and saved memory segments, local variables and working stack. After each call, the function clears the input arguments, function frame, local variables and working stack and only stores the return value.
+In the invertible programming style, this kind of design pattern is nolonger the best practise, the local information of a function can not be emptied immediately after a function call to guranteen the invertibility.
+
+Programming language Janus~\cite{Lutz1986} is a prototype of reversible programming that can be compiled to invertible instructions.
+
+\subsection{$\pi$ calculus}
+
+\subsection{For Loop}
+\subsection{Unitary Matrices}
+Recurrent networks with a unitary parametrized network ease the gradient exploding and vanishing problem~\cite{Arjovsky2015,Wisdom2016,Li2016}.
+Among different parametrization schemes, the most elegant one is \Ref{Li2016}, which parametrized the unitary matrix with two-level unitary operations, any unitary matrix of size $N\times N$ can be parametrized by $k = N(N-1)/2$ two level unitary matrices~\cite{Li2013}. All these two-level unitary matrices can be applied in $O(1)$ time as a two register instruction.
+Hence a real unitary matrix can be parametrized compactly by $k$ rotation angles, each represents a rotation operations between datas in two target parameters.
+
+\begin{minipage}{.44\textwidth}
+\begin{lstlisting}[basicstyle=\small\ttfamily,columns=fullflexible]
+@assert j==0, i==0, k==0, ip==0
+loop N-1
+    j + 1
+    loop j
+        i + 1
+        k + 1
+        ip + i + 1
+        rot(x[i], x[ip], z[k])
+        ip - 1 - i
+    end
+    i - j
+end
+\end{lstlisting}
+\end{minipage}
+
+Here, \texttt{loop j} means excuting the loop body for \texttt{j} times, it gurantes invertibility.
+Loop and branching can be implemented in a more regorious way~\cite{Vieri1999} from instruction level,
+however it is still an open question how to implelement loops with instruction level invertibility without compiling technic.
+In the rotation instruction, \texttt{z[k]} is the rotation angle, which represents rotating data in target registers by an angle of $\theta=$ \texttt{z[k]*$\pi$}.
+
+\begin{align}
+    R(\theta)  = \begin{bmatrix}
+        \cos(\theta) & - \sin(\theta)\\
+        \sin(\theta)  & \cos(\theta)
+    \end{bmatrix}
+\end{align}
+
+\subsubsection{The gradient}
+
+Its backward rule is
+\begin{align}
+    \begin{split}
+    \overline{\theta}  &= \sum\frac{\partial R(\theta)}{\partial \theta}\odot(\overline{y}x^T)\\
+    &= \Tr\left[\frac{\partial R(\theta)}{\partial \theta}^T\overline{y}x^T\right]\\
+    &= \Tr\left[R\left(\frac{\pi}{2}-\theta\right)\overline{y}x^T\right]
+    \end{split}
+\end{align}
+
+The resulting instruction is
+
+\begin{minipage}{.44\textwidth}
+\begin{lstlisting}[basicstyle=\small\ttfamily,columns=fullflexible]
+-z[k]
+z[k] + pi/2
+rot(gx[i], gx[ip], theta[k])
+gtheta + gx[i]*x[i]
+gtheta + gx[ip]*x[ip]
+theta[k] - pi/2
+-theta[k]
+
+rot(gx[i], gx[ip], -pi/2)
+\end{lstlisting}
+\end{minipage}
+
+In this way, the gradient is defined in a closure form.
+
+\subsubsection{Rounding errors}
+\begin{align}
+    a = a\cos(k\pi) - b\sin(k\pi)\\
+    b = a\sin(k\pi) + b\cos(k\pi)
+\end{align}
+\begin{align}
+    \begin{split}
+    \epsilon_a &= -a\sin(\theta)\theta\epsilon - b\cos(\theta)\theta\epsilon + a\epsilon\cos(\theta) - b\epsilon\sin(\theta)\\
+            &\sim \max(a ,b)\epsilon
+    \end{split}
+\end{align}
+The error accumulates linearly as the number of floating point operations, for a $N\times N$ unitary matrix, each number is operated $~N$ times.
+In a double precision computation, the rounding errors in unitary matrix multiplication will probably not have a substaintial effect on resersibility.
+
+\subsubsection{Two level unitary for rectangular matrices}
+
+\subsection{Invertible random numbers}
+
+
+\section{Instructions}
+Not only invertibility, but also the stability of gradient itself, requires reversible instruction support, otherwise invertibility can be easily ruined by rounding errors.
+Using information buffer in multiplication operations~\cite{Maclaurin2015} in an approach to enforce invertibility in a memory efficient way.
+Invertibility has been studies in the cross field of computer science and physics a lot between 1980 and 2010.
+The motivation is saving energy.
+Carlin deviced SRCL logic family from Pendulum instruction set architecture (PISA) ~\cite{Vieri1999} for a invertible programming device.
+
+\section{Speudo Inverse}
+In many cases, for example the $\exp(x)$ operation, due to the lack of reversible multiplication instruction in a classical computer instruction set, we have to either use a list to bookmark intermediate results, or using uncomputing technic that cost polynomial or even exponential more times to limit the memory usage to a constant.
+
+For these arithmetics, here we introduce a trick that computes these functions in constant memory with a constant uncomputing overhead.
+
+Let's see the following Taylor serie implementation of $\exp(x)$ in a reversible fashion
+
+\begin{minipage}{.44\textwidth}
+\begin{lstlisting}
+using NiLang, NiLang.AD
+
+
+@i function iexp(out!, x::T; atol::Float64=1e-14) where T
+    @anc anc1::T
+    @anc anc2::T
+    @anc anc3::T
+    @anc iplus::T
+
+    out! += 1.0
+    anc1 += 1.0
+    while (val(anc1) > atol, !isapprox(iplus, 0.0))
+        iplus += 1.0
+        anc2 += anc1 * x
+        anc3 += anc2 / iplus
+        out! += anc3
+        # speudo inverse
+        anc1 -= anc2 / x
+        anc2 -= anc3 * iplus
+        SWAP(anc1, anc3)
+    end
+
+    ~(while (val(anc1) > atol, !isapprox(iplus, 0.0))
+        iplus += 1.0
+        anc2 += anc1 * x
+        anc3 += anc2 / iplus
+        # speudo inverse
+        anc1 -= anc2 / x
+        anc2 -= anc3 * iplus
+        SWAP(anc1, anc3)
+    end)
+    anc1 -= 1.0
+end
+\end{lstlisting}
+\end{minipage}
+
+The two lines bellow the comment \texttt{\# pseudo inverse} "uncompute" variables \texttt{anc1} and \texttt{anc2} to avalue very close to zero. Notice \texttt{*} and \texttt{/} are not exactly dual to each other.
+It is reasonable to assume this inexact uncomputing will cause negligible error on final output, but harms reversibility. In the latter case, error accumulates in the whole program.
+In the second for loop inside the inverse notation \texttt{\~}, we uncompute all ancilla bits rigorously.
+The \texttt{while} statement takes two conditions, the precondition and postconditoin. Precondition \texttt{val(anc1) > atol} indicates when to break the forward pass and post condition \texttt{!isapprox(iplus, 0.0)} indicates when to break the backward pass.
+
+\section{Hardwares}
+\subsection{Traditional Invertible Computing Devices}
+A reversible computer, by no means refer to a computing device that every instruction or program is reversible. A better definition would be, a reversible computing device reserves the right to retract energy through uncomputing.
+
+Like quantum computer, it should be able to reset to qubits $0$. The reset operation, sometimes can be expensive. In a quantum device, this reset operation can be done by dissipation and dicoherence (i.e. interact with environment and get thermalized). Alternatively, a immediate feedback loop can be introduced to a quantum device, where a classical computer is regarded as the dissipation source.
+
+\subsubsection{Pendulum Design}
+\textit{copy pasted begin}
+
+It is possible to design and fabricate a fully reversible processor using resources which are comparable to a conventional microprocessor. Existing CAD tools and silicon technology are sufficient for reversible computer design.
+Pendulum author demonstrated this by designing such a processor and fabricating and testing it in a commercially available CMOS process.
+
+\textit{copy pasted end}
+
+
+\subsubsection{Margolus's Billiard Ball Model Cellular Automaton (BBMCA)}
+The chip is known as Flattop, not very convenient to program, but is simple, universal, reversible, and scalable.
+\begin{figure}
+    \centerline{\includegraphics[width=\columnwidth,trim={0 2.5cm 0 0},clip]{images/bbm_logicgates.png}}
+    \caption{Two examples of BBM logic gates.}\label{fig:bbm_logicgates}
+\end{figure}
+
+
+\subsection{Quantum computers}
+Fully entangled quantum systems are not easy to prepair.
+For a quantum system, finding a reliable dissipation source is also not easy,
+this is why the time for resetting a qubit to $0$ (or erasing a bit information) can be the bottleneck of a computing.
+
+\section{Discussion}
+One should notice the memory advantage of reversible programming to machine learning does comes from reversibility itself, but from a better data tracking strategy inspired from invertible programming.
+Normally, a reversible program is not as memory efficient as its irreversible couterpart due to the additional requirement of no information loss. A naive approach that keeping track of all informations will cost an additional space $O(T)$, where $T$ stands for the excution time in a irreversible TM, the longer the program runs, the larger the memory usage is. This is exactly the approach to keeping reversibility in most machine learning packages in the market.
+The point it, an reversible Turing Machine is able to trade space with time.
+In some cases, it may cause polynomial overhead than its irreversible counterpart.
+
+In the simplest g-segment trade off scheme~\cite{}, it takes $Time(T) = T^{\log _g(4g-2)}$ and $Space(T) = (g-1)S\log_g T$.
+In practise, there are more practical trading off schemes that works much better in practise.~\cite{}
+Checkpointing ~\cite{Chen2016}.
+
+\begin{acknowledgments}
+The authors are supported by the National Natural Science Foundation of China under the Grant No.~11774398, the Strategic Priority Research Program of Chinese Academy of Sciences Grant No.~XDB28000000 and the research funding from Huawei Technologies under the Grant No.~YBN2018095185.
+\end{acknowledgments}
+
+\bibliographystyle{apsrev4-1}
+\bibliography{invc}
+\newpage
+\appendix
+\subsection{NiLang Grammar}
+
+\section{NiLang}
+\begin{itemize}
+    \item Terminals in quotes or lower case.
+    \begin{itemize}
+        \item ident, symbols
+        \item num, numbers
+        \item null, empty statement
+        \item expr, native julia expression.
+        \item expr::Int, native julia expression with integer return value.
+        \item expr::Bool, native julia expression with boolean return value.
+    \end{itemize}
+    \item \{ \}* indiceates zero or more repetitions.
+    \item $[$ $]$  indicates zero or one repetitions.
+\end{itemize}
+
+\begin{minipage}{0.44\textwidth}
+\begin{lstlisting}
+Function    ::= 'function' Fname '(' Fargs [',' ident '...']; Fargs ')' 'where' '{' Symbols '}'
+                    Statements
+                'end'
+
+Fname       ::= ident
+            |   '(' ident '::' ident ')'
+
+Fargs       ::= ident, Fargs
+            |   ident '::' ident, Fargs
+            |   ident '=' ident, Fargs
+            |   ident '::' ident '=' expr, Fargs
+            |   null
+
+Symbols     ::= ident, Symbols
+            |   ident
+
+
+Statements  ::= Ifstmt Statements
+            |   Whilestmt Statements
+            |   Forstmt Statements
+            |   Callstmt Statements
+            |   Instrstmt Statements
+            |   Revstmt Statements
+            |   @anc Statements
+            |   @routine Statements
+            |   @safe Statements
+            |   null
+
+Ifstmt      ::= 'if' '(' expr::Bool ',' expr::Bool ')'
+                    Statements
+                ['else' 
+                    Statements]
+                'end'
+
+Whilestmt   ::= 'while' '(' expr::Bool ',' expr::Bool ')'
+                    Statements
+                'end'
+
+Forstmt     ::= 'for' ident '=' expr::Int[':' expr::Int] ':' expr::Int
+                    Statements
+                'end'
+
+Callstmt    ::= ident '(' Dataviews ')'
+
+Instrstmt   ::= ident '+=' ident ['(' Dataviews ')']
+            |   ident '-=' ident ['(' Dataviews ')']
+            |   ident '(*$\veebar$*)=' ident ['(' Dataviews ')']
+            |   ident '.+=' ident ['.' '(' Dataviews ')']
+            |   ident '.-=' ident ['.' '(' Dataviews ')']
+            |   ident '.(*$\veebar$*)=' ident ['.' '(' Dataviews ')']
+
+Revstmt     ::= '~' '(' Statements ')'
+
+@routine    ::= '@routine' ident 'begin'
+                    Statements
+                'end'
+            |   '@routine' ident
+
+@anc        ::= '@anc' ident '=' expr
+            |   '@deanc' ident '=' expr
+
+@safe       ::= '@safe' expr
+
+Dataviews   ::= Dataview, Dataviews
+            | null
+
+Dataview    ::= Dataview '[' expr::Int ']'
+            |   ident {'.' ident}*
+            |   ident '(' Dataview ')'
+            |   Constant
+
+Constant    ::= num | '(*$\pi$*)'
+
+\end{lstlisting}
+
+\end{minipage}
+
+Dataview is a special surjective mapping of parent data, e.g. a field of an object.
+The dataview can feedback to parent data with the 
+\texttt{chfield} method, so that the modified object can generate desired dataview.
+
+
+\section{Julia based DSL implementation details}
+
+Macro `invfunc` defines a invertible function, ancillas are binded to a function, since ancillas are umcomputed to $0$ at the end of call, so that it can be used repeatedly in a function, it is like a class variable in a class, with no side effects.
+
+Some variables can be uncomputed to $0$, but we choose not to for performance reason. For example
+\texttt{infer!(argmax, i, x)} which computes the location of maximum value in $x$ and store the output to $i$, if we uncompute it, it doubles additional computational time. Here, we trade off the memory with computation time. As a result, we must feed \texttt{imax} to the function, so that this variable can be manipulated in outer scopes.
+
+\end{document}
