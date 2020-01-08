@@ -4,6 +4,7 @@
 %\usepackage[latin9]{inputenc}
 \usepackage{amssymb}
 \usepackage{tabularx}
+\usepackage{upquote}
 %\usepackage{caption}
 \usepackage[plain]{algorithm}
 \usepackage{algpseudocode}
@@ -80,10 +81,10 @@
 %%%%%% Shortcut related
 \newcommand{\<}{\langle}
 \renewcommand{\>}{\rangle}
-\newcommand{\out}{{\vec{O}}}
-\newcommand{\inp}{{\vec{I}}}
-\newcommand{\vx}{{\vec{x}}}
-\newcommand{\vy}{{\vec{y}}}
+\newcommand{\out}{{O}}
+\newcommand{\inp}{{I}}
+\newcommand{\vx}{{x}}
+\newcommand{\vy}{{y}}
 %%%%%% Convention related
 \newcommand{\SWAP}{{\rm SWAP}}
 \newcommand{\CNOT}{{\rm CNOT}}
@@ -227,116 +228,174 @@ ERROR: InvertibilityError("x (=0.8999999999999999) ≂̸ val (=0.6)")
 
 It did nothing but errors on nonreversible memory deallocation. Only if the compiler knows the value deterministically, the value can be deallocated safely.
 
-\subsection{Functions}
+In a function definition, \texttt{@anc} and \texttt{@deanc} always appear in pairs. In a function definition, \texttt{@deanc} is often added automatically.
+We don't have a concept of stack in our design, ancilla data plays a similar role. Every variable has finite life cycle, a function is a natural manager of an ancilla's life cycle. When a function is called, it borns, when the function is ended, it dies.
+The program appears in a hyrachical pattern. The lowest level is instructions like $+, -, *, /$, second lowest level we have primitive functions like $\exp, \sin$. The highest level may be an application with a lot global variables.
+The lower the level, the shorter an ancilla's life. We will revisit this point in \Sec{sec:jacobian}.
+
+\subsection{Reversible Functions and Statements}
 In a mordern programming language, functions are pushed to a global stack for scheduling. The memory layout of a function is consisted of input arguments, a function frame with informations like return address and saved memory segments, local variables and working stack. After each call, the function clears the input arguments, function frame, local variables and working stack and only stores the return value.
 In the invertible programming style, this kind of design pattern is nolonger the best practise, the local information of a function can not be easily emptied immediately after a function call. Sometimes discarding local information may ruin reversibility, and sometimes, active deallocation of memory may incurr bad performance.
 
-We forbit \texttt{return} statement in our language design, instead, return the inputs as outputs.
-Combine it with \texttt{@instr} that assigns each output to each input, we simulate a mutable operations.
-
-\subsection{Control flow}
+A function is composed of statements, a statement can be an function map or control flow
 \begin{table}[h!]\centering
 \begin{minipage}{\columnwidth}
 \ra{1.3}
     \scalebox{1.0}{
         \begin{tabularx}{\textwidth}{X X}\toprule
-            \textbf{instruction} & \textbf{dual}\\
+            \textbf{instruction} & \textbf{reverse}\\
             \hline
             \texttt{a += b} & \texttt{a -= b}\\
+            \hline
             \texttt{a ⊻= b} & \texttt{a ⊻= b}\\
+            \hline
             \texttt{if (precond, postcond)\newline ...\newline else\newline ...\newline end} & \texttt{if (postcond, precond)\newline ...\newline else\newline ...\newline end}\\
+            \hline
             \texttt{while (precond, postcond)\newline ... \newline end} & \texttt{while (postcond, precond)\newline ...\newline end}\\
+            \hline
             \texttt{for i=start:step:stop\newline ...\newline end} & \texttt{for i=stop:-step:start\newline ...\newline end}\\
             \bottomrule
         \end{tabularx}
     }
-    \caption{Packages in the benchmark.}\label{tbl-mattype}
+    \caption{A collection of reversible statements.}\label{tbl:revstatements}
 \end{minipage}
 \end{table}
+Notice reversible Turing machine is a subset of irreversible Turing machine,
+reversible statements has less allowed statements.
+we forbit \texttt{return} and assign statements in our language design, instead, return the inputs as outputs.
+Combine it with \texttt{@instr} that assigns each output to each input, we simulate a mutable operations.
+Besides putting restrictions, it also allows user putting additional informations in control flows to help reverse the program.
+A post condition is a boolean expression that evaluated after the controlled body being executed.
+For example, to get the first Fibonacci number that is greater or equal to 0, the traditional approach is
+\begin{minipage}{.44\textwidth}
+\begin{lstlisting}
+function fib100()
+    n = 0.0
+    while fib(n) < 100
+        n += 1.0
+    end
+    return n
+end
+\end{lstlisting}
+\end{minipage}
 
+The reversible version of this function is
+\begin{minipage}{.44\textwidth}
+\begin{lstlisting}
+@i function rfib100(n)
+    @safe @assert n == 0
+    while (fib(n) < 100, n != 0)
+        n ⊕ 1.0
+    end
+end
+\end{lstlisting}
+\end{minipage}
 
-\subsection{Types}
+Here, \texttt{fib} and \texttt{rfib} are defined in \App{app:fib}.
+The reversible \texttt{while} statement contains two statements, the precondition and postcondition.
+Before entering the while statement, the program check the postcondition to make sure it is false.
+After each iteration, postcondition returns true. The inverse function exchanges the precondition and postcondition so that the repeatition of loop body is not changed.
+The \texttt{@safe} macro can be followed by an arbituary statement, it allows user to use external statements that does not break reversibility.
+\texttt{@safe @show var} is often used for debugging.
 
-\subsection{$\pi$ calculus et. al.}
+\subsection{Types and Views}
+Functional programming style fits well with a reversible DSL.
+A constructor is also a reversible function, it packs one or more data into one.
+The reverse function is a deconstructor, it does not deallocate memory directly but unpacks data.
+In current version of NiLang, constructor ususally attach a new field to an existing data (or the kernel), the initial value of this new field can be computed or uncomputed by its kernel so that guarantes reversibility.
 
-\section{Instructions}
+To access a field of a user defined type, we introduce the concept of view.
+A view of a data can be data itself, a field of its view, an array element of its view, or a bijective mapping of its view.
+
+\begin{minipage}{.44\textwidth}
+\begin{lstlisting}
+julia> using NiLang, NiLang.AD
+
+julia> x = 0.5
+0.5
+
+julia> @instr GVar(x)
+
+julia> @instr x.x ⊕ 0.4
+
+julia> x
+GVar(0.9, 0.0)
+
+julia> @instr (~GVar)(x)
+
+julia> x
+0.9
+\end{lstlisting}
+\end{minipage}
+
+Here \texttt{GVar} is a immutable type, this is why `@instr` is nessesary to change a field of a immutable type.
+
+For arrays, we 
+
+\begin{minipage}{.44\textwidth}
+\begin{lstlisting}
+julia> x = randn(3)
+3-element Array{Float64,1}:
+ -0.14307008145820874
+  0.40510133517552077
+  0.8444959804268539 
+
+julia> @instr GVar.(x)
+
+julia> @instr x[2].x ⊕ 0.4
+
+julia> x
+3-element Array{GVar{Float64,Float64},1}:
+ GVar(-0.14307008145820874, 0.0)
+ GVar(0.8051013351755207, 0.0)  
+ GVar(0.8444959804268539, 0.0)
+\end{lstlisting}
+\end{minipage}
+
+Broadcasting is supported. To avoid possible confusing, tuple indexing is forbidden delebrately, one can use \texttt{tget(tuple, 2)} to get the second element of a tuple.
+
+\subsection{Instructions}
 Not only invertibility, but also the stability of gradient itself, requires reversible instruction support, otherwise invertibility can be easily ruined by rounding errors.
 Using information buffer in multiplication operations~\cite{Maclaurin2015} in an approach to enforce invertibility in a memory efficient way.
 Invertibility has been studies in the cross field of computer science and physics a lot between 1980 and 2010.
 The motivation is saving energy.
 Carlin deviced SRCL logic family from Pendulum instruction set architecture (PISA) ~\cite{Vieri1999} for a invertible programming device.
 
-\section{Speudo Inverse}
-In many cases, for example the $\exp(x)$ operation, due to the lack of reversible multiplication instruction in a classical computer instruction set, we have to either use a list to bookmark intermediate results, or using uncomputing technic that cost polynomial or even exponential more times to limit the memory usage to a constant.
+\section{Taylor propagation on a reversible Turing machine}
+Taylor propagation is exponentially (as the order) more efficient in obtaining higher order gradients than differentiating lower order gradients recursively.
+The later requires traversing the computational graph repeatedly.
+In JAX, in order to support Taylor propagation, the propagation rules for part of primitives manually defined.
+The exhaused support requires much more effort than the first order gradient propagation.
+Instruction level automatic differentiation is more flexible in obtaining higher order gradients like Hessian.
 
-For these arithmetics, here we introduce a trick that computes these functions in constant memory with a constant uncomputing overhead.
-
-Let's see the following Taylor serie implementation of $\exp(x)$ in a reversible fashion
-
-\begin{minipage}{.44\textwidth}
-\begin{lstlisting}
-using NiLang, NiLang.AD
-
-
-@i function iexp(out!, x::T; atol::Float64=1e-14) where T
-    @anc anc1::T
-    @anc anc2::T
-    @anc anc3::T
-    @anc iplus::T
-
-    out! += 1.0
-    anc1 += 1.0
-    while (val(anc1) > atol, !isapprox(iplus, 0.0))
-        iplus += 1.0
-        anc2 += anc1 * x
-        anc3 += anc2 / iplus
-        out! += anc3
-        # speudo inverse
-        anc1 -= anc2 / x
-        anc2 -= anc3 * iplus
-        SWAP(anc1, anc3)
-    end
-
-    ~(while (val(anc1) > atol, !isapprox(iplus, 0.0))
-        iplus += 1.0
-        anc2 += anc1 * x
-        anc3 += anc2 / iplus
-        # speudo inverse
-        anc1 -= anc2 / x
-        anc2 -= anc3 * iplus
-        SWAP(anc1, anc3)
-    end)
-    anc1 -= 1.0
-end
-\end{lstlisting}
-\end{minipage}
-
-The two lines bellow the comment \texttt{\# pseudo inverse} "uncompute" variables \texttt{anc1} and \texttt{anc2} to avalue very close to zero. Notice \texttt{*} and \texttt{/} are not exactly dual to each other.
-It is reasonable to assume this inexact uncomputing will cause negligible error on final output, but harms reversibility. In the latter case, error accumulates in the whole program.
-In the second for loop inside the inverse notation \texttt{\~}, we uncompute all ancilla bits rigorously.
-The \texttt{while} statement takes two conditions, the precondition and postconditoin. Precondition \texttt{val(anc1) > atol} indicates when to break the forward pass and post condition \texttt{!isapprox(iplus, 0.0)} indicates when to break the backward pass.
-
-
-
-
-\subsection{Computing Jacobians, Hessians}
-\subsection{First order gradient}
+\subsection{First order gradient}\label{sec:jacobian}
 Given a node $\vec y = f(\vec x)$ in a computational graph, we can propagate the Jacobians in tangent mode like
 \begin{align}
-    J^\out_{x_i} = \sum\limits_j J^\out_{y_j} J^{y_j}_{x_i}
+    J^\out_{x_i} = J^\out_{y_j} J^{y_j}_{x_i}
 \end{align}
 and the adjoint mode
 \begin{align}
-    J^{y_j}_\inp = \sum\limits_j J^{y_j}_{x_i} J_\inp^{x_i}
+    J^{y_j}_\inp = J^{y_j}_{x_i} J_\inp^{x_i}
 \end{align}
 
 Here, $\inp$ is the inputs and $\out$ is the outputs.
-This result can be obtained diagrammatically.
+Einstein's notation is used so that duplicated indices are summed over.
+The computational process can be described in tensor network language as shown in \Fig{fig:ad}.
 
-With reversible programming, $f^{-1}$ is used for uncomputing intermediate results, $J^\vy_\vx \equiv (J_\vy^\vx)^{-1}$ can also be obtained during uncomputing.
+In reversible programming, we have the following implementation
+\begin{enumerate}
+    \item The program runs forward and computes outputs,
+    \item call constructor \texttt{GVar} that transfer a floating point number type to a \texttt{GVar} type.
+    \item Add $1$ to the gradient field of the loss variable,
+    \item The program uncomputes outputs and recover all inputs, gradients are the \texttt{grad} fields of input variables.
+\end{enumerate}
+
+Here, \texttt{GVar} is a ``reversible type''. \texttt{GVar(x)} wraps a variable into a GVar, which attaches a zero gradient field to a variable just like the dual number in tangent mode automatic differentiation. Its inverse $~GVar$ deallocate the gradient field safely and returns its value field. Here, "safely" means it will check the gradient field to make sure it is in $0$ state.
+When a \texttt{instruct} meets a \texttt{GVar}, besides computing its value field $value(\vx) \leftarrow f^{-1}(value(\vy))$, it also updates the gradient field $grad(\vx) = f^{-1}(value(\vx), grad(\vy))$. Since $f^{-1}$ is bijective, $J^\vy_\vx$ can be easily obtained by inspecting its inverse function $f$.
+The final output is stored in the gradient field, when then gradient is not used anymore, the faithful reversible programming style to compute gradients would be uncomputing the whole process to obtain gradient, which increases the hyrachy by 1. Whenever the hyrachy increase by 1, the computational overhead doubles comparing with its irreversible counter part.
 
 \subsection{Second order gradient}
-The second order gradient can also be propagated
+The second order gradient can also be back propagated
 \begin{align}
     \begin{split}
         &H^f_{y_L,y_L'} = 0\\
@@ -356,7 +415,7 @@ Althought backpropagating higher order gradients directly is exponentially faste
 Here, we emphasis that with instruction level AD, rewritting backward rules for primitives turns out to be not so difficult.
 
 \subsection{Gradient on ancilla problem}
-Ancilla can also carry gradients during computation, sometimes these gradients can not be uncomputed even if their parents can be uncomputed regoriously. In these case, we simply ``drop" the gradient field instead of raising an error. In this subsection, we prove doing this is safe, i.e. does not have effect on rest parts of program.
+Ancilla can also carry gradients during computation, sometimes these gradients can not be uncomputed even if their parents can be uncomputed regoriously. In these case, we simply ``drop'' the gradient field instead of raising an error. In this subsection, we prove doing this is safe, i.e. does not have effect on rest parts of program.
 
 Ancilla is the fixed point of a function, which means 
 \begin{align}
@@ -366,10 +425,288 @@ Ancilla is the fixed point of a function, which means
     \end{split}
 \end{align}
 
-During the computation, the gradient field does not have any effect to the value. The key question is will the loss of gradient part in ancilla affect the reversibility of the gradient part of argument variables.
+During the computation, the gradient field does not have any effect to the \texttt{value} field of variables. The key question is will the loss of gradient part in ancilla affect the reversibility of the gradient part of argument variables.
 The gradient of argument variable is defined as $\frac{\partial L}{\partial x} = \frac{\partial L}{\partial y}\frac{\partial y}{\partial x} + \frac{\partial L}{\partial b}\frac{\partial b}{\partial x}$, where the second term vanish naturally.
 
-\section{A new training scheme}
+\section{Examples}
+\subsection{exp function}
+The following codes implements the exp function in a reversible way
+
+\begin{minipage}{.44\textwidth}
+\begin{lstlisting}
+using NiLang, NiLang.AD
+
+@i function iexp(out!, x::T; atol::Float64=1e-14) where T
+    @anc anc1 = zero(T)
+    @anc anc2 = zero(T)
+    @anc anc3 = zero(T)
+    @anc iplus = 0
+    @anc expout = zero(T)
+
+    out! ⊕ 1.0
+    @routine r1 begin
+        anc1 ⊕ 1.0
+        while (value(anc1) > atol, iplus != 0)
+            iplus ⊕ 1
+            anc2 += anc1 * x
+            anc3 += anc2 / iplus
+            expout ⊕ anc3
+            # speudo inverse
+            anc1 -= anc2 / x
+            anc2 -= anc3 * iplus
+            SWAP(anc1, anc3)
+        end
+    end
+
+    out! ⊕ expout
+
+    ~@routine r1
+end
+\end{lstlisting}
+\end{minipage}
+
+The definition of SWAP instruction can be found in \App{app:instr}.
+The two lines bellow the comment \texttt{\# pseudo inverse} "uncompute" variables \texttt{anc1} and \texttt{anc2} to avalue very close to zero. Notice \texttt{*} and \texttt{/} are not exactly dual to each other.
+It is reasonable to assume this inexact uncomputing will cause negligible error on final output, but harms reversibility. In the latter case, error accumulates in the whole program.
+In the second for loop inside the inverse notation \texttt{\~}, we uncompute all ancilla bits rigorously.
+The \texttt{while} statement takes two conditions, the precondition and postconditoin. Precondition \texttt{val(anc1) > atol} indicates when to break the forward pass and post condition \texttt{!isapprox(iplus, 0.0)} indicates when to break the backward pass.
+
+The appendix gives another example of QR decomposition.
+
+To obtain the gradient, one can wrap the loss with \texttt{Loss} type.
+
+\begin{minipage}{.44\textwidth}
+\begin{lstlisting}
+julia> out!, x = 0.0, 1.6
+(0.0, 1.6)
+
+julia> @instr iexp'(Loss(out!), x)
+
+julia> grad(x)
+4.9530324244260555
+
+julia> out!, x = 0.0, 1.6
+(0.0, 1.6)
+
+julia> @instr iexp''(Loss(out!), x)
+
+julia> collect_hessian()
+2×2 Array{Float64,2}:
+ 0.0  0.0
+ 0.0  4.95303
+\end{lstlisting}
+\end{minipage}
+
+\texttt{iexp\textquotesingle} returns an object of type \texttt{Grad{typeof(exp)}}, it is a reversible function.
+It is so short that we present the function defintion as follows
+
+\begin{minipage}{.44\textwidth}
+\begin{lstlisting}
+@i function (g::Grad)(args...; kwargs...)
+    @safe @assert count(x -> x isa Loss, args) == 1
+    @anc iloss = 0
+    @routine getiloss begin
+        for i=1:length(args)
+            if (tget(args,i) isa Loss, iloss==i)
+                iloss += identity(i)
+                (~Loss)(tget(args,i))
+            end
+        end
+    end
+
+    g.f(args...; kwargs...)
+    GVar.(args)
+    grad(tget(args,iloss)) += identity(1.0)
+    (~g.f)(args...; kwargs...)
+
+    ~@routine getiloss
+end
+\end{lstlisting}
+\end{minipage}
+
+The program first checks the input parameters and locate the loss variable.
+Then \texttt{~Loss} unwraps the loss variable, the location of loss variable is transferred to the ancilla \texttt{iloss} of integer type.
+
+Due to the non-locality of Hessians, we use a global tape for Hessian propagation. Whenever a new variable is created, the tape allocates a larger ring.
+It is global to ease the memory allocations of ancillas, the Hessian in ancilla is important to reach correct result.
+\begin{minipage}{.44\textwidth}
+\begin{lstlisting}
+julia> out!, x = 0.0, 1.6
+(0.0, 1.6)
+
+julia> @instr iexp''(Loss(out!), x)
+
+julia> collect_hessian()
+2×2 Array{Float64,2}:
+ 0.0  0.0
+ 0.0  4.95303
+\end{lstlisting}
+\end{minipage}
+
+The final result can be obtained by calling a global function \texttt{collect\_hessian}.
+
+\subsection{QR decomposition}
+
+Not only simple functions, linear algebra functions 
+
+\begin{minipage}{.44\textwidth}
+\begin{lstlisting}
+@i function iqr(Q, R, A::AbstractMatrix{T}) where T
+    @anc anc_norm = zero(T)
+    @anc anc_dot = zeros(T, size(A,2))
+    @anc ri = zeros(T, size(A,1))
+    for col = 1:size(A, 1)
+        ri .⊕ A[:,col]
+        for precol = 1:col-1
+            idot(anc_dot[precol], Q[:,precol], ri)
+            R[precol,col] ⊕ anc_dot[precol]
+            for row = 1:size(Q,1)
+                ri[row] -= anc_dot[precol] * Q[row, precol]
+            end
+        end
+        inorm2(anc_norm, ri)
+
+        R[col, col] += anc_norm^0.5
+        for row = 1:size(Q,1)
+            Q[row,col] += ri[row] / R[col, col]
+        end
+
+        ~(ri .⊕ A[:,col];
+        for precol = 1:col-1
+            idot(anc_dot[precol], Q[:,precol], ri)
+            for row = 1:size(Q,1)
+                ri[row] -= anc_dot[precol] * Q[row, precol]
+            end
+        end;
+        inorm2(anc_norm, ri)
+        )
+    end
+end
+\end{lstlisting}
+\end{minipage}
+
+where \texttt{idot} and \texttt{inorm2} are implemented as
+
+\begin{minipage}{.44\textwidth}
+\begin{lstlisting}
+@i function idot(out, v1::AbstractVector{T}, v2) where T
+    @anc anc1 = zero(T)
+    for i = 1:length(v1)
+        anc1 ⊕ v1[i]
+        CONJ(anc1)
+        out += v1[i]*v2[i]
+        CONJ(anc1)
+        anc1 ⊖ v1[i]
+    end
+end
+
+@i function inorm2(out, vec::AbstractVector{T}) where T
+    @anc anc1 = zero(T)
+    for i = 1:length(vec)
+        anc1 ⊕ vec[i]
+        CONJ(anc1)
+        out += anc1*vec[i]
+        CONJ(anc1)
+        anc1 ⊖ vec[i]
+    end
+end
+\end{lstlisting}
+\end{minipage}
+
+One can easily check the gradient of this naive implementation of QR decomposition is correct
+\begin{minipage}{.44\textwidth}
+\begin{lstlisting}
+using Test
+A = randn(4,4)
+q = zero(A)
+r = zero(A)
+
+@i function test1(out, q, r, A)
+    iqr(q, r, A)
+    out ⊕ q[1,2]
+end
+
+@i function test2(out, q, r, A)
+    iqr(q, r, A)
+    out ⊕ r[1,2]
+end
+
+@test check_grad(test1, (Loss(0.0), q, r, A); atol=0.05, verbose=true)
+@test check_grad(test2, (Loss(0.0), q, r, A); atol=0.05, verbose=true)
+\end{lstlisting}
+\end{minipage}
+
+Here, the \texttt{check\_grad} function is a gradient checker function defined in \texttt{NiLangCore.ADCore}.
+
+\subsection{Unitary Matrices}
+Recurrent networks with a unitary parametrized network ease the gradient exploding and vanishing problem~\cite{Arjovsky2015,Wisdom2016,Li2016}.
+Among different parametrization schemes, the most elegant one is \Ref{Li2016}, which parametrized the unitary matrix with two-level unitary operations, any unitary matrix of size $N\times N$ can be parametrized by $k = N(N-1)/2$ two level unitary matrices~\cite{Li2013}. All these two-level unitary matrices can be applied in $O(1)$ time as a two register instruction.
+Hence a real unitary matrix can be parametrized compactly by $k$ rotation angles, each represents a rotation operations between datas in two target parameters.
+
+
+\begin{minipage}{.44\textwidth}
+\begin{lstlisting}[basicstyle=\small\ttfamily,columns=fullflexible]
+@i function umm!(x, θ, Nin::Int, Nout::Int)
+    @anc k = 0
+    for j=1:Nout
+        for i=Nin-1:-1:j
+            k ⊕ 1
+            ROT(x[i], x[i+1], θ[k])
+        end
+    end
+
+    # uncompute k
+    for j=1:Nout
+        for i=Nin-1:-1:j
+            k ⊖ 1
+        end
+    end
+end
+\end{lstlisting}
+\end{minipage}
+
+Here, \texttt{loop j} means excuting the loop body for \texttt{j} times, it gurantes invertibility.
+Loop and branching can be implemented in a more regorious way~\cite{Vieri1999} from instruction level,
+however it is still an open question how to implelement loops with instruction level invertibility without compiling technic.
+In the rotation instruction, \texttt{z[k]} is the rotation angle, which represents rotating data in target registers by an angle of $\theta=$ \texttt{z[k]*$\pi$}.
+
+\begin{align}
+    R(\theta)  = \begin{bmatrix}
+        \cos(\theta) & - \sin(\theta)\\
+        \sin(\theta)  & \cos(\theta)
+    \end{bmatrix}
+\end{align}
+
+\subsubsection{The gradient}
+
+Its backward rule is
+\begin{align}
+    \begin{split}
+    \overline{\theta}  &= \sum\frac{\partial R(\theta)}{\partial \theta}\odot(\overline{y}x^T)\\
+    &= \Tr\left[\frac{\partial R(\theta)}{\partial \theta}^T\overline{y}x^T\right]\\
+    &= \Tr\left[R\left(\frac{\pi}{2}-\theta\right)\overline{y}x^T\right]
+    \end{split}
+\end{align}
+
+The resulting instruction is
+
+\begin{minipage}{.44\textwidth}
+\begin{lstlisting}[basicstyle=\small\ttfamily,columns=fullflexible]
+-z[k]
+z[k] + pi/2
+rot(gx[i], gx[ip], theta[k])
+gtheta + gx[i]*x[i]
+gtheta + gx[ip]*x[ip]
+theta[k] - pi/2
+-theta[k]
+
+rot(gx[i], gx[ip], -pi/2)
+\end{lstlisting}
+\end{minipage}
+
+In this way, the gradient is defined in a closure form.
+
+\section{Training by consistency}
 We compute the output as
 \begin{equation}
     y = f(x),
@@ -378,39 +715,44 @@ and we have an expected output $\hat{y}$. In traditional machine learning, we de
 Since the $\hat{y}$ is different with $y$, the network start to "think", if the output is $\hat{y}$, what should the input (including network parameters) be?
 So, we feed $\hat{y}$ back to the output end of network, and inverse the tape, with the runtime information generated by the input image. The network will compute a different value to network parameters, then the network feel "confused", and chose a value between old and new values.
 
-Let's look at the folloing example
+Let's look at the following example
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}[basicstyle=\small\ttfamily,columns=fullflexible]
-function f(x::Ref, y::Ref)
-    add!(y, x)
-    exp!(x)
-    neg!(x)
-    exp!(y)
-    add!(x, y)
-    return x, y
+@i function f1(out!, x, y)
+    y ⊕ x
+    out! -= exp(x)
+    out! += exp(y)
 end
 
-function invf(x::Ref, y::Ref)
-    sub!(x, y)
-    log!(y)
-    neg!(x)
-    log!(x)
-    sub!(y, x)
-    return x, y
+@i function f2(out!, x, y)
+    y ⊕ x
+    out! -= exp(x)
+    x -= log(-out!)
+    out! += exp(y)
 end
 
-x, y = Ref(0.3), Ref(1.6)
-for i=1:100
-    x = Ref(0.3)
-    f(x, y)
-    x[] = 1.0
-    invf(x, y)
+function train(f)
+    loss = Float64[]
+    y = 1.6
+    for i=1:100
+        out!, x = 0.0, 0.3
+        @instr f(out!, x, y)
+        push!(loss, out!)
+        out! = 1.0
+        @instr (~f)(out!, x, y)
+    end
+    loss
 end
 \end{lstlisting}
 \end{minipage}
 
-$f(x, y)$ computes $e^{(y+x)} - e^x$ and stores the output in $x$, the target is to find a $y$ that make the output $x$ equal to the target value $1$.
+Loss function \texttt{f1} and \texttt{f2} computes $f(x, y) = e^{(y+x)} - e^x$ and stores the output in a new memory \texttt{out!}, the target is to find a $y$ that make the output $x$ equal to the target value $1$.
 After $200$ steps training, $y$ runs into the fixed point and $x$ is equal to $1$ upto machine precision.
+
+\begin{figure}
+    \centerline{\includegraphics[width=\columnwidth,trim={0 0 0 0},clip]{images/fig1.pdf}}
+    \caption{Target function value as a function of self-consistent training step.}\label{fig:invtrain}
+\end{figure}
 
 This training is similar the recursive convergence method that widely used in mathematics and physics.
 However, in programming language but it has a loophole, it is vulnarable to loss of injectivity.
@@ -461,11 +803,6 @@ Pendulum author demonstrated this by designing such a processor and fabricating 
 
 \subsubsection{Margolus's Billiard Ball Model Cellular Automaton (BBMCA)}
 The chip is known as Flattop, not very convenient to program, but is simple, universal, reversible, and scalable.
-\begin{figure}
-    \centerline{\includegraphics[width=\columnwidth,trim={0 2.5cm 0 0},clip]{images/bbm_logicgates.png}}
-    \caption{Two examples of BBM logic gates.}\label{fig:bbm_logicgates}
-\end{figure}
-
 
 \subsection{Quantum computers}
 Fully entangled quantum systems are not easy to prepair.
@@ -478,9 +815,48 @@ Normally, a reversible program is not as memory efficient as its irreversible co
 The point it, an reversible Turing Machine is able to trade space with time.
 In some cases, it may cause polynomial overhead than its irreversible counterpart.
 
+\subsection{Rounding errors}
+\begin{align}
+    a = a\cos(k\pi) - b\sin(k\pi)\\
+    b = a\sin(k\pi) + b\cos(k\pi)
+\end{align}
+\begin{align}
+    \begin{split}
+    \epsilon_a &= -a\sin(\theta)\theta\epsilon - b\cos(\theta)\theta\epsilon + a\epsilon\cos(\theta) - b\epsilon\sin(\theta)\\
+            &\sim \max(a ,b)\epsilon
+    \end{split}
+\end{align}
+The error accumulates linearly as the number of floating point operations, for a $N\times N$ unitary matrix, each number is operated $~N$ times.
+In a double precision computation, the rounding errors in unitary matrix multiplication will probably not have a substaintial effect on resersibility.
+
+\subsection{Performance}
+Todays CPU are starving, that is, the memory access is more time consuming than actual computational time.
+How the extra uncomputing operations affect the performance can not be easily estimated by counting the number of instructions.
+
 In the simplest g-segment trade off scheme~\cite{}, it takes $Time(T) = T^{\log _g(4g-2)}$ and $Space(T) = (g-1)S\log_g T$.
 In practise, there are more practical trading off schemes that works much better in practise.~\cite{}
 Checkpointing ~\cite{Chen2016}.
+In our work, especially in the \texttt{iexp} example, we show the the irreversibility of $*$ and $/$ can be mitigated.
+
+\subsection{Reversibility and renormalization level}
+\begin{definition}
+    For an algorihms, the renormalization level of a program is the logarithm of the ratio between length of reversible instructions and irreversible instruction.
+\end{definition}
+
+\subsection{Quantum Computing}
+One of the fundamental difficulty of building a quantum computer is, unlike a classical state, an unknown quantum state can not be copied.
+A quantum state in a environment will decoherence and can not be recovered, this underlines the simulation nature of a quantum device.
+In the era of noisy intermediate sized quantum devices, more and more people are switching to classical-quantum hybrid devices, where a quantum device plays the role of a programmable simulator.
+Reversible computing does not enjoy the supremacy from quantum entanglement, nor the quantum limitations of non-cloning.
+Only the limitation of reversibility is retained, reversibility comes from the fact that micro scopic processes are all unitary.
+Irreversibility can only come from the interaction with classical devices, like environment induces decaying, qubit state resetting, measurements and classical feedbacks to quantum devices. These are rare resources in microscopic world as well as one of the most difficult part to implement in a practical device.
+
+Quantum gates can possiblely simplify reversible instructions design, e.g. the quantum fourier transformation based adder.
+A classical in, classical out algorithm can find a quantum shortcut.
+With respect to this fact, it is reasonable to believe there would be a classical-quantum intermediate statge of computing,
+the reversible computing that bridge the gap between classical bits and fully entangled qubits.
+Although weaker than both, but with a killer application of instruction level automatic differentiation.
+By introducing quantum entanglement little by little, we will have faster instructions, faster algorithms and finally have an application that has genuine quantum advantage.
 
 \begin{acknowledgments}
 The authors are supported by the National Natural Science Foundation of China under the Grant No.~11774398, the Strategic Priority Research Program of Chinese Academy of Sciences Grant No.~XDB28000000 and the research funding from Huawei Technologies under the Grant No.~YBN2018095185.
@@ -590,6 +966,58 @@ Dataview is a special surjective mapping of parent data, e.g. a field of an obje
 The dataview can feedback to parent data with the 
 \texttt{chfield} method, so that the modified object can generate desired dataview.
 
+\section{Instruction Table}\label{app:instr}
+Even though \texttt{$\oplus$}, \texttt{$\oplus(*)$}, \texttt{$\oplus(/)$} and their reverse together with control flows are sufficient to write an arbituary differentiable program.
+For convinience we provide more,
+\begin{itemize}
+    \item ${\rm SWAP}(a, b) \equiv b, a$.
+    \item ${\rm ROT}(a, b, \theta) \equiv a \cos\theta - b\sin\theta, b \cos\theta + a\sin\theta, \theta$
+    \item ${\rm IROT}(a, b, \theta) \equiv a \cos\theta + b\sin\theta, b \cos\theta - a\sin\theta, \theta$
+    \item $y += a^\wedge b \equiv y+a^b, a, b$.
+    \item $y += \exp(x) \equiv y+e^x, x$.
+    \item $y += \log(x) \equiv y+\log x, x$.
+    \item $y += \sin(x) \equiv y+\sin x, x$.
+    \item $y += \cos(x) \equiv y+\cos x, x$.
+    \item ${\rm NEG}(y) \equiv -y$.
+    \item ${\rm CONJ}(y) \equiv y'$.
+\end{itemize}
+
+\section{Computing Fibonacci Sequence}\label{app:fib}
+\begin{minipage}{.44\textwidth}
+\begin{lstlisting}
+function fib(n)
+    if n > 2
+        fib(n-1) + fib(n-2)
+    else
+        one(n)
+    end
+end
+\end{lstlisting}
+\end{minipage}
+
+\begin{minipage}{.44\textwidth}
+\begin{lstlisting}
+@i function rfib(out, n::T) where T
+    @anc n1 = zero(T)
+    @anc n2 = zero(T)
+    n1 ⊕ n
+    n1 ⊖ 1.0
+    n2 ⊕ n
+    n2 ⊖ 2.0
+    if (value(n) <= 2, ~)
+        out ⊕ 1.0
+    else
+        rfib(out, n1)
+        rfib(out, n2)
+    end
+    n1 ⊖ n
+    n1 ⊕ 1.0
+    n2 ⊖ n
+    n2 ⊕ 2.0
+end
+\end{lstlisting}
+\end{minipage}
+
 
 \section{Julia based DSL implementation details}
 
@@ -597,88 +1025,5 @@ Macro `invfunc` defines a invertible function, ancillas are binded to a function
 
 Some variables can be uncomputed to $0$, but we choose not to for performance reason. For example
 \texttt{infer!(argmax, i, x)} which computes the location of maximum value in $x$ and store the output to $i$, if we uncompute it, it doubles additional computational time. Here, we trade off the memory with computation time. As a result, we must feed \texttt{imax} to the function, so that this variable can be manipulated in outer scopes.
-
-\section{Unitary Matrices}
-Recurrent networks with a unitary parametrized network ease the gradient exploding and vanishing problem~\cite{Arjovsky2015,Wisdom2016,Li2016}.
-Among different parametrization schemes, the most elegant one is \Ref{Li2016}, which parametrized the unitary matrix with two-level unitary operations, any unitary matrix of size $N\times N$ can be parametrized by $k = N(N-1)/2$ two level unitary matrices~\cite{Li2013}. All these two-level unitary matrices can be applied in $O(1)$ time as a two register instruction.
-Hence a real unitary matrix can be parametrized compactly by $k$ rotation angles, each represents a rotation operations between datas in two target parameters.
-
-\begin{minipage}{.44\textwidth}
-\begin{lstlisting}[basicstyle=\small\ttfamily,columns=fullflexible]
-@assert j==0, i==0, k==0, ip==0
-loop N-1
-    j + 1
-    loop j
-        i + 1
-        k + 1
-        ip + i + 1
-        rot(x[i], x[ip], z[k])
-        ip - 1 - i
-    end
-    i - j
-end
-\end{lstlisting}
-\end{minipage}
-
-Here, \texttt{loop j} means excuting the loop body for \texttt{j} times, it gurantes invertibility.
-Loop and branching can be implemented in a more regorious way~\cite{Vieri1999} from instruction level,
-however it is still an open question how to implelement loops with instruction level invertibility without compiling technic.
-In the rotation instruction, \texttt{z[k]} is the rotation angle, which represents rotating data in target registers by an angle of $\theta=$ \texttt{z[k]*$\pi$}.
-
-\begin{align}
-    R(\theta)  = \begin{bmatrix}
-        \cos(\theta) & - \sin(\theta)\\
-        \sin(\theta)  & \cos(\theta)
-    \end{bmatrix}
-\end{align}
-
-\subsubsection{The gradient}
-
-Its backward rule is
-\begin{align}
-    \begin{split}
-    \overline{\theta}  &= \sum\frac{\partial R(\theta)}{\partial \theta}\odot(\overline{y}x^T)\\
-    &= \Tr\left[\frac{\partial R(\theta)}{\partial \theta}^T\overline{y}x^T\right]\\
-    &= \Tr\left[R\left(\frac{\pi}{2}-\theta\right)\overline{y}x^T\right]
-    \end{split}
-\end{align}
-
-The resulting instruction is
-
-\begin{minipage}{.44\textwidth}
-\begin{lstlisting}[basicstyle=\small\ttfamily,columns=fullflexible]
--z[k]
-z[k] + pi/2
-rot(gx[i], gx[ip], theta[k])
-gtheta + gx[i]*x[i]
-gtheta + gx[ip]*x[ip]
-theta[k] - pi/2
--theta[k]
-
-rot(gx[i], gx[ip], -pi/2)
-\end{lstlisting}
-\end{minipage}
-
-In this way, the gradient is defined in a closure form.
-
-\subsubsection{Rounding errors}
-\begin{align}
-    a = a\cos(k\pi) - b\sin(k\pi)\\
-    b = a\sin(k\pi) + b\cos(k\pi)
-\end{align}
-\begin{align}
-    \begin{split}
-    \epsilon_a &= -a\sin(\theta)\theta\epsilon - b\cos(\theta)\theta\epsilon + a\epsilon\cos(\theta) - b\epsilon\sin(\theta)\\
-            &\sim \max(a ,b)\epsilon
-    \end{split}
-\end{align}
-The error accumulates linearly as the number of floating point operations, for a $N\times N$ unitary matrix, each number is operated $~N$ times.
-In a double precision computation, the rounding errors in unitary matrix multiplication will probably not have a substaintial effect on resersibility.
-
-\subsubsection{Two level unitary for rectangular matrices}
-
-\subsection{Invertible random numbers}
-
-
 
 \end{document}
