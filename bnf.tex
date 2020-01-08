@@ -1,0 +1,48 @@
+\begin{bnf*}
+    \bnfprod{expr}{\bnfpn{JuliaExpr}}\\
+    \bnfprod{Name}{\bnfts{<ident> | '(' <ident>} \bnfsp \bnfts{::} \bnfsp \bnfpn{JuliaType} \bnfsp \bnfts{)}}\\
+    \bnfprod{Arg}{\bnfpn{Name} \bnfsp \bnftd{[} \bnfts{=} \bnfsp \bnfpn{Expr}\bnftd{]}}\\
+    \bnfprod{PosArgs}{\bnftd{[} \bnfpn{PosArgs} \bnfsp \bnfts{,}\bnftd{]} \bnfsp \bnfpn{Arg}}\\
+    \bnfprod{Vararg}{\bnfts{<ident>} \bnfsp \bnfts{...}}\\
+    \bnfprod{FunArgs}{\bnfts{(} \bnfsp \bnftd{[} \bnfpn{PosArgs}\bnftd{]} \bnfsp \bnfpn{Vararg} \bnfsp \bnftd{[} \bnfts{;} \bnfsp \bnftd{[} \bnfpn{PosArgs}\bnftd{]} \bnfsp \bnfpn{Vararg}\bnftd{]} \bnfsp \bnfts{)}}\\
+    \bnfprod{Fun}{\bnfts{function} \bnfsp \bnfpn{Name} \bnfsp \bnfpn{FunArgs} \bnfsp \bnfts{where} \bnfsp \bnfts{\{} \bnfsp \bnfpn{Symbols} \bnfsp \bnfts{\}} \bnfsp \bnftd{[} \bnfpn{Stmts}\bnftd{]} \bnfsp \bnfts{end}}\\
+    \bnfprod{Symbols}{\bnftd{[} \bnfpn{Symbols} \bnfsp \bnfts{,}\bnftd{]} \bnfsp \bnfts{<ident>}}\\
+    \bnfprod{Stmt}{\bnfpn{IfStmt}}\\
+    \bnfmore{\bnfor \bnfpn{IfStmt}}\\
+    \bnfmore{\bnfor \bnfpn{WhileStmt}}\\
+    \bnfmore{\bnfor \bnfpn{ForStmt}}\\
+    \bnfmore{\bnfor \bnfpn{InstrStmt}}\\
+    \bnfmore{\bnfor \bnfpn{RevStmt}}\\
+    \bnfmore{\bnfor \bnfpn{@anc} \bnfsp \bnfpn{Stmt}}\\
+    \bnfmore{\bnfor \bnfpn{@routine} \bnfsp \bnfpn{Stmt}}\\
+    \bnfmore{\bnfor \bnfpn{@safe} \bnfsp \bnfpn{Stmt}}\\
+    \bnfmore{\bnfor \bnfpn{CallStmt}}\\
+    \bnfprod{Stmts}{\bnftd{[} \bnfpn{Stmts}\bnftd{]} \bnfsp \bnfpn{Stmt}}\\
+    \bnfprod{RevCond}{\bnfts{(} \bnfsp \bnfpn{Expr} \bnfsp \bnfts{,} \bnfsp \bnfpn{Expr} \bnfsp \bnfts{)}}\\
+    \bnfprod{IfStmt}{\bnfts{if} \bnfsp \bnfpn{RevCond} \bnfsp \bnftd{[} \bnfpn{Stmts}\bnftd{]} \bnfsp \bnftd{[} \bnfts{else} \bnfsp \bnfpn{Stmts}\bnftd{]} \bnfsp \bnfts{end}}\\
+    \bnfprod{WhileStmt}{\bnfts{while} \bnfsp \bnfpn{RevCond} \bnfsp \bnftd{[} \bnfpn{Stmts}\bnftd{]} \bnfsp \bnfts{end}}\\
+    \bnfprod{Range}{\bnfpn{Expr} \bnfsp \bnfts{:} \bnfsp \bnfpn{Expr} \bnfsp \bnftd{[} \bnfts{:} \bnfsp \bnfpn{Expr}\bnftd{]}}\\
+    \bnfprod{ForStmt}{\bnfts{for} \bnfsp \bnfts{<ident>} \bnfsp \bnfts{=} \bnfsp \bnfpn{Range} \bnfsp \bnftd{[} \bnfpn{Stmts}\bnftd{]} \bnfsp \bnfts{end}}\\
+    \bnfprod{CallStmt}{\bnfts{<ident>} \bnfsp \bnfts{(} \bnfsp \bnftd{[} \bnfpn{DataViews}\bnftd{]} \bnfsp \bnfts{)}}\\
+    \bnfprod{Constant}{\bnfpn{num}}\\
+    \bnfmore{\bnfor \bnfpn{num}}\\
+    \bnfmore{\bnfor \bnfts{$\pi$}}\\
+    \bnfprod{InstrBinOp}{\bnfts{+=} \bnfor \bnfts{-=} \bnfor \bnfts{$\veebar$=}}\\
+    \bnfprod{InstrTrailer}{\bnftd{[} \bnfts{.}\bnftd{]} \bnfsp \bnfts{(} \bnfsp \bnftd{[} \bnfpn{DataViews}\bnftd{]} \bnfsp \bnfts{)}}\\
+    \bnfprod{InstrStmt}{\bnfts{<ident> InstrBinOp <ident>} \bnfsp \bnftd{[} \bnfpn{InstrTrailer}\bnftd{]}}\\
+    \bnfprod{RevStmt}{\bnfts{~} \bnfsp \bnfts{(} \bnfsp \bnftd{[} \bnfpn{Stmts}\bnftd{]} \bnfsp \bnfts{)}}\\
+    \bnfprod{RoutineArg}{\bnfts{<ident>} \bnfsp \bnftd{[} \bnfts{begin} \bnfsp \bnftd{[} \bnfpn{Stmts}\bnftd{]} \bnfsp \bnfts{end}\bnftd{]}}\\
+    \bnfprod{@routine}{\bnfts{@routine} \bnfsp \bnfpn{RoutineArg}}\\
+    \bnfprod{AncArg}{\bnfts{<ident>} \bnfsp \bnfts{=} \bnfsp \bnfpn{Expr}}\\
+    \bnfprod{@anc}{\bnfts{@anc} \bnfsp \bnfpn{AncArg}}\\
+    \bnfmore{\bnfor \bnfts{@anc} \bnfsp \bnfpn{AncArg}}\\
+    \bnfmore{\bnfor \bnfts{@deanc} \bnfsp \bnfpn{AncArg}}\\
+    \bnfprod{@safe}{\bnfts{@safe} \bnfsp \bnfpn{Expr}}\\
+    \bnfprod{DataViews}{\bnftd{[} \bnfpn{DataViews} \bnfsp \bnfts{,}\bnftd{]} \bnfsp \bnfpn{DataView}}\\
+    \bnfprod{DataView}{\bnfpn{DataView} \bnfsp \bnfts{[} \bnfsp \bnfpn{Expr} \bnfsp \bnfts{]}}\\
+    \bnfmore{\bnfor \bnfpn{DataView} \bnfsp \bnfts{[} \bnfsp \bnfpn{Expr} \bnfsp \bnfts{]}}\\
+    \bnfmore{\bnfor \bnfpn{DataView} \bnfsp \bnfts{.} \bnfsp \bnfts{<ident>}}\\
+    \bnfmore{\bnfor \bnfts{<ident>} \bnfsp \bnfts{(} \bnfsp \bnfpn{DataView} \bnfsp \bnfts{)}}\\
+    \bnfmore{\bnfor \bnfpn{Constant}}\\
+    \bnfmore{\bnfor \bnfts{<ident>}}\\
+\end{bnf*}
