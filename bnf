@@ -1,22 +1,11 @@
 # dep: pip install paperbnf 
 # <...>, '...', "..." is terminal
 # identifier is nonterminal
- 
-expr : JuliaExpr;
 
-Name : <ident> | '(' <ident> '::' JuliaType ')';
-
-Arg : Name ['=' Expr];
-
-PosArgs : [PosArgs ','] Arg;
-
-Vararg : <ident> '...';
-
-FunArgs : '(' [PosArgs] Vararg [';' [PosArgs] Vararg ] ')';
-
-Fun : 'function' Name FunArgs 'where' '\{' Symbols '\}' [Stmts] 'end';
-
-Symbols : [Symbols ','] <ident>;
+Stmts : 0 
+      | Stmt
+      | Stmts Stmt
+      ;
 
 Stmt : IfStmt
      | WhileStmt
@@ -29,21 +18,20 @@ Stmt : IfStmt
      | CallStmt
      ;
 
-Stmts : [Stmts] Stmt;
 
-RevCond : '(' Expr ',' Expr ')';
+RevCond : '(' <$JuliaExpr$> ',' <$JuliaExpr$> ')';
 
-IfStmt : 'if' RevCond [Stmts] ['else' Stmts] 'end';
+IfStmt : 'if' RevCond Stmts ['else' Stmts] 'end';
 
-WhileStmt : 'while' RevCond [Stmts] 'end';
+WhileStmt : 'while' RevCond Stmts 'end';
 
-Range : Expr ':' Expr [':' Expr];
+Range : <$JuliaExpr$> ':' <$JuliaExpr$> [':' <$JuliaExpr$>];
 
-ForStmt : 'for' <ident> '=' Range [Stmts] 'end';
+ForStmt : 'for' <ident> '=' Range Stmts 'end';
 
 CallStmt : <ident> '(' [DataViews] ')';
 
-Constant : num | '$\pi$';
+Constant : <num> | '$\pi$';
 
 InstrBinOp : '+=' | '-=' | '$\\veebar$=';
 
@@ -51,26 +39,26 @@ InstrTrailer : ['.'] '(' [DataViews] ')';
 
 InstrStmt : <ident> InstrBinOp <ident> [InstrTrailer];
 
-RevStmt : '~' '(' [Stmts] ')';
+RevStmt : '~' '(' Stmts ')';
 
-RoutineArg : <ident> ['begin' [Stmts] 'end'];
+@routine : '@routine' <ident> ['begin' Stmts 'end'];
 
-@routine : '@routine' RoutineArg;
-
-AncArg : <ident> '=' Expr;
+AncArg : <ident> '=' <$JuliaExpr$>;
 
 @anc : '@anc' AncArg
      | '@deanc' AncArg
      ;
 
-@safe : '@safe' Expr;
+@safe : '@safe' <$JuliaExpr$>;
 
-DataViews : [DataViews ','] DataView;
+DataViews : 0
+          | DataView
+          | DataViews ',' DataView
+          ;
 
-
-DataView : DataView '[' Expr ']'
+DataView : DataView '[' <$JuliaExpr$> ']'
          | DataView '.' <ident>
-         | <ident> '(' DataView ')'
+         | DataView '(' DataView ')'
          | Constant
          | <ident>
          ;
