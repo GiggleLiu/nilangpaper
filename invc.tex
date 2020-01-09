@@ -84,6 +84,8 @@
 \renewcommand{\>}{\rangle}
 \newcommand{\out}{{O}}
 \newcommand{\inp}{{I}}
+\newcommand{\pluseq}{\mathrel{+}=}
+\newcommand{\minuseq}{\mathrel{-}=}
 \newcommand{\vx}{{x}}
 \newcommand{\vy}{{y}}
 %%%%%% Convention related
@@ -248,7 +250,7 @@ A function is composed of statements, a statement can be an function map or cont
             \hline
             \texttt{a += b} & \texttt{a -= b}\\
             \hline
-            \texttt{a ⊻= b} & \texttt{a ⊻= b}\\
+            \texttt{a $\veebar$= b} & \texttt{a $\veebar$= b}\\
             \hline
             \texttt{if (precond, postcond)\newline ...\newline else\newline ...\newline end} & \texttt{if (postcond, precond)\newline ...\newline else\newline ...\newline end}\\
             \hline
@@ -970,18 +972,28 @@ The dataview can feedback to parent data with the
 \section{Instruction Table}\label{app:instr}
 Even though \texttt{$\oplus$}, \texttt{$\oplus(*)$}, \texttt{$\oplus(/)$} and their reverse together with control flows are sufficient to write an arbituary differentiable program.
 For convinience we provide more,
-\begin{itemize}
-    \item ${\rm SWAP}(a, b) \equiv b, a$.
-    \item ${\rm ROT}(a, b, \theta) \equiv a \cos\theta - b\sin\theta, b \cos\theta + a\sin\theta, \theta$
-    \item ${\rm IROT}(a, b, \theta) \equiv a \cos\theta + b\sin\theta, b \cos\theta - a\sin\theta, \theta$
-    \item $y += a^\wedge b \equiv y+a^b, a, b$.
-    \item $y += \exp(x) \equiv y+e^x, x$.
-    \item $y += \log(x) \equiv y+\log x, x$.
-    \item $y += \sin(x) \equiv y+\sin x, x$.
-    \item $y += \cos(x) \equiv y+\cos x, x$.
-    \item ${\rm NEG}(y) \equiv -y$.
-    \item ${\rm CONJ}(y) \equiv y'$.
-\end{itemize}
+\begin{table}[h!]\centering
+\begin{minipage}{\columnwidth}
+\ra{1.3}
+    \scalebox{1.0}{
+        \begin{tabularx}{\textwidth}{X X}\toprule
+            ${\rm SWAP}(a, b) \rightarrow b, a$\\
+            ${\rm ROT}(a, b, \theta) \rightarrow a \cos\theta - b\sin\theta, b \cos\theta + a\sin\theta, \theta$\\
+            ${\rm IROT}(a, b, \theta) \rightarrow a \cos\theta + b\sin\theta, b \cos\theta - a\sin\theta, \theta$\\
+            $y \pluseq a^\wedge b \rightarrow y+a^b, a, b$\\
+            $y \pluseq \exp(x) \rightarrow y+e^x, x$\\
+            $y \pluseq \log(x) \rightarrow y+\log x, x$\\
+            $y \pluseq \sin(x) \rightarrow y+\sin x, x$\\
+            $y \pluseq \cos(x) \rightarrow y+\cos x, x$\\
+            $y \pluseq {\rm abs}(x) \rightarrow y+ |x|, x$\\
+            ${\rm NEG}(y) \rightarrow -y$\\
+            ${\rm CONJ}(y) \rightarrow y'$\\
+            \bottomrule
+        \end{tabularx}
+    }
+    \caption{A collection of reversible instructions.}\label{tbl:revstatements}
+\end{minipage}
+\end{table}
 
 \section{Computing Fibonacci Sequence}\label{app:fib}
 \begin{minipage}{.44\textwidth}
