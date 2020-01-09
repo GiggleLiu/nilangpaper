@@ -1,4 +1,7 @@
-\documentclass[aps,twocolumn,longbibliography,english,superscriptaddress,prr]{revtex4-1}
+%\documentclass[a4paper,twocolumn,superscriptaddress,11pt]{quantumarticle}
+%\documentclass[aps,twocolumn,longbibliography,english,superscriptaddress,prr]{revtex4-1}
+\documentclass{article}
+\usepackage{arxiv}
 \usepackage[colorlinks=true,urlcolor=blue,citecolor=blue,linkcolor=blue]{hyperref}
 \usepackage[T1]{fontenc}
 %\usepackage[latin9]{inputenc}
@@ -31,9 +34,8 @@
 \usepackage[normalem]{ulem}
 \usepackage{indentfirst}
 \usepackage{txfonts}
-\usepackage{qcircuit}
 \usepackage{listings}
-\usepackage[epsilon, tsrm, altpo]{backnaur}
+\usepackage[epsilon]{backnaur}
 
 \lstset{
     basicstyle=\ttfamily\footnotesize,
@@ -127,7 +129,6 @@
 \newcommand{\Eq}[1]{Eq.~(\ref{#1})}
 \newcommand{\Fig}[1]{Fig.~\ref{#1}}
 \newcommand{\Tbl}[1]{Table~\ref{#1}}
-\newcommand{\Ref}[1]{Ref.~\onlinecite{#1}}
 \newcommand{\Sec}[1]{Sec.~\ref{#1}}
 \newcommand{\App}[1]{Appendix \ref{#1}}
 \newcommand{\bra}[1]{\mbox{$\left\langle #1 \right|$}}
@@ -147,26 +148,27 @@
 
 \makeatother
 
-\usepackage{babel}
+\usepackage[english]{babel}
 
 \begin{document}
 
 \title{Why we should develop reversible programming - the machine learning perspective}
 
-\author{Jin-Guo Liu}
-\author{Taine Zhao}
-%\email{cacate0129@iphy.ac.cn}
-\affiliation{Institute of Physics, Chinese Academy of Sciences, Beijing 100190, China}
-\author{Lei Wang}
-\email{wanglei@iphy.ac.cn}
-\affiliation{Institute of Physics, Chinese Academy of Sciences, Beijing 100190, China}
-\affiliation{CAS Center for Excellence in Topological Quantum Computation, University of Chinese Academy of Sciences, Beijing 100190, China}
-\affiliation{Songshan Lake Materials Laboratory, Dongguan, Guangdong 523808, China}
+\author{Jin-Guo Liu\thanks{cacate0129@iphy.ac.cn}\\
+Institute of Physics, Chinese Academy of Sciences,\\Beijing 100190, China\\
+\And
+Taine Zhao\\
+XXX University}
+%\author{Lei Wang}
+%\email{wanglei@iphy.ac.cn}
+%\affiliation{Institute of Physics, Chinese Academy of Sciences, Beijing 100190, China}
+%\affiliation{CAS Center for Excellence in Topological Quantum Computation, University of Chinese Academy of Sciences, Beijing 100190, China}
+%\affiliation{Songshan Lake Materials Laboratory, Dongguan, Guangdong 523808, China}
 
+\maketitle
 \begin{abstract}
     This paper considers instruction level differential programming, i.e. knowing only the backward rule of basic instructions like +, -, * and /, differentiate a program with proper performance. We will review briefly why instruction level automatic differentiation is hard for current machine learning package even for a source to source automatic differentiation package. Then we propose a reversible Turing machine implementation to achieve instruction level automatic differentiation.
 \end{abstract}
-\maketitle
 
 \section{Automatic differentiation}
 There are two basic modes of automatic differentiation~\cite{thelongpaper}, the tangent mode\cite{forwarddiff} and the adjoint mode.
@@ -642,7 +644,7 @@ Here, the \texttt{check\_grad} function is a gradient checker function defined i
 
 \subsection{Unitary Matrices}
 Recurrent networks with a unitary parametrized network ease the gradient exploding and vanishing problem~\cite{Arjovsky2015,Wisdom2016,Li2016}.
-Among different parametrization schemes, the most elegant one is \Ref{Li2016}, which parametrized the unitary matrix with two-level unitary operations, any unitary matrix of size $N\times N$ can be parametrized by $k = N(N-1)/2$ two level unitary matrices~\cite{Li2013}. All these two-level unitary matrices can be applied in $O(1)$ time as a two register instruction.
+Among different parametrization schemes, the most elegant one is \cite{Li2016}, which parametrized the unitary matrix with two-level unitary operations, any unitary matrix of size $N\times N$ can be parametrized by $k = N(N-1)/2$ two level unitary matrices~\cite{Li2013}. All these two-level unitary matrices can be applied in $O(1)$ time as a two register instruction.
 Hence a real unitary matrix can be parametrized compactly by $k$ rotation angles, each represents a rotation operations between datas in two target parameters.
 
 
@@ -860,17 +862,17 @@ the reversible computing that bridge the gap between classical bits and fully en
 Although weaker than both, but with a killer application of instruction level automatic differentiation.
 By introducing quantum entanglement little by little, we will have faster instructions, faster algorithms and finally have an application that has genuine quantum advantage.
 
-\begin{acknowledgments}
+\section{acknowledgments}
 The authors are supported by the National Natural Science Foundation of China under the Grant No.~11774398, the Strategic Priority Research Program of Chinese Academy of Sciences Grant No.~XDB28000000 and the research funding from Huawei Technologies under the Grant No.~YBN2018095185.
-\end{acknowledgments}
 
 \bibliographystyle{apsrev4-1}
 \bibliography{invc}
 \newpage
 \appendix
-\subsection{NiLang Grammar}
+\onecolumn\newpage
 
-\section{NiLang}\label{app:grammar}
+\section{NiLang Grammar}\label{app:grammar}
+
 \begin{itemize}
     \item Terminals in quotes or lower case.
     \begin{itemize}
@@ -878,56 +880,13 @@ The authors are supported by the National Natural Science Foundation of China un
         \item num, numbers
         \item null, empty statement
         \item expr, native julia expression.
-        \item expr::Int, native julia expression with integer return value.
-        \item expr::Bool, native julia expression with boolean return value.
     \end{itemize}
     \item \{ \}* indiceates zero or more repetitions.
     \item $[$ $]$  indicates zero or one repetitions.
 \end{itemize}
 
 \begin{minipage}{0.30\textwidth}
-
-\begin{bnf*}
-    \bnfprod{Stmts}{\bnfsp \bnfes}\\
-    \bnfmore{\bnfor \bnfpn{Stmt}}\\
-    \bnfmore{\bnfor \bnfpn{Stmts} \bnfsp \bnfpn{Stmt}}\\
-    \bnfprod{Stmt}{\bnfpn{IfStmt}}\\
-    \bnfmore{\bnfor \bnfpn{WhileStmt}}\\
-    \bnfmore{\bnfor \bnfpn{ForStmt}}\\
-    \bnfmore{\bnfor \bnfpn{InstrStmt}}\\
-    \bnfmore{\bnfor \bnfpn{RevStmt}}\\
-    \bnfmore{\bnfor \bnfpn{@anc} \bnfsp \bnfpn{Stmt}}\\
-    \bnfmore{\bnfor \bnfpn{@routine} \bnfsp \bnfpn{Stmt}}\\
-    \bnfmore{\bnfor \bnfpn{@safe} \bnfsp \bnfpn{Stmt}}\\
-    \bnfmore{\bnfor \bnfpn{CallStmt}}\\
-    \bnfprod{RevCond}{\bnftd{(} \bnfsp \bnftd{$JuliaExpr$} \bnfsp \bnftd{,} \bnfsp \bnftd{$JuliaExpr$} \bnfsp \bnftd{)}}\\
-    \bnfprod{IfStmt}{\bnftd{if} \bnfsp \bnfpn{RevCond} \bnfsp \bnfpn{Stmts} \bnfsp \bnfts{[} \bnftd{else} \bnfsp \bnfpn{Stmts}\bnfts{]} \bnfsp \bnftd{end}}\\
-    \bnfprod{WhileStmt}{\bnftd{while} \bnfsp \bnfpn{RevCond} \bnfsp \bnfpn{Stmts} \bnfsp \bnftd{end}}\\
-    \bnfprod{Range}{\bnftd{$JuliaExpr$} \bnfsp \bnftd{:} \bnfsp \bnftd{$JuliaExpr$} \bnfsp \bnfts{[} \bnftd{:} \bnfsp \bnftd{$JuliaExpr$}\bnfts{]}}\\
-    \bnfprod{ForStmt}{\bnftd{for} \bnfsp \bnftd{ident} \bnfsp \bnftd{=} \bnfsp \bnfpn{Range} \bnfsp \bnfpn{Stmts} \bnfsp \bnftd{end}}\\
-    \bnfprod{CallStmt}{\bnftd{ident} \bnfsp \bnftd{(} \bnfsp \bnfts{[} \bnfpn{DataViews}\bnfts{]} \bnfsp \bnftd{)}}\\
-    \bnfprod{Constant}{\bnftd{num} \bnfor \bnftd{$\pi$}}\\
-    \bnfprod{InstrBinOp}{\bnftd{+=} \bnfor \bnftd{-=} \bnfor \bnftd{$\veebar$=}}\\
-    \bnfprod{InstrTrailer}{\bnfts{[} \bnftd{.}\bnfts{]} \bnfsp \bnftd{(} \bnfsp \bnfts{[} \bnfpn{DataViews}\bnfts{]} \bnfsp \bnftd{)}}\\
-    \bnfprod{InstrStmt}{\bnftd{ident} \bnfsp \bnfpn{InstrBinOp} \bnfsp \bnftd{ident} \bnfsp \bnfts{[} \bnfpn{InstrTrailer}\bnfts{]}}\\
-    \bnfprod{RevStmt}{\bnftd{~} \bnfsp \bnftd{(} \bnfsp \bnfpn{Stmts} \bnfsp \bnftd{)}}\\
-    \bnfprod{@routine}{\bnftd{@routine} \bnfsp \bnftd{ident} \bnfsp \bnfts{[} \bnftd{begin} \bnfsp \bnfpn{Stmts} \bnfsp \bnftd{end}\bnfts{]}}\\
-    \bnfprod{AncArg}{\bnftd{ident} \bnfsp \bnftd{=} \bnfsp \bnftd{$JuliaExpr$}}\\
-    \bnfprod{@anc}{\bnftd{@anc} \bnfsp \bnfpn{AncArg}}\\
-    \bnfmore{\bnfor \bnftd{@deanc} \bnfsp \bnfpn{AncArg}}\\
-    \bnfprod{@safe}{\bnftd{@safe} \bnfsp \bnftd{$JuliaExpr$}}\\
-    \bnfprod{DataViews}{\bnfsp \bnfes}\\
-    \bnfmore{\bnfor \bnfpn{DataView}}\\
-    \bnfmore{\bnfor \bnfpn{DataViews} \bnfsp \bnftd{,} \bnfsp \bnfpn{DataView}}\\
-    \bnfprod{DataView}{\bnfpn{DataView} \bnfsp \bnftd{[} \bnfsp \bnftd{$JuliaExpr$} \bnfsp \bnftd{]}}\\
-    \bnfmore{\bnfor \bnfpn{DataView} \bnfsp \bnftd{.} \bnfsp \bnftd{ident}}\\
-    \bnfmore{\bnfor \bnfpn{DataView} \bnfsp \bnftd{(} \bnfsp \bnfpn{DataView} \bnfsp \bnftd{)}}\\
-    \bnfmore{\bnfor \bnfpn{Constant}}\\
-    \bnfmore{\bnfor \bnftd{ident}}\\
-\end{bnf*}
-
-
-
+\input{bnf.tex}
 \end{minipage}
 
 Dataview is a special surjective mapping of parent data, e.g. a field of an object.
