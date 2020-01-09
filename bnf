@@ -1,0 +1,64 @@
+# dep: pip install paperbnf 
+# <...>, '...', "..." is terminal
+# identifier is nonterminal
+
+Stmts : 0 
+      | Stmt
+      | Stmts Stmt
+      ;
+
+Stmt : IfStmt
+     | WhileStmt
+     | ForStmt
+     | InstrStmt
+     | RevStmt
+     | @anc Stmt
+     | @routine Stmt
+     | @safe <$JuliaExpr$>
+     | CallStmt
+     ;
+
+
+RevCond : '(' <$JuliaExpr$> ',' <$JuliaExpr$> ')';
+
+IfStmt : 'if' RevCond Stmts ['else' Stmts] 'end';
+
+WhileStmt : 'while' RevCond Stmts 'end';
+
+Range : <$JuliaExpr$> ':' <$JuliaExpr$> [':' <$JuliaExpr$>];
+
+ForStmt : 'for' <ident> '=' Range Stmts 'end';
+
+CallStmt : <$JuliaExpr$> '(' [DataViews] ')';
+
+Constant : <num> | '$\pi$';
+
+InstrBinOp : '+=' | '-=' | '$\\veebar$=';
+
+InstrTrailer : ['.'] '(' [DataViews] ')';
+
+InstrStmt : <ident> InstrBinOp <ident> [InstrTrailer];
+
+RevStmt : '~' '(' Stmts ')' | '~' Stmt;
+
+@routine : '@routine' <ident> ['begin' Stmts 'end'];
+
+AncArg : <ident> '=' <$JuliaExpr$>;
+
+@anc : '@anc' AncArg
+     | '@deanc' AncArg
+     ;
+
+@safe : '@safe' <$JuliaExpr$>;
+
+DataViews : 0
+          | DataView
+          | DataViews ',' DataView
+          ;
+
+DataView : DataView '[' <$JuliaExpr$> ']'
+         | DataView '.' <ident>
+         | <$JuliaExpr$> '(' DataView ')'
+         | Constant
+         | <ident>
+         ;

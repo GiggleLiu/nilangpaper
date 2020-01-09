@@ -1,14 +1,19 @@
+%\documentclass[a4paper,superscriptaddress,11pt]{quantumarticle}
 \documentclass[aps,twocolumn,longbibliography,english,superscriptaddress,prr]{revtex4-1}
+%\documentclass[a4paper,superscriptaddress,11pt]{article}
+\pdfoutput=1
 \usepackage[colorlinks=true,urlcolor=blue,citecolor=blue,linkcolor=blue]{hyperref}
 \usepackage[T1]{fontenc}
 %\usepackage[latin9]{inputenc}
 \usepackage{amssymb}
 \usepackage{tabularx}
 \usepackage{upquote}
+%\usepackage{multicol}
 %\usepackage{caption}
 \usepackage[plain]{algorithm}
 \usepackage{algpseudocode}
 \usepackage{rotating}
+%\usepackage{cite}
 \usepackage{booktabs}
 %\usepackage{unicode-math}
 %\usepackage{algorithm}% http://ctan.org/pkg/algorithm
@@ -31,8 +36,8 @@
 \usepackage[normalem]{ulem}
 \usepackage{indentfirst}
 \usepackage{txfonts}
-\usepackage{qcircuit}
 \usepackage{listings}
+\usepackage[epsilon, tsrm, altpo]{backnaur}
 
 \lstset{
     basicstyle=\ttfamily\footnotesize,
@@ -84,6 +89,8 @@
 \renewcommand{\>}{\rangle}
 \newcommand{\out}{{O}}
 \newcommand{\inp}{{I}}
+\newcommand{\pluseq}{\mathrel{+}=}
+\newcommand{\minuseq}{\mathrel{-}=}
 \newcommand{\vx}{{x}}
 \newcommand{\vy}{{y}}
 %%%%%% Convention related
@@ -126,7 +133,6 @@
 \newcommand{\Eq}[1]{Eq.~(\ref{#1})}
 \newcommand{\Fig}[1]{Fig.~\ref{#1}}
 \newcommand{\Tbl}[1]{Table~\ref{#1}}
-\newcommand{\Ref}[1]{Ref.~\onlinecite{#1}}
 \newcommand{\Sec}[1]{Sec.~\ref{#1}}
 \newcommand{\App}[1]{Appendix \ref{#1}}
 \newcommand{\bra}[1]{\mbox{$\left\langle #1 \right|$}}
@@ -146,27 +152,38 @@
 
 \makeatother
 
-\usepackage{babel}
+\usepackage[english]{babel}
 
 \begin{document}
+\title{Instruction level automatic differentiation on a reversible Turing machine}
 
-\title{Why we should develop reversible programming - the machine learning perspective}
+%\author{Jin-Guo Liu\thanks{cacate0129@iphy.ac.cn}\\
+%Institute of Physics, Chinese Academy of Sciences,\\Beijing 100190, China\\
+%\And
+%Hong-Xuan Zhao-Wang\\
+%Department of Computer Science, University of Tsukuba
+%}
+%\author{Lei Wang}
+%\email{wanglei@iphy.ac.cn}
+%\affiliation{Institute of Physics, Chinese Academy of Sciences, Beijing 100190, China}
+%\affiliation{CAS Center for Excellence in Topological Quantum Computation, University of Chinese Academy of Sciences, Beijing 100190, China}
+%\affiliation{Songshan Lake Materials Laboratory, Dongguan, Guangdong 523808, China}
 
 \author{Jin-Guo Liu}
-\author{Tai-Ne Zhao}
-%\email{cacate0129@iphy.ac.cn}
+\email{cacate0129@iphy.ac.cn}
 \affiliation{Institute of Physics, Chinese Academy of Sciences, Beijing 100190, China}
-\author{Lei Wang}
-\email{wanglei@iphy.ac.cn}
-\affiliation{Institute of Physics, Chinese Academy of Sciences, Beijing 100190, China}
-\affiliation{CAS Center for Excellence in Topological Quantum Computation, University of Chinese Academy of Sciences, Beijing 100190, China}
-\affiliation{Songshan Lake Materials Laboratory, Dongguan, Guangdong 523808, China}
+
+\author{Hong-Xuan Zhao-Wang}
+\affiliation{Department of Computer Science, University of Tsukuba}
 
 \begin{abstract}
     This paper considers instruction level differential programming, i.e. knowing only the backward rule of basic instructions like +, -, * and /, differentiate a program with proper performance. We will review briefly why instruction level automatic differentiation is hard for current machine learning package even for a source to source automatic differentiation package. Then we propose a reversible Turing machine implementation to achieve instruction level automatic differentiation.
 \end{abstract}
+
+
 \maketitle
 
+%\begin{multicols}{2}
 \section{Automatic differentiation}
 There are two basic modes of automatic differentiation~\cite{thelongpaper}, the tangent mode\cite{forwarddiff} and the adjoint mode.
 Consider a multi-in ($\vec{x}$) multi-out ($\vec{y}$) function $f$, the tangent mode computes a column of its Jacobian $\frac{\partial \vec{y}}{\partial x_i}$ efficiently, where $x_i$ is single input variable and $\vec{y}$ is multiple output variables.
@@ -248,7 +265,7 @@ A function is composed of statements, a statement can be an function map or cont
             \hline
             \texttt{a += b} & \texttt{a -= b}\\
             \hline
-            \texttt{a ⊻= b} & \texttt{a ⊻= b}\\
+            \texttt{a $\veebar$= b} & \texttt{a $\veebar$= b}\\
             \hline
             \texttt{if (precond, postcond)\newline ...\newline else\newline ...\newline end} & \texttt{if (postcond, precond)\newline ...\newline else\newline ...\newline end}\\
             \hline
@@ -641,7 +658,7 @@ Here, the \texttt{check\_grad} function is a gradient checker function defined i
 
 \subsection{Unitary Matrices}
 Recurrent networks with a unitary parametrized network ease the gradient exploding and vanishing problem~\cite{Arjovsky2015,Wisdom2016,Li2016}.
-Among different parametrization schemes, the most elegant one is \Ref{Li2016}, which parametrized the unitary matrix with two-level unitary operations, any unitary matrix of size $N\times N$ can be parametrized by $k = N(N-1)/2$ two level unitary matrices~\cite{Li2013}. All these two-level unitary matrices can be applied in $O(1)$ time as a two register instruction.
+Among different parametrization schemes, the most elegant one is \cite{Li2016}, which parametrized the unitary matrix with two-level unitary operations, any unitary matrix of size $N\times N$ can be parametrized by $k = N(N-1)/2$ two level unitary matrices~\cite{Li2013}. All these two-level unitary matrices can be applied in $O(1)$ time as a two register instruction.
 Hence a real unitary matrix can be parametrized compactly by $k$ rotation angles, each represents a rotation operations between datas in two target parameters.
 
 
@@ -859,108 +876,29 @@ the reversible computing that bridge the gap between classical bits and fully en
 Although weaker than both, but with a killer application of instruction level automatic differentiation.
 By introducing quantum entanglement little by little, we will have faster instructions, faster algorithms and finally have an application that has genuine quantum advantage.
 
-\begin{acknowledgments}
+\section{acknowledgments}
 The authors are supported by the National Natural Science Foundation of China under the Grant No.~11774398, the Strategic Priority Research Program of Chinese Academy of Sciences Grant No.~XDB28000000 and the research funding from Huawei Technologies under the Grant No.~YBN2018095185.
-\end{acknowledgments}
 
 \bibliographystyle{apsrev4-1}
 \bibliography{invc}
-\newpage
-\appendix
-\subsection{NiLang Grammar}
 
-\section{NiLang}\label{app:grammar}
+\pagebreak
+\appendix
+
+\section{NiLang Grammar}\label{app:grammar}
+
+Terminologies
 \begin{itemize}
-    \item Terminals in quotes or lower case.
-    \begin{itemize}
-        \item ident, symbols
-        \item num, numbers
-        \item null, empty statement
-        \item expr, native julia expression.
-        \item expr::Int, native julia expression with integer return value.
-        \item expr::Bool, native julia expression with boolean return value.
-    \end{itemize}
-    \item \{ \}* indiceates zero or more repetitions.
-    \item $[$ $]$  indicates zero or one repetitions.
+    \item $ident$, symbols
+    \item $num$, numbers
+    \item $\epsilon$, empty statement
+    \item $JuliaExpr$, native julia expression,
+    \item $[$ $]$,  zero or one repetitions.
 \end{itemize}
 
-\begin{minipage}{0.44\textwidth}
-\begin{lstlisting}
-Function    ::= 'function' Fname '(' Fargs [',' ident '...']; Fargs ')' 'where' '{' Symbols '}'
-                    Statements
-                'end'
-
-Fname       ::= ident
-            |   '(' ident '::' ident ')'
-
-Fargs       ::= ident, Fargs
-            |   ident '::' ident, Fargs
-            |   ident '=' ident, Fargs
-            |   ident '::' ident '=' expr, Fargs
-            |   null
-
-Symbols     ::= ident, Symbols
-            |   ident
-
-
-Statements  ::= Ifstmt Statements
-            |   Whilestmt Statements
-            |   Forstmt Statements
-            |   Callstmt Statements
-            |   Instrstmt Statements
-            |   Revstmt Statements
-            |   @anc Statements
-            |   @routine Statements
-            |   @safe Statements
-            |   null
-
-Ifstmt      ::= 'if' '(' expr::Bool ',' expr::Bool ')'
-                    Statements
-                ['else' 
-                    Statements]
-                'end'
-
-Whilestmt   ::= 'while' '(' expr::Bool ',' expr::Bool ')'
-                    Statements
-                'end'
-
-Forstmt     ::= 'for' ident '=' expr::Int[':' expr::Int] ':' expr::Int
-                    Statements
-                'end'
-
-Callstmt    ::= ident '(' Dataviews ')'
-
-Instrstmt   ::= ident '+=' ident ['(' Dataviews ')']
-            |   ident '-=' ident ['(' Dataviews ')']
-            |   ident '(*$\veebar$*)=' ident ['(' Dataviews ')']
-            |   ident '.+=' ident ['.' '(' Dataviews ')']
-            |   ident '.-=' ident ['.' '(' Dataviews ')']
-            |   ident '.(*$\veebar$*)=' ident ['.' '(' Dataviews ')']
-
-Revstmt     ::= '~' '(' Statements ')'
-
-@routine    ::= '@routine' ident 'begin'
-                    Statements
-                'end'
-            |   '@routine' ident
-
-@anc        ::= '@anc' ident '=' expr
-            |   '@deanc' ident '=' expr
-
-@safe       ::= '@safe' expr
-
-Dataviews   ::= Dataview, Dataviews
-            | null
-
-Dataview    ::= Dataview '[' expr::Int ']'
-            |   ident {'.' ident}*
-            |   ident '(' Dataview ')'
-            |   Constant
-
-Constant    ::= num | '(*$\pi$*)'
-
-\end{lstlisting}
-
+\begin{minipage}{0.3\textwidth}
+    \small
+\input{bnf.tex}
 \end{minipage}
 
 Dataview is a special surjective mapping of parent data, e.g. a field of an object.
@@ -970,18 +908,28 @@ The dataview can feedback to parent data with the
 \section{Instruction Table}\label{app:instr}
 Even though \texttt{$\oplus$}, \texttt{$\oplus(*)$}, \texttt{$\oplus(/)$} and their reverse together with control flows are sufficient to write an arbituary differentiable program.
 For convinience we provide more,
-\begin{itemize}
-    \item ${\rm SWAP}(a, b) \equiv b, a$.
-    \item ${\rm ROT}(a, b, \theta) \equiv a \cos\theta - b\sin\theta, b \cos\theta + a\sin\theta, \theta$
-    \item ${\rm IROT}(a, b, \theta) \equiv a \cos\theta + b\sin\theta, b \cos\theta - a\sin\theta, \theta$
-    \item $y += a^\wedge b \equiv y+a^b, a, b$.
-    \item $y += \exp(x) \equiv y+e^x, x$.
-    \item $y += \log(x) \equiv y+\log x, x$.
-    \item $y += \sin(x) \equiv y+\sin x, x$.
-    \item $y += \cos(x) \equiv y+\cos x, x$.
-    \item ${\rm NEG}(y) \equiv -y$.
-    \item ${\rm CONJ}(y) \equiv y'$.
-\end{itemize}
+\begin{table}[h!]\centering
+\begin{minipage}{\columnwidth}
+\ra{1.3}
+    \scalebox{1.0}{
+        \begin{tabularx}{\textwidth}{X X}\toprule
+            ${\rm SWAP}(a, b) \rightarrow b, a$\\
+            ${\rm ROT}(a, b, \theta) \rightarrow a \cos\theta - b\sin\theta, b \cos\theta + a\sin\theta, \theta$\\
+            ${\rm IROT}(a, b, \theta) \rightarrow a \cos\theta + b\sin\theta, b \cos\theta - a\sin\theta, \theta$\\
+            $y \pluseq a^\wedge b \rightarrow y+a^b, a, b$\\
+            $y \pluseq \exp(x) \rightarrow y+e^x, x$\\
+            $y \pluseq \log(x) \rightarrow y+\log x, x$\\
+            $y \pluseq \sin(x) \rightarrow y+\sin x, x$\\
+            $y \pluseq \cos(x) \rightarrow y+\cos x, x$\\
+            $y \pluseq {\rm abs}(x) \rightarrow y+ |x|, x$\\
+            ${\rm NEG}(y) \rightarrow -y$\\
+            ${\rm CONJ}(y) \rightarrow y'$\\
+            \bottomrule
+        \end{tabularx}
+    }
+    \caption{A collection of reversible instructions.}\label{tbl:revstatements}
+\end{minipage}
+\end{table}
 
 \section{Computing Fibonacci Sequence}\label{app:fib}
 \begin{minipage}{.44\textwidth}
@@ -1027,4 +975,5 @@ Macro `invfunc` defines a invertible function, ancillas are binded to a function
 Some variables can be uncomputed to $0$, but we choose not to for performance reason. For example
 \texttt{infer!(argmax, i, x)} which computes the location of maximum value in $x$ and store the output to $i$, if we uncompute it, it doubles additional computational time. Here, we trade off the memory with computation time. As a result, we must feed \texttt{imax} to the function, so that this variable can be manipulated in outer scopes.
 
+%\end{multicols}
 \end{document}
