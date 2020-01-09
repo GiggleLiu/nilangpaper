@@ -892,7 +892,7 @@ Terminologies
     \item $ident$, symbols
     \item $num$, numbers
     \item $\epsilon$, empty statement
-    \item $JuliaExpr$, native julia expression,
+    \item $JuliaExpr$, native julia expression
     \item $[$ $]$,  zero or one repetitions.
 \end{itemize}
 
@@ -901,7 +901,7 @@ Terminologies
 \input{bnf.tex}
 \end{minipage}
 
-Dataview is a special surjective mapping of parent data, e.g. a field of an object.
+Dataview is a special bijective mapping of an object or a field (or item) of an object.
 The dataview can feedback to parent data with the 
 \texttt{chfield} method, so that the modified object can generate desired dataview.
 
@@ -970,7 +970,7 @@ end
 
 \section{Julia based DSL implementation details}
 
-Macro `invfunc` defines a invertible function, ancillas are binded to a function, since ancillas are umcomputed to $0$ at the end of call, so that it can be used repeatedly in a function, it is like a class variable in a class, with no side effects.
+Macro `invfunc` defines a invertible function, ancillas are binded to a function, since ancillas are umcomputed to $0$ at the end of call, so that it can be used repeatedly in a function, it is like a class variable in a class, with no side effects. When the $JuliaExpr$ is a function all, it must be pure.
 
 Some variables can be uncomputed to $0$, but we choose not to for performance reason. For example
 \texttt{infer!(argmax, i, x)} which computes the location of maximum value in $x$ and store the output to $i$, if we uncompute it, it doubles additional computational time. Here, we trade off the memory with computation time. As a result, we must feed \texttt{imax} to the function, so that this variable can be manipulated in outer scopes.

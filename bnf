@@ -37,7 +37,7 @@ InstrBinOp : '+=' | '-=' | '$\\veebar$=';
 
 InstrTrailer : ['.'] '(' [DataViews] ')';
 
-InstrStmt : <ident> InstrBinOp <ident> [InstrTrailer];
+InstrStmt : DataView InstrBinOp <ident> [InstrTrailer];
 
 RevStmt : '~' '(' Stmts ')' | '~' Stmt;
 
