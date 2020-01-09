@@ -12,6 +12,7 @@
 \usepackage[plain]{algorithm}
 \usepackage{algpseudocode}
 \usepackage{rotating}
+\usepackage{cite}
 \usepackage{booktabs}
 %\usepackage{unicode-math}
 %\usepackage{algorithm}% http://ctan.org/pkg/algorithm
@@ -35,7 +36,7 @@
 \usepackage{indentfirst}
 \usepackage{txfonts}
 \usepackage{listings}
-\usepackage[epsilon]{backnaur}
+\usepackage[epsilon, tsrm, altpo]{backnaur}
 
 \lstset{
     basicstyle=\ttfamily\footnotesize,
@@ -159,8 +160,9 @@
 \author{Jin-Guo Liu\thanks{cacate0129@iphy.ac.cn}\\
 Institute of Physics, Chinese Academy of Sciences,\\Beijing 100190, China\\
 \And
-Taine Zhao\\
-XXX University}
+Hong-Xuan Zhao-Wang\\
+Department of Computer Science, University of Tsukuba
+}
 %\author{Lei Wang}
 %\email{wanglei@iphy.ac.cn}
 %\affiliation{Institute of Physics, Chinese Academy of Sciences, Beijing 100190, China}
@@ -172,6 +174,7 @@ XXX University}
     This paper considers instruction level differential programming, i.e. knowing only the backward rule of basic instructions like +, -, * and /, differentiate a program with proper performance. We will review briefly why instruction level automatic differentiation is hard for current machine learning package even for a source to source automatic differentiation package. Then we propose a reversible Turing machine implementation to achieve instruction level automatic differentiation.
 \end{abstract}
 
+\twocolumn
 \section{Automatic differentiation}
 There are two basic modes of automatic differentiation~\cite{thelongpaper}, the tangent mode\cite{forwarddiff} and the adjoint mode.
 Consider a multi-in ($\vec{x}$) multi-out ($\vec{y}$) function $f$, the tangent mode computes a column of its Jacobian $\frac{\partial \vec{y}}{\partial x_i}$ efficiently, where $x_i$ is single input variable and $\vec{y}$ is multiple output variables.
@@ -887,7 +890,7 @@ The authors are supported by the National Natural Science Foundation of China un
     \item $[$ $]$  indicates zero or one repetitions.
 \end{itemize}
 
-\begin{minipage}{0.30\textwidth}
+\begin{minipage}{0.60\textwidth}
 \input{bnf.tex}
 \end{minipage}
 
