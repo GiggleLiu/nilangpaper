@@ -2,7 +2,6 @@
 \documentclass[aps,twocolumn,longbibliography,english,superscriptaddress,prr]{revtex4-1}
 %\documentclass[a4paper,superscriptaddress,11pt]{article}
 \pdfoutput=1
-\usepackage{arxiv}
 \usepackage[colorlinks=true,urlcolor=blue,citecolor=blue,linkcolor=blue]{hyperref}
 \usepackage[T1]{fontenc}
 %\usepackage[latin9]{inputenc}
@@ -883,7 +882,7 @@ The authors are supported by the National Natural Science Foundation of China un
 \bibliographystyle{apsrev4-1}
 \bibliography{invc}
 
-\newpage
+\pagebreak
 \appendix
 
 \section{NiLang Grammar}\label{app:grammar}
@@ -897,7 +896,8 @@ Terminologies
     \item $[$ $]$,  zero or one repetitions.
 \end{itemize}
 
-\begin{minipage}{\textwidth}
+\begin{minipage}{0.3\textwidth}
+    \small
 \input{bnf.tex}
 \end{minipage}
 
@@ -905,7 +905,6 @@ Dataview is a special surjective mapping of parent data, e.g. a field of an obje
 The dataview can feedback to parent data with the 
 \texttt{chfield} method, so that the modified object can generate desired dataview.
 
-\newpage
 \section{Instruction Table}\label{app:instr}
 Even though \texttt{$\oplus$}, \texttt{$\oplus(*)$}, \texttt{$\oplus(/)$} and their reverse together with control flows are sufficient to write an arbituary differentiable program.
 For convinience we provide more,
@@ -932,7 +931,6 @@ For convinience we provide more,
 \end{minipage}
 \end{table}
 
-\newpage
 \section{Computing Fibonacci Sequence}\label{app:fib}
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}

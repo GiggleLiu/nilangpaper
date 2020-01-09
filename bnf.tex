@@ -9,7 +9,7 @@
     \bnfmore{\bnfor \bnfpn{RevStmt}}\\
     \bnfmore{\bnfor \bnfpn{@anc} \bnfsp \bnfpn{Stmt}}\\
     \bnfmore{\bnfor \bnfpn{@routine} \bnfsp \bnfpn{Stmt}}\\
-    \bnfmore{\bnfor \bnfpn{@safe} \bnfsp \bnfpn{Stmt}}\\
+    \bnfmore{\bnfor \bnfpn{@safe} \bnfsp \bnftd{$JuliaExpr$}}\\
     \bnfmore{\bnfor \bnfpn{CallStmt}}\\
     \bnfprod{RevCond}{\bnftd{(} \bnfsp \bnftd{$JuliaExpr$} \bnfsp \bnftd{,} \bnfsp \bnftd{$JuliaExpr$} \bnfsp \bnftd{)}}\\
     \bnfprod{IfStmt}{\bnftd{if} \bnfsp \bnfpn{RevCond} \bnfsp \bnfpn{Stmts} \bnfsp \bnfts{[} \bnftd{else} \bnfsp \bnfpn{Stmts}\bnfts{]} \bnfsp \bnftd{end}}\\
@@ -22,6 +22,7 @@
     \bnfprod{InstrTrailer}{\bnfts{[} \bnftd{.}\bnfts{]} \bnfsp \bnftd{(} \bnfsp \bnfts{[} \bnfpn{DataViews}\bnfts{]} \bnfsp \bnftd{)}}\\
     \bnfprod{InstrStmt}{\bnftd{ident} \bnfsp \bnfpn{InstrBinOp} \bnfsp \bnftd{ident} \bnfsp \bnfts{[} \bnfpn{InstrTrailer}\bnfts{]}}\\
     \bnfprod{RevStmt}{\bnftd{~} \bnfsp \bnftd{(} \bnfsp \bnfpn{Stmts} \bnfsp \bnftd{)}}\\
+    \bnfmore{\bnfor \bnftd{~} \bnfsp \bnfpn{Stmt}}\\
     \bnfprod{@routine}{\bnftd{@routine} \bnfsp \bnftd{ident} \bnfsp \bnfts{[} \bnftd{begin} \bnfsp \bnfpn{Stmts} \bnfsp \bnftd{end}\bnfts{]}}\\
     \bnfprod{AncArg}{\bnftd{ident} \bnfsp \bnftd{=} \bnfsp \bnftd{$JuliaExpr$}}\\
     \bnfprod{@anc}{\bnftd{@anc} \bnfsp \bnfpn{AncArg}}\\

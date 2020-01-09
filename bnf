@@ -14,7 +14,7 @@ Stmt : IfStmt
      | RevStmt
      | @anc Stmt
      | @routine Stmt
-     | @safe Stmt
+     | @safe <$JuliaExpr$>
      | CallStmt
      ;
 
@@ -39,7 +39,7 @@ InstrTrailer : ['.'] '(' [DataViews] ')';
 
 InstrStmt : <ident> InstrBinOp <ident> [InstrTrailer];
 
-RevStmt : '~' '(' Stmts ')';
+RevStmt : '~' '(' Stmts ')' | '~' Stmt;
 
 @routine : '@routine' <ident> ['begin' Stmts 'end'];
 
