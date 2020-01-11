@@ -7,7 +7,8 @@ Stmts : 0
       | Stmts Stmt
       ;
 
-Stmt : IfStmt
+Stmt : BlockStmt
+     | IfStmt
      | WhileStmt
      | ForStmt
      | InstrStmt
@@ -18,6 +19,8 @@ Stmt : IfStmt
      | CallStmt
      ;
 
+
+BlockStmt : 'begin' Stmts 'end';
 
 RevCond : '(' <$JuliaExpr$> ',' <$JuliaExpr$> ')';
 
@@ -39,9 +42,9 @@ InstrTrailer : ['.'] '(' [DataViews] ')';
 
 InstrStmt : DataView InstrBinOp <ident> [InstrTrailer];
 
-RevStmt : '~' '(' Stmts ')' | '~' Stmt;
+RevStmt : '$\\sim$' Stmt;
 
-@routine : '@routine' <ident> ['begin' Stmts 'end'];
+@routine : '@routine' <ident> Stmt;
 
 AncArg : <ident> '=' <$JuliaExpr$>;
 
