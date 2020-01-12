@@ -92,8 +92,8 @@
 \newcommand{\inp}{{I}}
 \newcommand{\pluseq}{\mathrel{+}=}
 \newcommand{\minuseq}{\mathrel{-}=}
-\newcommand{\vx}{{x}}
-\newcommand{\vy}{{y}}
+\newcommand{\vx}{{\vec x}}
+\newcommand{\vy}{{\vec y}}
 %%%%%% Convention related
 \newcommand{\SWAP}{{\rm SWAP}}
 \newcommand{\CNOT}{{\rm CNOT}}
@@ -186,30 +186,36 @@
 
 %\begin{multicols}{2}
 \section{Automatic differentiation}
-There are two basic modes of automatic differentiation~\cite{thelongpaper}, the tangent mode\cite{forwarddiff} and the adjoint mode.
-Consider a multi-in ($\vec{x}$) multi-out ($\vec{y}$) function $f$, the tangent mode computes a column of its Jacobian $\frac{\partial \vec{y}}{\partial x_i}$ efficiently, where $x_i$ is single input variable and $\vec{y}$ is multiple output variables.
+    There are two modes of automatic differentiation (AD)~\cite{Hascoet2013}, the tangent mode and the adjoint mode.
+    Consider a multi-in multi-out function $\vy = f(\vx)$, the tangent mode computes a column of its Jacobian $\frac{\partial \vy}{\partial x_i}$ efficiently, where $x_i$ is one of the input variables.
 Whereas the adjoint mode computes a row of Jacobian $\frac{\partial y_i}{\partial \vec{x}}$ efficiently.
 
-Most popular automatic differentiation package implements the adjoint mode differentation, because they are computational more efficient in most optimization applications, where the output loss is always a scalar.
-Implementing adjoint mode AD requires tracing a program and its intermediate state backward, which requires storing extra information
+Most popular automatic differentiation package implements the adjoint mode differentation, since the adjoint mode is computational more efficient in variational applications, where the output loss is always a scalar.
+However, implementing adjoint mode AD requires a program's intermediate state backward, which requires cahing extra informations during computation
 \begin{enumerate}
     \item computational graph,
     \item and intermediate result caching.
 \end{enumerate}
 The computational graph is a DAG that stores function calls from inputs to results. Intermediate results are usually the input variable of a function, it is nessesary to compute the adjoint of the function.
-In Pytorch~\cite{Paszke2017} and Flux~\cite{FluxPaper}, every variable (tensor) has a tracker field that stores its parent (data and function that generate this variable) information in computational graph and intermediate state. TensorFlow~\cite{Tensorflow2015} implements a static computational graph before actual computing happens.
-Source to source automatic differentiation package Zygote~\cite{Innes2019} use a intermediate representation SSA as the computational graph, so that it can back propagate over a native julia code. Still, intermediate caching is nessesary.
+In Pytorch~\cite{Paszke2017} and Flux~\cite{Innes2018}, every variable (tensor) has a tracker field that stores its parent (input data and function that generate this variable) information in computational graph and intermediate state. TensorFlow~\cite{Tensorflow2015} implements a static computational graph before actual computing happens.
+Source to source automatic differentiation package Zygote~\cite{Innes2019} use a intermediate representation SSA as the computational graph, so that it can back propagate over a native julia code. Its intermediate caching is handled by a global storage.
 
-Since every computational process is compiled to instructs, these instructions is a natural sequential computational graphs. These instructions are from a finite set of `+', `-', `*', `/', conditional jump statements et. al. With instruction level computational graph, we do not need to define primitives like \texttt{exp}, or even linear algebras functions like singular value decomposition~\cite{Liao2019,Wan2019,Hubig2019} and eigenvalue decomposition. where the manually derived backwards rule still faces the degenerate spectrum problem (gradients explodes), instruction level AD will return reasonable gradients. With instruction level AD, people don't worry about inplace functions, which may be a huge problem in traditional approaches. We can back propagate over a quantum simulator, where all instructions are reversible two level unitaries (i.e. Jacobian rotation).
-We don't need extra effort to learn meta parameters.~\cite{} Neural ODE is much easier to design~\cite{Chen2018}.
+Some problems are observed in most machine learning packages. First of all, these package requires a lot definitions of primitives.
+    These primitive functions are compiled to instructions, these instructions are from a finite set of `+', `-', `*', `/', conditional jump statements et. al. With instruction level computational graph, it is possible to obtain gradients like \texttt{exp}, or even linear algebras functions like singular value decomposition and eigenvalue decomposition~\cite{Seeger2017,Wan2019,Hubig2019} automatically. The recent development of backward rules of linear algebra functions greatly change the field of physics~\cite{Xie2020,Liao2019}. However, these rules are generated manually.
+    Secondly, inplace functions are not handled properly in the language of computational graph, even in source to source AD engine Zygote, it is not trivil. This costs unnessesary allocations and make the memory wall problem even more sevire.~\cite{memorywall}
+    Thridly, obtaining higher order gradients are not efficient in these packages. In Pytorch and Tensorflow, people back propagate the whole program to obtain lower order gradients, which has exponential overhead with respect to the order of gradients. A better approach to obtain higher order gradients is through Taylor propagation ~\cite{Bettencourt2019}. However Taylor propagation requires writing rules for all primitives. Besides the exponential overhead, the sorce to source AD engine Zygote suffers from the significant overhead of just in time compiling.
 
-However, people don't use instructions computational graph for practical reasons. The cost of memorizing the computational graph and intermediate caching kills the performance for more than two orders (as we will show latter).
+% where the manually derived backwards rule still faces the degenerate spectrum problem (gradients explodes), instruction level AD will return reasonable gradients. With instruction level AD, people don't worry about inplace functions, which may be a huge problem in traditional approaches. We can back propagate over a quantum simulator, where all instructions are reversible two level unitaries (i.e. Jacobian rotation).
+
+%We don't need extra effort to learn meta parameters.~\cite{} Neural ODE is much easier to design~\cite{Chen2018}.
+
+It is not proper to say these machine learning packages can not use instructions as the computational graph, people don't use instructions computational graph for practical reasons. The cost of memorizing the computational graph and intermediate caching kills the performance for more than two orders (as we will show latter).
 A even more serious problem is the memory consumption for caching intermediate results increases linearly as time. Even in many traditional deep network like recurrent neural network and residual neural networks, where the depth is only several thousand, this memory cost can be a nightmare.
 
 In this paper, we introduce a high performance instruction level AD by making a program time reversible~\cite{Perumalla2013,Frank2017}.
 Making use of reversibility like information buffer~\cite{Maclaurin2015} can reduce the memory allocations in recurrent neural network~\cite{MacKay2018} and residual neural networks~\cite{Behrmann2018}. However, the use of reversiblity in these cases are not general purposed.
 We develop a embeded domain specific language (eDSL) in \texttt{Julia} that implements reversible Turing machine. In the past, the reversible Turing machine is not a widely used computational model for having either polynomial overhead in computational time or additional memory cost that propotional to computational time.
-There has been some prototypes of reversible languages like Janus~\cite{Lutz1986}, R (not the popular one) and object oriented ROOPL, reversible instruction sets like Pendulum ISA and BobISA. Our eDSL borrows the design of reversible control flow in the Janus, meanwhile provides multiple dispatch based abstraction. With these additional features, differentiating over a general program requires less than 100 lines.
+There has been some prototypes of reversible languages like Janus~\cite{Lutz1986}, R (not the popular one) and object oriented ROOPL, reversible instruction sets like Pendulum ISA ~\cite{Vieri1999} and BobISA. Our eDSL borrows the design of reversible control flow in the Janus, meanwhile provides multiple dispatch based abstraction. With these additional features, differentiating over a general program requires less than 100 lines.
 In this paper, we show that in many useful applications, the computational overhead is just a constant factor. Only in some worst cases, it is equivalent to a traditional machine learning framework that cache every input.
 
 \section{Reversible domain specific language}
@@ -825,7 +831,15 @@ mutual information is
     I(y, y_a) = S(y, y_a) - S(y_a)
 \end{align}
 
-\section{Reversible computing stack}
+\subsection{Traditional Invertible Computing Devices}
+It is possible to design and fabricate a fully reversible processor using resources which are comparable to a conventional microprocessor. Existing CAD tools and silicon technology are sufficient for reversible computer design.
+
+Like quantum computer, it should be able to reset to qubits $0$. The reset operation, sometimes can be expensive. In a quantum device, this reset operation can be done by dissipation and dicoherence (i.e. interact with environment and get thermalized). Alternatively, a immediate feedback loop can be introduced to a quantum device, where a classical computer is regarded as the dissipation source.
+
+\section{Discussion and outlook}
+
+This could be used to reduce the momory cost in normalizing flow, time reversible integrator, recurrent neural network and residual neural network.
+\subsection{Time Space Tradeoff}
 So far, we have introduced the eDSL. There are many other designs of reversible language and instruction set.
 The reversible Turing machine may have either a space overhead propotional to computing time $T$ or a computational overhead that sometimes can be even exponential given limited space.
 In the simplest g-segment trade off scheme~\cite{Bennett1989,Levine1990}, it takes $Time(T) = T^{\log _g(4g-2)}$ and $Space(T) = (g-1)S\log_g T$.
@@ -838,7 +852,6 @@ Second, some computational overhead of running recursive algorithms with limited
 
 Third, making reversible programming an eDSL rather than a independant language allows flexible choices between reversibility and computational overhead. For example, in order to deallocate the gradient memory in a reversible language one has to uncompute the whole process of obtaining this gradient.
 In this eDSL, we can just deallocate the memory irreversibly, i.e. trade energy with time. This underlines the fact that a reversible program is more suited in a program with small granularity. We can quantify it by introducing
-
 \begin{definition}[program granularity]
     The logarithm of the ratio between the execution time of a reversible program and its irreversible counter part.
     \begin{equation}
@@ -846,56 +859,34 @@ In this eDSL, we can just deallocate the memory irreversibly, i.e. trade energy 
     \end{equation}
 \end{definition}
 
-In the lowest granuality, instruction design, we need ancilla bits, and uncomputing. Defining function like \texttt{iexp} requires uncomputing 4 ancillas. Deallocating the gradient further increase the granularity by $\sim 1$. After the training, the inverse training of whole programs should be done to deallocate all the memory used for training. The program complexity increase exponentially as the granuality increase.
-
-These uncomputing can be flatten to a single uncomputing.
-
-
-Todays CPU are starving, that is, the memory access is more time consuming than actual computational time.
-How the extra uncomputing operations affect the performance can not be easily estimated by counting the number of instructions.
-
-
-Logical reversible device and conditional reversibility
-
-\subsection{Traditional Invertible Computing Devices}
-It is possible to design and fabricate a fully reversible processor using resources which are comparable to a conventional microprocessor. Existing CAD tools and silicon technology are sufficient for reversible computer design.
-
-Like quantum computer, it should be able to reset to qubits $0$. The reset operation, sometimes can be expensive. In a quantum device, this reset operation can be done by dissipation and dicoherence (i.e. interact with environment and get thermalized). Alternatively, a immediate feedback loop can be introduced to a quantum device, where a classical computer is regarded as the dissipation source.
-
-\section{Discussion and outlook}
-
-This could be used to reduce the momory cost in normalizing flow, time reversible integrator, recurrent neural network and residual neural network.
-\subsection{Time Space Tradeoff}
-Comparing with irreversible programming, reversible programming consumes more memory.
-Data have different life cycles, some are more persistent, like database, some are transiant like an ancilla variable in register that live only in several clock cycle.
-The program appears in a hyrachical pattern. The lowest level is instructions like $+, -, *, /$, second lowest level we have primitive functions like $\exp, \sin$. The highest level may be an application with a lot global variables.
-The lower the level, the shorter an ancilla's life. We will revisit this point in \Sec{sec:jacobian}.
+In the lowest granuality, instruction design, we need ancilla bits. Defining primitive functions like \texttt{iexp} requires uncomputing ancillas. Deallocating the gradient further increase the granularity by $\sim 1$. After the training, the inverse training of whole programs should be done to deallocate all the memory used for training. As a result, the program complexity increase exponentially as the granuality increase.
+The granularity can be decreased by flattening the functions, since the uncomputing of ancillas can be executed at any level of granularity.
 
 One should notice the memory advantage of reversible programming to machine learning does comes from reversibility itself, but from a better data tracking strategy inspired from invertible programming.
 Normally, a reversible program is not as memory efficient as its irreversible couterpart due to the additional requirement of no information loss. A naive approach that keeping track of all informations will cost an additional space $O(T)$, where $T$ stands for the excution time in a irreversible TM, the longer the program runs, the larger the memory usage is. This is exactly the approach to keeping reversibility in most machine learning packages in the market.
 The point it, an reversible Turing Machine is able to trade space with time.
 In some cases, it may cause polynomial overhead than its irreversible counterpart.
 
-\subsection{Rounding errors}
-\begin{align}
-    a = a\cos(k\pi) - b\sin(k\pi)\\
-    b = a\sin(k\pi) + b\cos(k\pi)
-\end{align}
-\begin{align}
-    \begin{split}
-    \epsilon_a &= -a\sin(\theta)\theta\epsilon - b\cos(\theta)\theta\epsilon + a\epsilon\cos(\theta) - b\epsilon\sin(\theta)\\
-            &\sim \max(a ,b)\epsilon
-    \end{split}
-\end{align}
-The error accumulates linearly as the number of floating point operations, for a $N\times N$ unitary matrix, each number is operated $~N$ times.
-In a double precision computation, the rounding errors in unitary matrix multiplication will probably not have a substaintial effect on resersibility.
+\subsection{Instructions and Hardwares}
+%Todays CPU are starving, that is, the memory access is the performance bottleneck in many applications rather than the arithmetic operations.
+%There is a natural granularity for operations with memory access or not.
+So far, our eDSL is not really compiled to instructions, instead it runs on a irreversible host Julia.
+In the future, it can be compiled to low level instructions and is executable on a reversible devices.
+For example, the control flow defined in this NiLang can be compiled to reversible instructions like conditioned \texttt{goto} statement.
+It is designed in such a way that the target instruction is a \texttt{comefrom} statement which specifies the postcondition. ~\cite{Vieri1999}
 
-\subsection{Reversibility and renormalization level}
-%\begin{definition}
-    For an algorihms, the renormalization level of a program is the logarithm of the ratio between length of reversible instructions and irreversible instruction.
-%\end{definition}
+Arithmetic instructions should be redesigned to support better reversible programs.
+The major obstacle to exact reversibility programming is current floating point adders used in our computing devices are not exactly reversible.
+There are proposals of reversible floating point adders~\cite{Nachtigal2011,Nguyen2013} that introduces garbage bits to ensure reversibility.
+In other words, to represent a 64 bit floating point number requires more than 64 bits in storage. Reversible multiplier is also possible in similar approach.~\cite{Nachtigal2010} With these infrastructure, a reversibile program can be executed without suffereing from the irreversibility from rounding error.
+In machine learning field, people using information buffer in multiplication operations~\cite{Maclaurin2015} in an approach to enforce invertibility in a memory efficient way.
 
-\subsection{Quantum Computing}
+Reversible programming is not nessesarily related to reversible hardware, reversible programs are a subset of irreversible programs hence can be simulated efficiently with CMOS technologies. However, using reversible hardwares can break the energy efficiency barrier introduce by Landauer principle.
+Reversible hardware is not nessesarily related to reversible gates such as Toffoli gate and Fredkin gate.
+Devices with the ability of recovering signal energy is able able to save energy, or what we call generalized reversible computing.~\cite{Frank2005,Frank2017b}
+In the following, we comment briefly on a special type of reversible device Quantum computer.
+
+\subsection{Quantum Computers}
 One of the fundamental difficulty of building a quantum computer is, unlike a classical state, an unknown quantum state can not be copied.
 A quantum state in a environment will decoherence and can not be recovered, this underlines the simulation nature of a quantum device.
 In the era of noisy intermediate sized quantum devices, more and more people are switching to classical-quantum hybrid devices, where a quantum device plays the role of a programmable simulator.
@@ -920,6 +911,7 @@ So far NiLang is not full ready for productivility. It can be improved from mult
 Jin-Guo Liu thank Lei Wang for motivating the project with possible applications reversible integrator, normalizing flow and neural ODE.
 Xiu-Zhe Luo for discussion on the implementation details of source to source automatic differetiation,
 Shuo-Hui Li for helpful discussion on differential geometry.
+Damian Steiger for telling me the \texttt{comefrom} joke.
 The authors are supported by the National Natural Science Foundation of China under the Grant No.~11774398, the Strategic Priority Research Program of Chinese Academy of Sciences Grant No.~XDB28000000 and the research funding from Huawei Technologies under the Grant No.~YBN2018095185.
 
 \bibliographystyle{apsrev4-1}
@@ -973,13 +965,6 @@ For convinience we provide more,
     \caption{A collection of reversible instructions.}\label{tbl:revstatements}
 \end{minipage}
 \end{table}
-
-Not only invertibility, but also the stability of gradient itself, requires reversible instruction support, otherwise invertibility can be easily ruined by rounding errors.
-Using information buffer in multiplication operations~\cite{Maclaurin2015} in an approach to enforce invertibility in a memory efficient way.
-Invertibility has been studies in the cross field of computer science and physics a lot between 1980 and 2010.
-The motivation is saving energy.
-Carlin deviced SRCL logic family from Pendulum instruction set architecture (PISA) ~\cite{Vieri1999} for a invertible programming device.
-Notablely, the control flow defined in this NiLang can be compiled to reversible instructions, where the conditional \texttt{goto} instruction is designed in such a way that the target instruction is a \texttt{comefrom} statement which specifies the post condition.
 
 
 \section{Julia based eDSL implementation details}
