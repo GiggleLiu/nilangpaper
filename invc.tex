@@ -3,8 +3,9 @@
 %\documentclass[a4paper,superscriptaddress,11pt]{article}
 \pdfoutput=1
 \usepackage[colorlinks=true,urlcolor=blue,citecolor=blue,linkcolor=blue]{hyperref}
+\usepackage[english]{babel}
+\usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
-%\usepackage[latin9]{inputenc}
 \usepackage{amssymb}
 \usepackage{tabularx}
 \usepackage{upquote}
@@ -30,16 +31,15 @@
 \usepackage{bbm}
 \usepackage{jlcode}
 \usepackage{graphicx, subfigure}
-\usepackage{amsmath,color}
+\usepackage{amsmath,color,amsthm}
 \usepackage{mathrsfs}
 \usepackage{float}
 \usepackage[normalem]{ulem}
 \usepackage{indentfirst}
 \usepackage{txfonts}
 \usepackage{listings}
-\usepackage[epsilon, tsrm, altpo]{backnaur}
-
 \lstset{
+    language=Julia,
     basicstyle=\ttfamily\footnotesize,
     numberstyle=\scriptsize,
     % numbers=left,
@@ -48,7 +48,7 @@
     tabsize=2,
     rulecolor=\color{black!30},
     title=\lstname,
-    escapeinside={(*}{*)},
+    escapeinside={\%(*}{*)},
     breaklines=true,
     breakatwhitespace=true,
     framextopmargin=2pt,
@@ -58,6 +58,7 @@
     columns=fullflexible,
 }
 
+\usepackage[epsilon, tsrm, altpo]{backnaur}
 
 \tolerance=1
 \emergencystretch=\maxdimen
@@ -149,10 +150,10 @@
 \newcommand{\xblue}[1]{[{\bf  \color{blue}{\sout{JG: #1}}}]}
 \newcommand{\material}[1]{\iffalse[{\bf  \color{cyan}{Material: #1}}]\fi}
 
+\newtheorem{theorem}{\textit{Theorem}}
+\theoremstyle{definition}\newtheorem{definition}{\textit{Definition}}
 
 \makeatother
-
-\usepackage[english]{babel}
 
 \begin{document}
 \title{Instruction level automatic differentiation on a reversible Turing machine}
@@ -173,7 +174,7 @@
 \email{cacate0129@iphy.ac.cn}
 \affiliation{Institute of Physics, Chinese Academy of Sciences, Beijing 100190, China}
 
-\author{Hong-Xuan Zhao-Wang}
+\author{Taine Zhao}
 \affiliation{Department of Computer Science, University of Tsukuba}
 
 \begin{abstract}
@@ -199,36 +200,35 @@ The computational graph is a DAG that stores function calls from inputs to resul
 In Pytorch~\cite{Paszke2017} and Flux~\cite{FluxPaper}, every variable (tensor) has a tracker field that stores its parent (data and function that generate this variable) information in computational graph and intermediate state. TensorFlow~\cite{Tensorflow2015} implements a static computational graph before actual computing happens.
 Source to source automatic differentiation package Zygote~\cite{Innes2019} use a intermediate representation SSA as the computational graph, so that it can back propagate over a native julia code. Still, intermediate caching is nessesary.
 
-Since every computational process is compiled to instructs, these instructions is a natural sequential computational graphs. These instructions are from a finite set of `+', `-', `*', `/', conditional jump statements et. al. With instruction level computational graph, we do not need to define primitives like \texttt{exp}, or even linear algebras functions like singular value decomposition~\cite{} and eigenvalue decomposition. where the manually derived backwards rule still faces the degenerate spectrum problem (gradients explodes), instruction level AD will return reasonable gradients. With instruction level AD, people don't worry about inplace functions, which may be a huge problem in traditional approaches. We can back propagate over a quantum simulator, where all instructions are reversible two level unitaries (i.e. Jacobian rotation).
+Since every computational process is compiled to instructs, these instructions is a natural sequential computational graphs. These instructions are from a finite set of `+', `-', `*', `/', conditional jump statements et. al. With instruction level computational graph, we do not need to define primitives like \texttt{exp}, or even linear algebras functions like singular value decomposition~\cite{Liao2019,Wan2019,Hubig2019} and eigenvalue decomposition. where the manually derived backwards rule still faces the degenerate spectrum problem (gradients explodes), instruction level AD will return reasonable gradients. With instruction level AD, people don't worry about inplace functions, which may be a huge problem in traditional approaches. We can back propagate over a quantum simulator, where all instructions are reversible two level unitaries (i.e. Jacobian rotation).
 We don't need extra effort to learn meta parameters.~\cite{} Neural ODE is much easier to design~\cite{Chen2018}.
 
 However, people don't use instructions computational graph for practical reasons. The cost of memorizing the computational graph and intermediate caching kills the performance for more than two orders (as we will show latter).
 A even more serious problem is the memory consumption for caching intermediate results increases linearly as time. Even in many traditional deep network like recurrent neural network and residual neural networks, where the depth is only several thousand, this memory cost can be a nightmare.
 
-In this paper, we introduce a high performance instruction level AD by making a program time reversible.
+In this paper, we introduce a high performance instruction level AD by making a program time reversible~\cite{Perumalla2013,Frank2017}.
 Making use of reversibility like information buffer~\cite{Maclaurin2015} can reduce the memory allocations in recurrent neural network~\cite{MacKay2018} and residual neural networks~\cite{Behrmann2018}. However, the use of reversiblity in these cases are not general purposed.
-We develop a domain specific language (DSL) in \texttt{Julia} that implements reversible Turing machine. In the past, the reversible Turing machine is not a widely used computational model for having either polynomial overhead in computational time or additional memory cost that propotional to computational time.
-There has been some prototypes of reversible languages like \texttt{Janus}~\cite{Lutz1986}, where reversible control flows are introduced. Our DSL borrows the design of reversible control flow, meanwhile provides abstraction and memory management. With these additional features, differentiating over a general program requires less than 100 lines.
+We develop a embeded domain specific language (eDSL) in \texttt{Julia} that implements reversible Turing machine. In the past, the reversible Turing machine is not a widely used computational model for having either polynomial overhead in computational time or additional memory cost that propotional to computational time.
+There has been some prototypes of reversible languages like Janus~\cite{Lutz1986}, R (not the popular one) and object oriented ROOPL, reversible instruction sets like Pendulum ISA and BobISA. Our eDSL borrows the design of reversible control flow in the Janus, meanwhile provides multiple dispatch based abstraction. With these additional features, differentiating over a general program requires less than 100 lines.
 In this paper, we show that in many useful applications, the computational overhead is just a constant factor. Only in some worst cases, it is equivalent to a traditional machine learning framework that cache every input.
 
-\section{Reversible Functions}
+\section{Reversible domain specific language}
 In a mordern programming language, functions are pushed to a global stack for scheduling. The memory layout of a function is consisted of input arguments, a function frame with informations like return address and saved memory segments, local variables and working stack. After each call, the function clears the input arguments, function frame, local variables and working stack and only stores the return value.
-In the invertible programming style, this kind of design pattern is nolonger the best practise, the local information of a function can not be easily emptied immediately after a function call. Sometimes discarding local information may ruin reversibility, and sometimes, active deallocation of memory may incurr bad performance. Hence, a reversible instruction/function call in NiLang is a mapping between a same set of symbols.
+In the invertible programming style, this kind of design pattern is nolonger the best practise, input variables can not be easily discarded after a function call, since discarding information may ruin reversibility. Hence, a reversible instruction/function call in NiLang is a mapping between a same set of symbols.
 
-NiLang is a reversible DSL in Julia that simulates reversible Turing machine without actual hardware or even instruction level support. The grammar is shown in \App{app:grammar}. A function definition is composed of function head and statements, the interprecation of a reversible function to native Julia language consists three stages.
+NiLang is a reversible eDSL in Julia that simulates reversible Turing machine without actual hardware or even instruction level support. The grammar is shown in \App{app:grammar}. A function definition is composed of function head and statements, the interprecation of a reversible function to native Julia language consists three stages.
 The first stage preprocess human input to a reversible IR. It checks human input and removes redundancy in grammar. To be specific
-\begin{enumerate}
+\begin{itemize}
     \item adds missing \texttt{@deanc} to make sure \texttt{@anc} and \texttt{@deanc} statements appear in pairs,
     \item expand \texttt{@routine} macro,
     \item expand the symbol \texttt{$~$} in postcondition field as precondition.
-\end{enumerate}
+\end{itemize}
 
-    Here, the macro \texttt{@anc <a> = <expr>} binds \texttt{<a>} to an initial value specified by \texttt{<expr>}, while \texttt{@deanc <a> = <expr>} deallocates the symbol, before doing that, it checks \texttt{<a>} is restored to its initial value. This underlines the difference between irreversible assign statements and reversible ancilla statements.
-    \texttt{@routine <name> [(<Stmts>)]} is a statements recorder, when it is followed by statements, it record the statements to variable . When 
+    Here, the macro \texttt{@anc <a> = <expr>} binds \texttt{<a>} to an initial value specified by \texttt{<expr>}, while \texttt{@deanc <a> = <expr>} deallocates the variable \texttt{<a>}, before doing that, it checks the variable is restored to its initial value. This underlines the difference between irreversible assign statements and reversible ancilla statements. \texttt{@anc} and \texttt{@deanc} always appear in pairs inside a function call, a while statement or a for statement. \texttt{@deanc} can be added automatically if not given. Similar designs in Janus and R are \texttt{local/delocal} statement and \texttt{let} statement.
+
+    \texttt{@routine <name> Stmt} is a statements recorder, it records a statement to variable <name>. When \texttt{@routine <name>} or \texttt{~@routine <name>} is called, the statement or inverse statement is inserted to that position.
+    A condition expression contains two parts, the precondition and postcondition, if the precondition is not changed, we can use the precondition as postcondition by inserting \texttt{$\sim$} in the postcondition field.
     
-    The macro \texttt{@instr} assign the output of a function to the argument list of a function. Hence, the values are changed while the symbol table is not changed. Here, the statement \texttt{out! += x * y} calls instruction $\oplus(*)(out!, x, y)$, which means accumulate a product of two variables to target symbol.
-To drop a symbol, we can use the inverse process of \texttt{@anc}, the \texttt{@deanc}
-
 The second stage transforms this reversible IR to its reversed version.
 \begin{table}[h!]\centering
 \begin{minipage}{\columnwidth}
@@ -265,146 +265,52 @@ The second stage transforms this reversible IR to its reversed version.
 \end{minipage}
 \end{table}
 
-%\begin{lstlisting}
-%julia> using NiLang
-%
-%julia> @anc x = 0.5
-%0.5
-%
-%julia> @anc y = 0.6
-%0.6
-%
-%julia> @anc out! = 0.6
-%0.6
-%
-%julia> @instr out! += x * y
-%
-%julia> out!, x, y
-%(0.8999999999999999, 0.5, 0.6)
-%\end{lstlisting}
-%\begin{lstlisting}
-%julia> @deanc x = 0.5
-%
-%julia> @deanc out! = 0.6
-%ERROR: InvertibilityError("x (=0.8999999999999999)
-%    ≂̸ val (=0.6)")
-%/sample:     986tacktrace:
-% [1] deanc(::Float64, ::Float64) at 
-%    /home/leo/.julia/dev/NiLangCore/src/Core.jl:51
-% [2] top-level scope at REPL[13]:1
-%\end{lstlisting}
-
-It did nothing but errors on nonreversible memory deallocation. Only if the compiler knows the value deterministically, the value can be deallocated safely.
-
-In a function definition, \texttt{@anc} and \texttt{@deanc} always appear in pairs. In a function definition, \texttt{@deanc} is often added automatically.
-We don't have a concept of stack in our design, ancilla data plays a similar role. Every variable has finite life cycle, a function is a natural manager of an ancilla's life cycle. When a function is called, it borns, when the function is ended, it dies.
-The program appears in a hyrachical pattern. The lowest level is instructions like $+, -, *, /$, second lowest level we have primitive functions like $\exp, \sin$. The highest level may be an application with a lot global variables.
-The lower the level, the shorter an ancilla's life. We will revisit this point in \Sec{sec:jacobian}.
-
-The third stage is translating this reversible IR to native Julia code.
-It adds \texttt{@instr} before each instruction and function call statement, attach a return statement after the function definition which returns the modified input variables as the output. It also adds statements to check the consistency between preconditions and postconditions to ensure reversibility.
-
-Notice reversible Turing machine is a subset of irreversible Turing machine,
-reversible statements has less allowed statements.
-we forbit \texttt{return} and assign statements in our language design, instead, return the inputs as outputs.
-Combine it with \texttt{@instr} that assigns each output to each input, we simulate a mutable operations.
-Besides putting restrictions, it also allows user putting additional informations in control flows to help reverse the program.
-A post condition is a boolean expression that evaluated after the controlled body being executed.
-For example, to get the first Fibonacci number that is greater or equal to 0, the traditional approach is
-\begin{minipage}{.44\textwidth}
-\begin{lstlisting}
-function fib100()
-    n = 0.0
-    while fib(n) < 100
-        n += 1.0
-    end
-    return n
-end
-\end{lstlisting}
-\end{minipage}
-
-The reversible version of this function is
-\begin{minipage}{.44\textwidth}
-\begin{lstlisting}
-@i function rfib100(n)
-    @safe @assert n == 0
-    while (fib(n) < 100, n != 0)
-        n += identity(1.0)
-    end
-end
-\end{lstlisting}
-\end{minipage}
-
-Here, \texttt{fib} and \texttt{rfib} are defined in \App{app:fib}.
-The reversible \texttt{while} statement contains two statements, the precondition and postcondition.
-Before entering the while statement, the program check the postcondition to make sure it is false.
-After each iteration, postcondition returns true. The inverse function exchanges the precondition and postcondition so that the repeatition of loop body is not changed.
+A condition expression is a two-element tuple, it also allows user putting additional postcondition in control flows to help reverse the program.
+A postcondition is a boolean expression that evaluated after the controlled body being executed.
 The \texttt{@safe} macro can be followed by an arbituary statement, it allows user to use external statements that does not break reversibility.
 \texttt{@safe @show var} is often used for debugging.
 
-\subsection{Types and Views}
-Functional programming style fits well with a reversible DSL.
-A constructor is also a reversible function, it packs one or more data into one.
-The reverse function is a deconstructor, it does not deallocate memory directly but unpacks data.
-In current version of NiLang, constructor ususally attach a new field to an existing data (or the kernel), the initial value of this new field can be computed or uncomputed by its kernel so that guarantes reversibility.
+The third stage is translating this reversible IR to native Julia code.
+It
+\begin{itemize}
+    \item adds \texttt{@instr} before each instruction and function call statement,
+    \item attach a return statement after the function definition which returns the modified input variables as the output,
+    \item adds statements to check the consistency between preconditions and postconditions to ensure reversibility,
+    \item compile the inverse function at the same time.
+\end{itemize}
+The macro \texttt{@instr} assign the output of a function to the argument list of a function. Hence, the values are changed while the symbol table is not changed. Here, the statement \texttt{out! += x * y} calls instruction \texttt{$\oplus$(*)(out!, x, y)}, which means accumulate a product of two variables to target symbol. Combine it with \texttt{@instr} that assigns each output to each input, we simulate a mutable operations.
 
-To access a field of a user defined type, we introduce the concept of data view.
-A data view of a data can be data itself, a field of its view, an array element of its view, or a bijective mapping of its view.
+\subsection{Types and dataviews}
+A constructor is also a reversible function, it changes the behavior of data or derive a new field from a data.
+Its reverse function is a ``destructor'', a destructor does not deallocate memory directly but unpacks data.
 
+Before introducing dataviews, let's first consider the following example
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
-julia> using NiLang, NiLang.AD
-
-julia> x = 0.5
-0.5
-
-julia> @instr GVar(x)
-
-julia> @instr x.x += identity(0.4)
-
-julia> x
-GVar(0.9, 0.0)
-
-julia> @instr (~GVar)(x)
-
-julia> x
-0.9
+grad(arr[3].value) += x * y
 \end{lstlisting}
 \end{minipage}
+In Julia, this statement will raise a syntax error, since a function call can not be assigned.
+Meanwhile \texttt{arr[3]} might be a immutable type.
+In our eDSL, assigning a single argument function call or a immutable type is allowed.
 
-Here \texttt{GVar} is a immutable type, this is why `@instr` is nessesary to change a field of a immutable type.
-
-For arrays, we 
-
+In our interpreter, \texttt{grad(arr[3].value) += x * y} is translated to \texttt{@instr grad(arr[3].value) += x * y} at the thrid stage.
+To execute the instruction, \texttt{@instr} translate the statement to
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
-julia> x = randn(3)
-3-element Array{Float64,1}:
- -0.14307008145820874
-  0.40510133517552077
-  0.8444959804268539 
-
-julia> @instr GVar.(x)
-
-julia> @instr x[2].x += identity(0.4)
-
-julia> x
-3-element Array{GVar{Float64,Float64},1}:
- GVar(-0.14307008145820874, 0.0)
- GVar(0.8051013351755207, 0.0)  
- GVar(0.8444959804268539, 0.0)
+res = ⊕(*)(grad(arr[3].value), x, y)
+arr[3] = chfield(arr[1], Val(:value), 
+    chfield(arr[3].value, grad, res[1]))
+x = res[2]
+y = res[3]
 \end{lstlisting}
 \end{minipage}
-
-Broadcasting is supported. To avoid possible confusing, tuple indexing is forbidden delebrately, one can use \texttt{tget(tuple, 2)} to get the second element of a tuple.
-
-\subsection{Instructions}
-Not only invertibility, but also the stability of gradient itself, requires reversible instruction support, otherwise invertibility can be easily ruined by rounding errors.
-Using information buffer in multiplication operations~\cite{Maclaurin2015} in an approach to enforce invertibility in a memory efficient way.
-Invertibility has been studies in the cross field of computer science and physics a lot between 1980 and 2010.
-The motivation is saving energy.
-Carlin deviced SRCL logic family from Pendulum instruction set architecture (PISA) ~\cite{Vieri1999} for a invertible programming device.
-Notablely, the control flow defined in this NiLang can be compiled to reversible instructions, where the conditional \texttt{goto} instruction is designed in such a way that the target instruction is a \texttt{comefrom} statement which specifies the post condition.
+\texttt{$\oplus$(*)(grad(arr[3].value), x, y)} computes the output, which is a tuple of length $3$.
+\texttt{chfield} is used to infer the new data by modifying a field or a bijective mapping of a field, it returns a new object.
+The second and third arguments can be assigned back directly.
+A dataview of a data can be data itself, a field of its view, an array element of its view, or a bijective mapping of its view.
+If the default constructor of a type is not overwritten by user, NiLang can modify a field of that type automatically.
+For a bijective mapping of a field, user need to specify the behavior of a dataview by overloading \texttt{chfield} function.
 
 \section{Taylor propagation on a reversible Turing machine}
 Taylor propagation is exponentially (as the order) more efficient in obtaining higher order gradients than differentiating lower order gradients recursively.
@@ -425,7 +331,13 @@ and the adjoint mode
 
 Here, $\inp$ is the inputs and $\out$ is the outputs.
 Einstein's notation is used so that duplicated indices are summed over.
-The computational process can be described in tensor network language as shown in \Fig{fig:ad}.
+Tagent mode instruction level automatic differentiation can be implemented easily in a irreversible language with dual numbers,
+here we focus on the adjoint mode.
+The backward rule can be described in tensor network language as shown in \Fig{fig:ad}.
+\begin{figure}
+    \centerline{\includegraphics[width=\columnwidth,trim={0 1cm 0 1cm},clip]{images/ad.pdf}}
+    \caption{Adjoint rules for Jacobians and Hessians in tensor network language.}\label{fig:ad}
+\end{figure}
 
 In reversible programming, we have the following implementation
 \begin{enumerate}
@@ -449,11 +361,6 @@ The second order gradient can also be back propagated
 \end{align}
 
 In tensor network language, it can be represented as in \Fig{fig:ad}.
-\begin{figure}[h]
-    \centerline{\includegraphics[width=\columnwidth,trim={0 1cm 0 1cm},clip]{images/ad.pdf}}
-    \caption{Adjoint rules for Jacobians and Hessians in tensor network language.}\label{fig:ad}
-\end{figure}
-
 This approach can be easily extended to higher orders, or taylor propagation.
 However, this is not the widely adopted approach to compute higher order gradients.
 Althought backpropagating higher order gradients directly is exponentially faster than back propagating the computational graph for computing lower order gradients for computing higher order gradients, one has to extending the backward rules for each primitive rather than reusing existing ones.
@@ -473,15 +380,133 @@ Ancilla is the fixed point of a function, which means
 During the computation, the gradient field does not have any effect to the \texttt{value} field of variables. The key question is will the loss of gradient part in ancilla affect the reversibility of the gradient part of argument variables.
 The gradient of argument variable is defined as $\frac{\partial L}{\partial x} = \frac{\partial L}{\partial y}\frac{\partial y}{\partial x} + \frac{\partial L}{\partial b}\frac{\partial b}{\partial x}$, where the second term vanish naturally.
 
+\subsection{Implementation}
+The automatic differentiation engine is so short that we present the function defintion as follows
+
+\begin{minipage}{.44\textwidth}
+\begin{lstlisting}
+@i function (g::Grad)(args...; kwargs...)
+    @safe @assert count(x -> x isa Loss, args) == 1
+    @anc iloss = 0
+    @routine getiloss begin
+        for i=1:length(args)
+            if (tget(args,i) isa Loss, iloss==i)
+                iloss += identity(i)
+                (~Loss)(tget(args,i))
+            end
+        end
+    end
+
+    g.f(args...; kwargs...)
+    GVar.(args)
+    grad(tget(args,iloss)) += identity(1.0)
+    (~g.f)(args...; kwargs...)
+
+    ~@routine getiloss
+end
+\end{lstlisting}
+\end{minipage}
+
+The program first checks the input parameters and locate the loss variable.
+Then \texttt{~Loss} unwraps the loss variable, the location of loss variable is transferred to the ancilla \texttt{iloss} of integer type.
+
+\texttt{GVar}
+
+\begin{minipage}{.44\textwidth}
+\begin{lstlisting}
+julia> using NiLang, NiLang.AD
+
+julia> x, y = GVar(0.5), GVar(0.6)
+(GVar(0.5, 0.0), GVar(0.6, 0.0))
+
+julia> @instr grad(x) += identity(1.0)
+
+julia> @instr x += identity(y)
+
+julia> y
+GVar(0.6, -1.0)
+
+julia> @instr grad(x) -= identity(1.0)
+
+julia> @instr (~GVar)(x)
+
+julia> x
+1.1
+\end{lstlisting}
+\end{minipage}
+
+Broadcasting is supported. To avoid possible confusing, tuple indexing is forbidden delebrately, one can use \texttt{tget(tuple, 2)} to get the second element of a tuple.
+
 \section{Examples}
+
+\section{Computing Fibonacci Numbers}\label{sec:fib}
+An example that everyone likes
+
+\begin{minipage}{.44\textwidth}
+\begin{lstlisting}
+@i function rfib(out, n::T) where T
+    @anc n1 = zero(T)
+    @anc n2 = zero(T)
+    @routine init begin
+        n1 += identity(n)
+        n1 -= identity(1.0)
+        n2 += identity(n)
+        n2 -= identity(2.0)
+    end
+    if (value(n) <= 2, ~)
+        out += identity(1.0)
+    else
+        rfib(out, n1)
+        rfib(out, n2)
+    end
+    ~@routine init
+end
+\end{lstlisting}
+\end{minipage}
+
+To compute the first Fibonacci number that is greater or equal to 100
+
+\begin{minipage}{.44\textwidth}
+\begin{lstlisting}
+@i function rfib100(n)
+    @safe @assert n == 0
+    while (fib(n) < 100, n != 0)
+        n += identity(1.0)
+    end
+end
+\end{lstlisting}
+\end{minipage}
+
+Here, \texttt{fib} and \texttt{rfib} are defined in \App{sec:fib}.
+The reversible \texttt{while} statement contains two statements, the precondition and postcondition.
+Before entering the while statement, the program check the postcondition to make sure it is false.
+After each iteration, postcondition returns true. The inverse function exchanges the precondition and postcondition so that the repeatition of loop body is not changed.
+
+\section{Taylor propagation on a reversible Turing machine}
+Taylor propagation is exponentially (as the order) more efficient in obtaining higher order gradients than differentiating lower order gradients recursively.
+The later requires traversing the computational graph repeatedly.
+In JAX, in order to support Taylor propagation, the propagation rules for part of primitives manually defined.
+The exhaused support requires much more effort than the first order gradient propagation.
+Instruction level automatic differentiation is more flexible in obtaining higher order gradients like Hessian.
+
+
 \subsection{exp function}
-The following codes implements the exp function in a reversible way
+An $\exp$ function can be computed using Taylor expansion
+\begin{equation}
+    {\rm out!} += \sum\limits_n \frac{x^n}{n!}
+\end{equation}
+At a first glance, this is a recursive algorithm that mimics pebble game.
+Define the term for accumulation $s_n \equiv \frac{x^n}{n!}$, the recursion relation is written as $s_n = \frac{x s_{n-1}}{n}$.
+There is no known constant memory algorihm to pebble game.
+Notice that by viewing $*=$ and $/=$ a pair of reversible operations, we can uncompute $s_{n-1} = \frac{n s_n}{x}$ to deallocate memory.
+By allowing loss of several digit precision of result, implementing the constant memory reversible $\exp$ function is possible
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
 using NiLang, NiLang.AD
 
-@i function iexp(out!, x::T; atol::Float64=1e-14) where T
+@i function iexp(out!, x::T; atol::Float64=1e-14)
+        where T
     @anc anc1 = zero(T)
     @anc anc2 = zero(T)
     @anc anc3 = zero(T)
@@ -511,8 +536,9 @@ end
 \end{minipage}
 
 The definition of SWAP instruction can be found in \App{app:instr}.
-The two lines bellow the comment \texttt{\# pseudo inverse} "uncompute" variables \texttt{anc1} and \texttt{anc2} to avalue very close to zero. Notice \texttt{*} and \texttt{/} are not exactly dual to each other.
-It is reasonable to assume this inexact uncomputing will cause negligible error on final output, but harms reversibility. In the latter case, error accumulates in the whole program.
+The two lines bellow the comment \texttt{\# pseudo inverse} "uncompute" variables \texttt{anc1} and \texttt{anc2} to avalue very close to zero.
+Although the final output is not exact due to the rounding error, the reversibility is not harmed.
+Rouding error in output is not as toxical as that in ancilla, in the latter case, error accumulates in the whole program.
 In the second for loop inside the inverse notation \texttt{\~}, we uncompute all ancilla bits rigorously.
 The \texttt{while} statement takes two conditions, the precondition and postconditoin. Precondition \texttt{val(anc1) > atol} indicates when to break the forward pass and post condition \texttt{!isapprox(iplus, 0.0)} indicates when to break the backward pass.
 
@@ -543,37 +569,9 @@ julia> collect_hessian()
 \end{minipage}
 
 \texttt{iexp\textquotesingle} returns an object of type \texttt{Grad{typeof(exp)}}, it is a reversible function.
-It is so short that we present the function defintion as follows
-
-\begin{minipage}{.44\textwidth}
-\begin{lstlisting}
-@i function (g::Grad)(args...; kwargs...)
-    @safe @assert count(x -> x isa Loss, args) == 1
-    @anc iloss = 0
-    @routine getiloss begin
-        for i=1:length(args)
-            if (tget(args,i) isa Loss, iloss==i)
-                iloss += identity(i)
-                (~Loss)(tget(args,i))
-            end
-        end
-    end
-
-    g.f(args...; kwargs...)
-    GVar.(args)
-    grad(tget(args,iloss)) += identity(1.0)
-    (~g.f)(args...; kwargs...)
-
-    ~@routine getiloss
-end
-\end{lstlisting}
-\end{minipage}
-
-The program first checks the input parameters and locate the loss variable.
-Then \texttt{~Loss} unwraps the loss variable, the location of loss variable is transferred to the ancilla \texttt{iloss} of integer type.
-
 Due to the non-locality of Hessians, we use a global tape for Hessian propagation. Whenever a new variable is created, the tape allocates a larger ring.
 It is global to ease the memory allocations of ancillas, the Hessian in ancilla is important to reach correct result.
+
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
 julia> out!, x = 0.0, 1.6
@@ -634,7 +632,8 @@ where \texttt{idot} and \texttt{inorm2} are implemented as
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
-@i function idot(out, v1::AbstractVector{T}, v2) where T
+@i function idot(out, v1::AbstractVector{T}, v2)
+        where T
     @anc anc1 = zero(T)
     for i = 1:length(v1)
         anc1 += identity(v1[i])
@@ -645,7 +644,8 @@ where \texttt{idot} and \texttt{inorm2} are implemented as
     end
 end
 
-@i function inorm2(out, vec::AbstractVector{T}) where T
+@i function inorm2(out, vec::AbstractVector{T})
+        where T
     @anc anc1 = zero(T)
     for i = 1:length(vec)
         anc1 += identity(vec[i])
@@ -659,6 +659,7 @@ end
 \end{minipage}
 
 One can easily check the gradient of this naive implementation of QR decomposition is correct
+
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
 using Test
@@ -676,8 +677,10 @@ end
     out += identity(r[1,2])
 end
 
-@test check_grad(test1, (Loss(0.0), q, r, A); atol=0.05, verbose=true)
-@test check_grad(test2, (Loss(0.0), q, r, A); atol=0.05, verbose=true)
+@test check_grad(test1, (Loss(0.0), q, r, A);
+        atol=0.05, verbose=true)
+@test check_grad(test2, (Loss(0.0), q, r, A);
+        atol=0.05, verbose=true)
 \end{lstlisting}
 \end{minipage}
 
@@ -690,7 +693,7 @@ Hence a real unitary matrix can be parametrized compactly by $k$ rotation angles
 
 
 \begin{minipage}{.44\textwidth}
-\begin{lstlisting}[basicstyle=\small\ttfamily,columns=fullflexible]
+\begin{lstlisting}
 @i function umm!(x, θ, Nin::Int, Nout::Int)
     @anc k = 0
     for j=1:Nout
@@ -710,10 +713,7 @@ end
 \end{lstlisting}
 \end{minipage}
 
-Here, \texttt{loop j} means excuting the loop body for \texttt{j} times, it gurantes invertibility.
-Loop and branching can be implemented in a more regorious way~\cite{Vieri1999} from instruction level,
-however it is still an open question how to implelement loops with instruction level invertibility without compiling technic.
-In the rotation instruction, \texttt{z[k]} is the rotation angle, which represents rotating data in target registers by an angle of $\theta=$ \texttt{z[k]*$\pi$}.
+\texttt{ROT(a!, b!, $\theta$)} is the rotation instruction, \texttt{$\theta$} is the rotation angle, which represents rotating data in \texttt{a!} and \texttt{b!} by an angle of $\theta$.
 
 \begin{align}
     R(\theta)  = \begin{bmatrix}
@@ -722,9 +722,8 @@ In the rotation instruction, \texttt{z[k]} is the rotation angle, which represen
     \end{bmatrix}
 \end{align}
 
-\subsubsection{The gradient}
 
-Its backward rule is
+Its backward rule of a \texttt{ROT} instruction is
 \begin{align}
     \begin{split}
     \overline{\theta}  &= \sum\frac{\partial R(\theta)}{\partial \theta}\odot(\overline{y}x^T)\\
@@ -733,23 +732,24 @@ Its backward rule is
     \end{split}
 \end{align}
 
-The resulting instruction is
+We bind the adjoint function of \texttt{ROT} to its reverse \texttt{IROT},
+and define a new function that dispatch to \texttt{GVar} variables
 
 \begin{minipage}{.44\textwidth}
-\begin{lstlisting}[basicstyle=\small\ttfamily,columns=fullflexible]
--z[k]
-z[k] + pi/2
-rot(gx[i], gx[ip], theta[k])
-gtheta + gx[i]*x[i]
-gtheta + gx[ip]*x[ip]
-theta[k] - pi/2
--theta[k]
-
-rot(gx[i], gx[ip], -pi/2)
+\begin{lstlisting}
+@i function IROT(a!::GVar, b!::GVar, θ::GVar)
+    IROT(value(a!), value(b!), value(θ))
+    NEG(value(θ))
+    value(θ) -= identity(π/2)
+    ROT(grad(a!), grad(b!), value(θ))
+    grad(θ) += value(a!) * grad(a!)
+    grad(θ) += value(b!) * grad(b!)
+    value(θ) += identity(π/2)
+    NEG(value(θ))
+    ROT(grad(a!), grad(b!), π/2)
+end
 \end{lstlisting}
 \end{minipage}
-
-In this way, the gradient is defined in a closure form.
 
 \section{Training by consistency}
 We compute the output as
@@ -825,31 +825,52 @@ mutual information is
     I(y, y_a) = S(y, y_a) - S(y_a)
 \end{align}
 
-\section{Time Space Tradeoff}
-Comparing with irreversible programming, reversible programming consumes more memory.
-Data have different life cycles, some are more persistent, like database, some are transiant like an ancilla variable in register that live only in several clock cycle.
+\section{Reversible computing stack}
+So far, we have introduced the eDSL. There are many other designs of reversible language and instruction set.
+The reversible Turing machine may have either a space overhead propotional to computing time $T$ or a computational overhead that sometimes can be even exponential given limited space.
+In the simplest g-segment trade off scheme~\cite{Bennett1989,Levine1990}, it takes $Time(T) = T^{\log _g(4g-2)}$ and $Space(T) = (g-1)S\log_g T$.
+This section, we try to convince the reader that the overhead of reversible computing is not as terrible as people thought.
+
+First, one should notice that even in the worst case, the overhead of a reversible program is not more than a traditional machine learning package. In pytorch, a tensor memorize every input of a primitive. The program is apparently reversible since it does not discard any information.
+For deep neural networks, people used checkpointing trick to trade time with space~\cite{Chen2016}, which is also a widely used trick in reversible programming~\cite{Perumalla2013}. Reversible programming AD is sometimes more memory efficient. Comparing with logging computational graph, reversible programming has the advantage of supporting inplace functions, which is difficult is both tranditional and source to source AD framework. The example of parametrizing unitary matrice costs zero memory allocation.
+
+Second, some computational overhead of running recursive algorithms with limited space resources can be mitigated by "pseudo uncomputing" without sacrifising reversibility like in the \texttt{iexp} example.
+
+Third, making reversible programming an eDSL rather than a independant language allows flexible choices between reversibility and computational overhead. For example, in order to deallocate the gradient memory in a reversible language one has to uncompute the whole process of obtaining this gradient.
+In this eDSL, we can just deallocate the memory irreversibly, i.e. trade energy with time. This underlines the fact that a reversible program is more suited in a program with small granularity. We can quantify it by introducing
+
+\begin{definition}[program granularity]
+    The logarithm of the ratio between the execution time of a reversible program and its irreversible counter part.
+    \begin{equation}
+        \log_2 \frac{Time(T)}{T}
+    \end{equation}
+\end{definition}
+
+In the lowest granuality, instruction design, we need ancilla bits, and uncomputing. Defining function like \texttt{iexp} requires uncomputing 4 ancillas. Deallocating the gradient further increase the granularity by $\sim 1$. After the training, the inverse training of whole programs should be done to deallocate all the memory used for training. The program complexity increase exponentially as the granuality increase.
+
+These uncomputing can be flatten to a single uncomputing.
 
 
-\section{A Invertible Programming Style}
-\section{Hardwares}
+Todays CPU are starving, that is, the memory access is more time consuming than actual computational time.
+How the extra uncomputing operations affect the performance can not be easily estimated by counting the number of instructions.
+
+
+Logical reversible device and conditional reversibility
+
 \subsection{Traditional Invertible Computing Devices}
-A reversible computer, by no means refer to a computing device that every instruction or program is reversible. A better definition would be, a reversible computing device reserves the right to retract energy through uncomputing.
+It is possible to design and fabricate a fully reversible processor using resources which are comparable to a conventional microprocessor. Existing CAD tools and silicon technology are sufficient for reversible computer design.
 
 Like quantum computer, it should be able to reset to qubits $0$. The reset operation, sometimes can be expensive. In a quantum device, this reset operation can be done by dissipation and dicoherence (i.e. interact with environment and get thermalized). Alternatively, a immediate feedback loop can be introduced to a quantum device, where a classical computer is regarded as the dissipation source.
 
-\subsubsection{Pendulum Design}
-\textit{copy pasted begin}
+\section{Discussion and outlook}
 
-It is possible to design and fabricate a fully reversible processor using resources which are comparable to a conventional microprocessor. Existing CAD tools and silicon technology are sufficient for reversible computer design.
-Pendulum author demonstrated this by designing such a processor and fabricating and testing it in a commercially available CMOS process.
+This could be used to reduce the momory cost in normalizing flow, time reversible integrator, recurrent neural network and residual neural network.
+\subsection{Time Space Tradeoff}
+Comparing with irreversible programming, reversible programming consumes more memory.
+Data have different life cycles, some are more persistent, like database, some are transiant like an ancilla variable in register that live only in several clock cycle.
+The program appears in a hyrachical pattern. The lowest level is instructions like $+, -, *, /$, second lowest level we have primitive functions like $\exp, \sin$. The highest level may be an application with a lot global variables.
+The lower the level, the shorter an ancilla's life. We will revisit this point in \Sec{sec:jacobian}.
 
-\textit{copy pasted end}
-
-
-\subsubsection{Margolus's Billiard Ball Model Cellular Automaton (BBMCA)}
-The chip is known as Flattop, not very convenient to program, but is simple, universal, reversible, and scalable.
-
-\section{Discussion}
 One should notice the memory advantage of reversible programming to machine learning does comes from reversibility itself, but from a better data tracking strategy inspired from invertible programming.
 Normally, a reversible program is not as memory efficient as its irreversible couterpart due to the additional requirement of no information loss. A naive approach that keeping track of all informations will cost an additional space $O(T)$, where $T$ stands for the excution time in a irreversible TM, the longer the program runs, the larger the memory usage is. This is exactly the approach to keeping reversibility in most machine learning packages in the market.
 The point it, an reversible Turing Machine is able to trade space with time.
@@ -868,15 +889,6 @@ In some cases, it may cause polynomial overhead than its irreversible counterpar
 \end{align}
 The error accumulates linearly as the number of floating point operations, for a $N\times N$ unitary matrix, each number is operated $~N$ times.
 In a double precision computation, the rounding errors in unitary matrix multiplication will probably not have a substaintial effect on resersibility.
-
-\subsection{Performance}
-Todays CPU are starving, that is, the memory access is more time consuming than actual computational time.
-How the extra uncomputing operations affect the performance can not be easily estimated by counting the number of instructions.
-
-In the simplest g-segment trade off scheme~\cite{}, it takes $Time(T) = T^{\log _g(4g-2)}$ and $Space(T) = (g-1)S\log_g T$.
-In practise, there are more practical trading off schemes that works much better in practise.~\cite{}
-Checkpointing ~\cite{Chen2016}.
-In our work, especially in the \texttt{iexp} example, we show the the irreversibility of $*$ and $/$ can be mitigated.
 
 \subsection{Reversibility and renormalization level}
 %\begin{definition}
@@ -902,7 +914,12 @@ Reversible Turing machine and rotation gates $Ry(\theta)$ and $Rz(\theta)$ is eq
 In NiLang, we implement a path-integral based universal quantum simulator as shown in \App{app:quantum}. It is different from the classical-quantum hybrid mode compiler that using classical control flows, its control flow is reversible, and will be runable on a quantum computer in the future.
 The compiling theory developed for reversible programming will have profounding effect to quantum computers.
 
+So far NiLang is not full ready for productivility. It can be improved from multiple perspectives, compiling support to merge the uncomputing can decrease granularity and hence reduce overhead. Additional instructions like stack operations and logical operations are under consideration. It is also interesting to see how it can be combined with a high performance quantum simulator like \texttt{Yao}. It is able to provide control flow to \texttt{Yao}'s QBIR. By porting a quantum simulator. it is interesting to see how quantum simulator can improve the instruction design. Notice a quantum adder is more efficient than a classical adder.
+
 \section{acknowledgments}
+Jin-Guo Liu thank Lei Wang for motivating the project with possible applications reversible integrator, normalizing flow and neural ODE.
+Xiu-Zhe Luo for discussion on the implementation details of source to source automatic differetiation,
+Shuo-Hui Li for helpful discussion on differential geometry.
 The authors are supported by the National Natural Science Foundation of China under the Grant No.~11774398, the Strategic Priority Research Program of Chinese Academy of Sciences Grant No.~XDB28000000 and the research funding from Huawei Technologies under the Grant No.~YBN2018095185.
 
 \bibliographystyle{apsrev4-1}
@@ -957,43 +974,15 @@ For convinience we provide more,
 \end{minipage}
 \end{table}
 
-\section{Computing Fibonacci Sequence}\label{app:fib}
-\begin{minipage}{.44\textwidth}
-\begin{lstlisting}
-function fib(n)
-    if n > 2
-        fib(n-1) + fib(n-2)
-    else
-        one(n)
-    end
-end
-\end{lstlisting}
-\end{minipage}
-
-\begin{minipage}{.44\textwidth}
-\begin{lstlisting}
-@i function rfib(out, n::T) where T
-    @anc n1 = zero(T)
-    @anc n2 = zero(T)
-    @routine init begin
-        n1 += identity(n)
-        n1 -= identity(1.0)
-        n2 += identity(n)
-        n2 -= identity(2.0)
-    end
-    if (value(n) <= 2, ~)
-        out += identity(1.0)
-    else
-        rfib(out, n1)
-        rfib(out, n2)
-    end
-    ~@routine init
-end
-\end{lstlisting}
-\end{minipage}
+Not only invertibility, but also the stability of gradient itself, requires reversible instruction support, otherwise invertibility can be easily ruined by rounding errors.
+Using information buffer in multiplication operations~\cite{Maclaurin2015} in an approach to enforce invertibility in a memory efficient way.
+Invertibility has been studies in the cross field of computer science and physics a lot between 1980 and 2010.
+The motivation is saving energy.
+Carlin deviced SRCL logic family from Pendulum instruction set architecture (PISA) ~\cite{Vieri1999} for a invertible programming device.
+Notablely, the control flow defined in this NiLang can be compiled to reversible instructions, where the conditional \texttt{goto} instruction is designed in such a way that the target instruction is a \texttt{comefrom} statement which specifies the post condition.
 
 
-\section{Julia based DSL implementation details}
+\section{Julia based eDSL implementation details}
 
 Macro `invfunc` defines a invertible function, ancillas are binded to a function, since ancillas are umcomputed to $0$ at the end of call, so that it can be used repeatedly in a function, it is like a class variable in a class, with no side effects. When the $JuliaExpr$ is a function all, it must be pure.
 
