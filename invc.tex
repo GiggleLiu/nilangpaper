@@ -191,26 +191,25 @@
 Whereas the adjoint mode computes a row of Jacobian $\frac{\partial y_i}{\partial \vec{x}}$ efficiently.
 
 Most popular automatic differentiation package implements the adjoint mode differentation, since the adjoint mode is computational more efficient in variational applications, where the output loss is always a scalar.
-However, implementing adjoint mode AD requires a program's intermediate state backward, which requires cahing extra informations during computation
+However, implementing adjoint mode AD requires a program's intermediate state for back propagation, including
 \begin{enumerate}
-    \item computational graph,
-    \item and intermediate result caching.
+    \item computation graph,
+    \item and input variables of nodes in computation graph.
 \end{enumerate}
-The computational graph is a DAG that stores function calls from inputs to results. Intermediate results are usually the input variable of a function, it is nessesary to compute the adjoint of the function.
-In Pytorch~\cite{Paszke2017} and Flux~\cite{Innes2018}, every variable (tensor) has a tracker field that stores its parent (input data and function that generate this variable) information in computational graph and intermediate state. TensorFlow~\cite{Tensorflow2015} implements a static computational graph before actual computing happens.
-Source to source automatic differentiation package Zygote~\cite{Innes2019} use a intermediate representation SSA as the computational graph, so that it can back propagate over a native julia code. Its intermediate caching is handled by a global storage.
+    A computational graph is a directed acyclic graph (DAG) that records the relation between data (edges) and functions (nodes).
+In Pytorch~\cite{Paszke2017} and Flux~\cite{Innes2018}, every variable has a tracker field that stores its parent information, i.e. the input data and function that generate this variable. TensorFlow~\cite{Tensorflow2015} implements a static computational graph before actual computation happens.
+    Source to source automatic differentiation package Zygote~\cite{Innes2019} use a intermediate representation of a program as the computation grpah, which known as the static single assignment (SSA) form. It can back propagate over a native julia code. Its intermediate caching is handled by a global storage.
 
-Some problems are observed in most machine learning packages. First of all, these package requires a lot definitions of primitives.
-    These primitive functions are compiled to instructions, these instructions are from a finite set of `+', `-', `*', `/', conditional jump statements et. al. With instruction level computational graph, it is possible to obtain gradients like \texttt{exp}, or even linear algebras functions like singular value decomposition and eigenvalue decomposition~\cite{Seeger2017,Wan2019,Hubig2019} automatically. The recent development of backward rules of linear algebra functions greatly change the field of physics~\cite{Xie2020,Liao2019}. However, these rules are generated manually.
-    Secondly, inplace functions are not handled properly in the language of computational graph, even in source to source AD engine Zygote, it is not trivil. This costs unnessesary allocations and make the memory wall problem even more sevire.~\cite{memorywall}
-    Thridly, obtaining higher order gradients are not efficient in these packages. In Pytorch and Tensorflow, people back propagate the whole program to obtain lower order gradients, which has exponential overhead with respect to the order of gradients. A better approach to obtain higher order gradients is through Taylor propagation ~\cite{Bettencourt2019}. However Taylor propagation requires writing rules for all primitives. Besides the exponential overhead, the sorce to source AD engine Zygote suffers from the significant overhead of just in time compiling.
+    Due to the computation graph recording and intermediate state caching, some problems are observed in most machine learning packages. First of all, these package requires a lot primitive functions with programmer defined backward rules. This is not nessesary. At the lowest level, these primitive functions are compiled to instructions, and these instructions are from a finite set of `+', `-', `*', `/', conditional jump statements et. al. Define backward rules for basic instructions and the automatic differentiation should just work. With instruction level computational graph, it should be possible to obtain gradients like \texttt{exp}, or even linear algebras functions like singular value decomposition (SVD) and eigenvalue decomposition (ED)~\cite{Seeger2017,Wan2019,Hubig2019} automatically. The recent development of backward rules of linear algebra functions greatly change the research code in physics~\cite{Xie2020,Liao2019}. However, these rules are generated manually.
+    Secondly, inplace functions are not handled properly in the language of computational graph, even in source to source AD engine Zygote, it is not trivil to implement. Most functions in BLAS and LAPACK are implemented as inplace functions, the lack of automatic differentiation support to inplace functions cause bad memory performance and make the memory wall problem in machine learning even more sevire.~\cite{memorywall}.
+    Thridly, obtaining higher order gradients are not efficient in these packages. In most machine learning package, people back propagate the whole program of obtaining lower order gradients to obtain higher order gradients. The repeated use of back propagation cause exponential overhead with respect to the order of gradients. A better approach to obtain higher order gradients is through Taylor propagation like in JAX~\cite{Bettencourt2019}. However Taylor propagation requires writing rules for all primitives. Besides the exponential overhead, the sorce to source AD engine Zygote suffers from the significant overhead of just in time compiling in Julia.
 
 % where the manually derived backwards rule still faces the degenerate spectrum problem (gradients explodes), instruction level AD will return reasonable gradients. With instruction level AD, people don't worry about inplace functions, which may be a huge problem in traditional approaches. We can back propagate over a quantum simulator, where all instructions are reversible two level unitaries (i.e. Jacobian rotation).
 
 %We don't need extra effort to learn meta parameters.~\cite{} Neural ODE is much easier to design~\cite{Chen2018}.
 
-It is not proper to say these machine learning packages can not use instructions as the computational graph, people don't use instructions computational graph for practical reasons. The cost of memorizing the computational graph and intermediate caching kills the performance for more than two orders (as we will show latter).
-A even more serious problem is the memory consumption for caching intermediate results increases linearly as time. Even in many traditional deep network like recurrent neural network and residual neural networks, where the depth is only several thousand, this memory cost can be a nightmare.
+These machine learning packages can use instructions as the computational graph, people chose not to for practical reasons. The cost of memorizing the computational graph and intermediate caching kills the performance for more than two orders (as we will show latter).
+A even more serious problem is the memory consumption for caching intermediate results increases linearly as time. Even in many traditional deep network like recurrent neural network and residual neural networks, where the depth is only several thousand, this memory wall problem is big problem.
 
 In this paper, we introduce a high performance instruction level AD by making a program time reversible~\cite{Perumalla2013,Frank2017}.
 Making use of reversibility like information buffer~\cite{Maclaurin2015} can reduce the memory allocations in recurrent neural network~\cite{MacKay2018} and residual neural networks~\cite{Behrmann2018}. However, the use of reversiblity in these cases are not general purposed.
@@ -574,7 +573,7 @@ julia> collect_hessian()
 \end{lstlisting}
 \end{minipage}
 
-\texttt{iexp\textquotesingle} returns an object of type \texttt{Grad{typeof(exp)}}, it is a reversible function.
+\texttt{iexp\textquotesingle} returns an object of type \texttt{Grad\{typeof(exp)\}}, it is a reversible function.
 Due to the non-locality of Hessians, we use a global tape for Hessian propagation. Whenever a new variable is created, the tape allocates a larger ring.
 It is global to ease the memory allocations of ancillas, the Hessian in ancilla is important to reach correct result.
 
@@ -881,30 +880,26 @@ There are proposals of reversible floating point adders~\cite{Nachtigal2011,Nguy
 In other words, to represent a 64 bit floating point number requires more than 64 bits in storage. Reversible multiplier is also possible in similar approach.~\cite{Nachtigal2010} With these infrastructure, a reversibile program can be executed without suffereing from the irreversibility from rounding error.
 In machine learning field, people using information buffer in multiplication operations~\cite{Maclaurin2015} in an approach to enforce invertibility in a memory efficient way.
 
-Reversible programming is not nessesarily related to reversible hardware, reversible programs are a subset of irreversible programs hence can be simulated efficiently with CMOS technologies. However, using reversible hardwares can break the energy efficiency barrier introduce by Landauer principle.
-Reversible hardware is not nessesarily related to reversible gates such as Toffoli gate and Fredkin gate.
-Devices with the ability of recovering signal energy is able able to save energy, or what we call generalized reversible computing.~\cite{Frank2005,Frank2017b}
+Reversible programming is not nessesarily related to reversible hardwares, reversible programs is a subset of irreversible programs hence can be simulated efficiently with CMOS technologies~\cite{Vieri1999}. However, using reversible hardwares can break the energy efficiency barrier introduce by Landauer principle~\cite{landauer, hardwares}.
+Reversible hardwares are not nessesarily related to reversible gates such as Toffoli gate and Fredkin gate.
+Devices with the ability of recovering signal energy is able able to save energy, which is known as generalized reversible computing.~\cite{Frank2005,Frank2017b}
 In the following, we comment briefly on a special type of reversible device Quantum computer.
 
 \subsection{Quantum Computers}
 One of the fundamental difficulty of building a quantum computer is, unlike a classical state, an unknown quantum state can not be copied.
-A quantum state in a environment will decoherence and can not be recovered, this underlines the simulation nature of a quantum device.
-In the era of noisy intermediate sized quantum devices, more and more people are switching to classical-quantum hybrid devices, where a quantum device plays the role of a programmable simulator.
-Reversible computing does not enjoy the supremacy from quantum entanglement, nor the quantum limitations of non-cloning.
+Quantum random access memory~\cite{} is very hard to design and implement, it is known to have many caveats~\cite{Scott}.
+A quantum state in a environment will decoherence and can not be recovered, this underlines the simulation nature of quantum devices.
+%In the era of noisy intermediate sized quantum devices, more and more people are switching to classical-quantum hybrid devices, where a quantum device plays the role of a programmable simulator.
+Reversible computing does not enjoy the quantum advantage from entanglement, nor the quantum disadvantages from non-cloning and decoherence.
 Only the limitation of reversibility is retained, reversibility comes from the fact that micro scopic processes are all unitary.
-Irreversibility can only come from the interaction with classical devices, like environment induces decaying, qubit state resetting, measurements and classical feedbacks to quantum devices. These are rare resources in microscopic world as well as one of the most difficult part to implement in a practical device.
+In microscopic world, irreversibility is rare, it can come from the interaction with classical devices, like environment induces decaying, qubit state resetting, measurements and classical feedbacks to quantum devices. These are typically harder to implement on a quantum device.
 
-Quantum gates can possiblely simplify reversible instructions design, e.g. the quantum fourier transformation based adder.
-A classical in, classical out algorithm can find a quantum shortcut.
-With respect to this fact, it is reasonable to believe there would be a classical-quantum intermediate statge of computing,
-the reversible computing that bridge the gap between classical bits and fully entangled qubits.
-Although weaker than both, but with a killer application of instruction level automatic differentiation.
-By introducing quantum entanglement little by little, we will have faster instructions like addition and multiplication by utilizing quantum fourier transformation, faster algorithms and finally have an application that has genuine quantum advantage.
+Given the fundamental limitations of quantum decoherence and non-cloning and the microscopic reversible nature.
+It is reasonable to have a reversible computing device to bridge the gap between classical and universal quantum computing.
+By introducing entanglement little by little, we can accelerate some basic components like a reversible adder.
+The quantum fourier transformation provides a shortcut to the adder bt introducing only one additional gate, the CPHASE gate even though it is a classical in classical out algorithm.~\cite{} Interestingly, by introducing rotation gates $Ry(\theta)$ and $Rz(\theta)$ in the reversible programming, we make NiLang a path integral based universal quantum simulator as shown in \App{app:quantum}. The compiling theory developed for reversible programming will have profounding effect to quantum computers.
 
-Reversible Turing machine and rotation gates $Ry(\theta)$ and $Rz(\theta)$ is equivalent to a quantum universal computer.
-In NiLang, we implement a path-integral based universal quantum simulator as shown in \App{app:quantum}. It is different from the classical-quantum hybrid mode compiler that using classical control flows, its control flow is reversible, and will be runable on a quantum computer in the future.
-The compiling theory developed for reversible programming will have profounding effect to quantum computers.
-
+\subsection{Outlook}
 So far NiLang is not full ready for productivility. It can be improved from multiple perspectives, compiling support to merge the uncomputing can decrease granularity and hence reduce overhead. Additional instructions like stack operations and logical operations are under consideration. It is also interesting to see how it can be combined with a high performance quantum simulator like \texttt{Yao}. It is able to provide control flow to \texttt{Yao}'s QBIR. By porting a quantum simulator. it is interesting to see how quantum simulator can improve the instruction design. Notice a quantum adder is more efficient than a classical adder.
 
 \section{acknowledgments}
@@ -912,6 +907,7 @@ Jin-Guo Liu thank Lei Wang for motivating the project with possible applications
 Xiu-Zhe Luo for discussion on the implementation details of source to source automatic differetiation,
 Shuo-Hui Li for helpful discussion on differential geometry.
 Damian Steiger for telling me the \texttt{comefrom} joke.
+Tong Liu and An-Qi Chen for helpful discussion on quantum adders and multipliers.
 The authors are supported by the National Natural Science Foundation of China under the Grant No.~11774398, the Strategic Priority Research Program of Chinese Academy of Sciences Grant No.~XDB28000000 and the research funding from Huawei Technologies under the Grant No.~YBN2018095185.
 
 \bibliographystyle{apsrev4-1}
