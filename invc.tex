@@ -186,10 +186,10 @@
 
 %\begin{multicols}{2}
 \section{Introduction}\label{sec:intro}
+    \blue{TODOs: show benchmark, quantum example? recursive gradient approach to obtain hessian}
     There are two modes of automatic differentiation (AD)~\cite{Hascoet2013}, the tangent mode~\cite{Revels2016} and the adjoint mode.
     Consider a multi-in multi-out function $\vy = f(\vx)$, the tangent mode computes a column of its Jacobian $\frac{\partial \vy}{\partial x_i}$ efficiently, where $x_i$ is one of the input variables.
 Whereas the adjoint mode computes a row of Jacobian $\frac{\partial y_i}{\partial \vec{x}}$ efficiently.
-
 Most popular automatic differentiation package implements the adjoint mode differentation, since the adjoint mode is computational more efficient in variational applications, where the output loss is always a scalar.
 However, implementing adjoint mode AD requires a program's intermediate state for back propagation, including
 \begin{enumerate}
@@ -197,63 +197,66 @@ However, implementing adjoint mode AD requires a program's intermediate state fo
     \item and input variables of nodes in computation graph.
 \end{enumerate}
     A computational graph is a directed acyclic graph (DAG) that records the relation between data (edges) and functions (nodes).
-In Pytorch~\cite{Paszke2017} and Flux~\cite{Innes2018}, every variable has a tracker field that stores its parent information, i.e. the input data and function that generate this variable. TensorFlow~\cite{Tensorflow2015} implements a static computational graph before actual computation happens.
-    Source to source automatic differentiation package Zygote~\cite{Innes2018, Innes2019} use a intermediate representation of a program as the computation grpah, which known as the static single assignment (SSA) form. It can back propagate over a native julia code. Its intermediate caching is handled by a global storage.
+In Pytorch~\cite{Paszke2017} and Flux~\cite{Innes2018}, every variable has a tracker field that stores its parent information, i.e. the input data and function that generate this variable. TensorFlow~\cite{Tensorflow2015} implements a static computational graph as a description of the program before actual computation happens.
+    Source to source automatic differentiation package Zygote~\cite{Innes2018, Innes2019} use a intermediate representation of a program the static single assignment (SSA) form as the computation graph in order to propagate a native julia code. Its intermediate stage is cached in a global storage.
 
-    Due to the computation graph recording and intermediate state caching, some problems are observed in most machine learning packages. First of all, these package requires a lot primitive functions with programmer defined backward rules. This is not nessesary. At the lowest level, these primitive functions are compiled to instructions, and these instructions are from a finite set of `+', `-', `*', `/', conditional jump statements et. al. Define backward rules for basic instructions and the automatic differentiation should just work. With instruction level computational graph, it should be possible to obtain gradients like \texttt{exp}, or even linear algebras functions like singular value decomposition (SVD) and eigenvalue decomposition (ED)~\cite{Seeger2017,Wan2019,Hubig2019} automatically. The recent development of backward rules of linear algebra functions greatly change the research code in physics~\cite{Xie2020,Liao2019}. However, these rules are generated manually.
-    Secondly, inplace functions are not handled properly in the language of computational graph, even in source to source AD engine Zygote, it is not trivil to implement. Most functions in BLAS and LAPACK are implemented as inplace functions, the lack of automatic differentiation support to inplace functions cause bad memory performance and make the memory wall problem in machine learning even more sevire.~\cite{memorywall}.
-    Thridly, obtaining higher order gradients are not efficient in these packages. In most machine learning package, people back propagate the whole program of obtaining lower order gradients to obtain higher order gradients. The repeated use of back propagation cause exponential overhead with respect to the order of gradients. A better approach to obtain higher order gradients is through Taylor propagation like in JAX~\cite{Bettencourt2019}. However Taylor propagation requires writing rules for all primitives. Besides the exponential overhead, the sorce to source AD engine Zygote suffers from the significant overhead of just in time compiling in Julia language~\cite{Bezanson2017}.
+    Several limitations are observed in these AD implementions due to the recording and caching. First of all, these package requires a lot primitive functions with programmer defined backward rules. This is not nessesary given the fact that, at the lowest level, these primitive functions are compiled to instructions, and these instructions are from a finite set including `+', `-', `*', `/' and conditional jump statements. By defining backward rules for these basic instructions and the automatic differentiation should just work. These machine learning packages can not use instructions as the computational graph for practical reasons. The cost of memorizing the computational graph and intermediate caching kills the performance for more than two orders in simple loops (as we will show latter).
+Even more, the memory consumption for caching intermediate results increases linearly as time. In many deep learning models like recurrent neural network and residual neural networks, the depth can reach several thousand, the memory wall~\cite{memorywall} can be big problem.
+    Secondly, inplace functions are not handled properly in the diagram of computation graph. Even in source to source AD engine Zygote, it is not trivil to handle inplace functions. Most functions in BLAS and LAPACK are implemented as inplace functions. The lack of automatic differentiation support to inplace functions make the memory wall problem even more sevire. It is also harmful to code reusing since all packages using BLAS functions should define their own backward rules for their non-inplace wrappers.
+    Thridly, obtaining higher order gradients are not efficient in these packages. For example, in most machine learning packages, people back propagate the whole program of obtaining first order gradient to obtain the second order gradients. The repeated use of back propagation cause exponential overhead with respect to the order of gradients. A better approach to obtain higher order gradients is through Taylor propagation like in JAX~\cite{Bettencourt2019}. However Taylor propagation requires writing rules for all primitives. Besides the exponential overhead, the sorce to source AD engine Zygote suffers from the significant overhead of just in time compiling in Julia language~\cite{Bezanson2017}.
 
 % where the manually derived backwards rule still faces the degenerate spectrum problem (gradients explodes), instruction level AD will return reasonable gradients. With instruction level AD, people don't worry about inplace functions, which may be a huge problem in traditional approaches. We can back propagate over a quantum simulator, where all instructions are reversible two level unitaries (i.e. Jacobian rotation).
 
 %We don't need extra effort to learn meta parameters.~\cite{} Neural ODE is much easier to design~\cite{Chen2018}.
 
-These machine learning packages can not use instructions as the computational graph for practical reasons. The cost of memorizing the computational graph and intermediate caching kills the performance for more than two orders in simple loops (as we will show latter).
-A even more serious problem is the memory consumption for caching intermediate results increases linearly as time. Even in many traditional deep network like recurrent neural network and residual neural networks, where the depth is only several thousand, the memory wall can be big problem.
-Making use of reversibility is a promising approach to save memory. People use information buffer~\cite{Maclaurin2015} and reversible activation functions to reduce the memory allocations in recurrent neural network~\cite{MacKay2018} and residual neural networks~\cite{Behrmann2018}. However, the use of reversiblity in these cases are not general purposed.
+Our solution to these issues is make a program time reversible. Making use of reversibility has been used in machine learning as a promising approach to save memory. People use information buffer~\cite{Maclaurin2015} and reversible activation functions to reduce the memory allocations in recurrent neural network~\cite{MacKay2018} and residual neural networks~\cite{Behrmann2018}. However, the use of reversiblity in these cases are not general purposed.
 
 Hence we develop a embeded domain specific language (eDSL) in Julia language that implements reversible Turing machine.~\cite{Perumalla2013,Frank2017}.
-The gradient of any program writting in this eDSL can be obtained in comparable time with the forward function. The implementation of AD is similar to \texttt{ForwardDiff}~\cite{Revels2016} but runs backward.
-There has been some prototypes of reversible languages like Janus~\cite{Lutz1986}, R (not the popular one) and object oriented ROOPL, reversible instruction sets like Pendulum ISA ~\cite{Vieri1999} and BobISA. These languages have reversible control flow that allows user input additional information, the postcondition in control flows to help programs run backward.
-    The main motivation to make a program reversible is to support reversible devices. Reversible devices do not have a lower bound of energy consumption as indicated by Landauer principle~\cite{Landauer1961}. However CMOS devices still has two orders~\cite{Frank2017} space to optimize regarding this lower bound.
+The gradient of any program writting in this eDSL can be obtained in comparable time to the forward function. The implementation of AD is similar to \texttt{ForwardDiff}~\cite{Revels2016} but runs backward.
+    There has been some prototypes of reversible languages like Janus~\cite{Lutz1986}, R (not the popular one), Erlang~\cite{Lanese2018} and object oriented ROOPL~\cite{}. These languages have reversible control flow that allows user input additional information, the postcondition in control flows to help programs run backward.
+    In the past, the main motivation to make a program reversible is to support reversible devices. Reversible devices do not have a lower bound of energy consumption as indicated by Landauer principle~\cite{Landauer1961}. However CMOS devices still has two orders~\cite{Frank2017} space to optimize regarding this lower bound.
     The main contribtion of our work is breaking the information barrier between machine learning community and reversible programming community, providing yet another strong motivating to develop a reversible programming.
-    Our eDSL borrows the design of reversible control flow in the Janus, meanwhile provides multiple dispatch based abstraction. With these additional features, differentiating over a general program requires less than 100 lines.
-Our AD engine generates native julia code, is compatible with current Julia language.
+    Our eDSL borrows the design of reversible control flow in the Janus, meanwhile provides multiple dispatch based abstraction. With these additional features, the AD engine differentiating a general program could be implemented in less than 100 lines.
+Our eDSL generates native julia code, and is completely compatible with Julia language.
 Potensial applications includes
 \begin{enumerate}
-    \item AD rule generation,
-    \item control problem in robotics~\cite{Giftthaler2017},
-    \item differentiating over reversible integrators~\cite{Laikov2018},
+    \item generate AD rules for primitive functions like \texttt{exp},
+    \item control problem in robotics~\cite{Giftthaler2017} where tensors are not welcomed,
+    \item differentiating over reversible integrators~\cite{Laikov2018} without intermediate state caching,
+    \item Stablize linear algebras functions backward rules. Current backward rules for singular value decomposition (SVD) and eigenvalue decomposition (ED)~\cite{Seeger2017,Wan2019,Hubig2019} are vulnarable to spectrum degeneracy. The development of backward rules for these linear algebra functions can greatly change the research code in physics~\cite{Xie2020,Liao2019}.
+
 \end{enumerate}
 
     In this paper, we first introduce the design of this eDSL in \Sec{sec:lang} and the back propagation of Jacobians and Hessians on this DSL in \Sec{sec:bp}.
+    Then we propose a different training strategy in \Sec{sec:train} by making use of reversibility, rather than gradients.
     In \Sec{sec:example}, we introduce several examples.
-    In \Sec{sec:discuss}, we discuss on several important issues, like how time space tradeoff works, reversible instructions and hardwares and finally an outlook to some open problems to be solved.
+    In \Sec{sec:discussion}, we discuss on several important issues, how time space tradeoff works, reversible instructions and hardwares and finally an outlook to some open problems to be solved.
 
-    \section{Reversible domain specific language}\label{sec:lang}
+    \section{Language design}\label{sec:lang}
 In a mordern programming language, functions are pushed to a global stack for scheduling. The memory layout of a function is consisted of input arguments, a function frame with informations like return address and saved memory segments, local variables and working stack. After each call, the function clears the input arguments, function frame, local variables and working stack and only stores the return value.
-In the invertible programming style, this kind of design pattern is nolonger the best practise, input variables can not be easily discarded after a function call, since discarding information may ruin reversibility. Hence, a reversible instruction/function call in NiLang is a mapping between a same set of symbols.
+In the invertible programming style, this kind of design pattern is nolonger the best practise, input variables can not be easily discarded after a function call, since discarding information may ruin reversibility. Hence, a reversible instruction/function call in NiLang changes inputs "inplace".
 
-NiLang is a reversible eDSL in Julia that simulates reversible Turing machine without actual hardware or even instruction level support. The grammar is shown in \App{app:grammar}. A function definition is composed of function head and statements, the interprecation of a reversible function to native Julia language consists three stages.
-The first stage preprocess human input to a reversible IR. It checks human input and removes redundancy in grammar. To be specific
+NiLang is a reversible eDSL in Julia that simulates reversible Turing machine. The grammar is shown in \App{app:grammar}.
+Its main feature is contained in a single macro \texttt{@i}. It interprets a reversible function, and compile this function, as well as its inverse to a finite set of ``instructions'' written in julia language. These instructions are closed under the inverse operation ``$\sim$'', hence all functions defined in NiLang are also closed under ``$\sim$'' operations.
+The interprecation of a reversible function consists three stages.
+The first stage preprocess human input to a reversible IR. It checks human input and removes redundancy in grammar. To be specific, It
 \begin{itemize}
     \item adds missing \texttt{@deanc} to make sure \texttt{@anc} and \texttt{@deanc} statements appear in pairs,
-    \item expand \texttt{@routine} macro,
-    \item expand the symbol \texttt{$~$} in postcondition field as precondition.
+    \item expands \texttt{@routine} macro,
+    \item and expands the symbol \texttt{$\sim$} in postcondition field as precondition.
 \end{itemize}
 
-    Here, the macro \texttt{@anc <a> = <expr>} binds \texttt{<a>} to an initial value specified by \texttt{<expr>}, while \texttt{@deanc <a> = <expr>} deallocates the variable \texttt{<a>}, before doing that, it checks the variable is restored to its initial value. This underlines the difference between irreversible assign statements and reversible ancilla statements. \texttt{@anc} and \texttt{@deanc} always appear in pairs inside a function call, a while statement or a for statement. \texttt{@deanc} can be added automatically if not given. Similar designs in Janus and R are \texttt{local/delocal} statement and \texttt{let} statement.
-
-    \texttt{@routine <name> Stmt} is a statements recorder, it records a statement to variable <name>. When \texttt{@routine <name>} or \texttt{~@routine <name>} is called, the statement or inverse statement is inserted to that position.
-    A condition expression contains two parts, the precondition and postcondition, if the precondition is not changed, we can use the precondition as postcondition by inserting \texttt{$\sim$} in the postcondition field.
+    Here, the macro \texttt{@anc <a> = <expr>} binds variable \texttt{<a>} to an initial value specified by \texttt{<expr>}, while \texttt{@deanc <a> = <expr>} deallocates the variable \texttt{<a>}. Before deallocating a variable, the program checks that the variable is restored to its initial value, otherwise an \texttt{InvertibilityError} will be thrown. \texttt{@anc} and \texttt{@deanc} must appear in pairs inside a function call, a while statement or a for statement, otherwise \texttt{@deanc} will be added automatically. Similar designs in Janus and R are \texttt{local/delocal} statement and \texttt{let} statement. The additional check underlines the difference between the irreversible assign statement and reversible ancilla statement.
+    \texttt{@routine <name> Stmt} is a statements recorder, it records a statement to symbol <name>. When \texttt{@routine <name>} or \texttt{$\sim$@routine <name>} is called, the statement or inverse statement is inserted to that position.
+    A condition expression that appear in the \texttt{if} statement is consist of two boolean expressions, the precondition and postcondition. If the precondition is unchanged after the execution of body statements, we can use the precondition as postcondition by inserting \texttt{$\sim$} in the postcondition field.
     
-The second stage transforms this reversible IR to its reversed version.
+The second stage generates the inverse function.
 \begin{table}[h!]\centering
 \begin{minipage}{\columnwidth}
 \ra{1.3}
     \scalebox{1.0}{
         \begin{tabularx}{\textwidth}{X X}\toprule
-            \textbf{statement} & \textbf{reverse}\\
+            \textbf{statement} & \textbf{inverse}\\
             \hline
             \texttt{<f>(<args>)} & \texttt{($\sim$<f>)(<args>)}\\
             \hline
@@ -329,80 +332,6 @@ The second and third arguments can be assigned back directly.
 A dataview of a data can be data itself, a field of its view, an array element of its view, or a bijective mapping of its view.
 If the default constructor of a type is not overwritten by user, NiLang can modify a field of that type automatically.
 For a bijective mapping of a field, user need to specify the behavior of a dataview by overloading \texttt{chfield} function.
-
-\section{Training by consistency}\label{sec:train}
-We compute the output as
-\begin{equation}
-    y = f(x),
-\end{equation}
-and we have an expected output $\hat{y}$. In traditional machine learning, we define a loss and minimize it. However, this is not how human brain works.~\cite{Hintoncomment}
-Since the $\hat{y}$ is different with $y$, the network start to "think", if the output is $\hat{y}$, what should the input (including network parameters) be?
-So, we feed $\hat{y}$ back to the output end of network, and inverse the tape, with the runtime information generated by the input image. The network will compute a different value to network parameters, then the network feel "confused", and chose a value between old and new values.
-
-Let's look at the following example
-\begin{minipage}{.44\textwidth}
-\begin{lstlisting}[basicstyle=\small\ttfamily,columns=fullflexible]
-@i function f1(out!, x, y)
-    y += identity(x)
-    out! -= exp(x)
-    out! += exp(y)
-end
-
-@i function f2(out!, x, y)
-    y += identity(x)
-    out! -= exp(x)
-    x -= log(-out!)
-    out! += exp(y)
-end
-
-function train(f)
-    loss = Float64[]
-    y = 1.6
-    for i=1:100
-        out!, x = 0.0, 0.3
-        @instr f(out!, x, y)
-        push!(loss, out!)
-        out! = 1.0
-        @instr (~f)(out!, x, y)
-    end
-    loss
-end
-\end{lstlisting}
-\end{minipage}
-
-Loss function \texttt{f1} and \texttt{f2} computes $f(x, y) = e^{(y+x)} - e^x$ and stores the output in a new memory \texttt{out!}, the target is to find a $y$ that make the output $x$ equal to the target value $1$.
-After $200$ steps training, $y$ runs into the fixed point and $x$ is equal to $1$ upto machine precision.
-
-\begin{figure}
-    \centerline{\includegraphics[width=\columnwidth,trim={0 0 0 0},clip]{images/fig1.pdf}}
-    \caption{Target function value as a function of self-consistent training step.}\label{fig:invtrain}
-\end{figure}
-
-This training is similar the recursive convergence method that widely used in mathematics and physics.
-However, in programming language but it has a loophole, it is vulnarable to loss of injectivity.
-For example, if the result is accumulated to another variable $z += x$, and take $z$ as the loss, then the loss can not accumulated to the target value correctly since the inverse of above operation is $z -= x$ and $x$ is unchanged in the inverse run.
-This is because the redundancy introduced in operation $z = z+e^x$, which keeps both $x$ and $z$, the change of $z$ shifting $z$ directly is apparently a lazier approach to fit $z$ with target value $1$, to figure out the correct causality, corresponding change in output side to $x$ and $y$ are required. This redundancy can be detected by computing the entanglement entropy (or mutual information) between two output datas. We call this type of invertibility inference, which should be avoided in this type of training. Then how shall we calculate $f(x) = e^x$ like functions, which are not partly invertible from the numeric perspective? Here we introduce the notion of "weak invertibility"
-\begin{align}
-    &@assert y == 0\\
-    &\fl(y) += exp(\fl(x))\\
-    &\fl(x) -= log(y)
-\end{align}
-We can keep $x$ to ensure numerical invertibility, meanwhile erase most informations inside it. Since $x$ is effectively $0$, thus no redundancy (or entanglement entropy) in output, in this way, the above training is still valid.
-
-\subsection{Compactness of data}
-Measure of compactness by entanglement entropy.
-In invertible programming, we define the entanglement between output space garbage space as the compactness of information.
-
-If the output information is compact, then we have
-$(x, x_a)\rightarrow (y, y_a)$
-
-mutual information is
-\begin{align}
-    I(x, y) = S(x, y) - S(x) - S(y)\\
-    S(x, x_a) = S(y, y_a)\\
-    I(x, x_a) = 0\\
-    I(y, y_a) = S(y, y_a) - S(y_a)
-\end{align}
 
 \subsection{Traditional Invertible Computing Devices}
 It is possible to design and fabricate a fully reversible processor using resources which are comparable to a conventional microprocessor. Existing CAD tools and silicon technology are sufficient for reversible computer design.
@@ -534,6 +463,81 @@ julia> x
 \end{minipage}
 
 Broadcasting is supported. To avoid possible confusing, tuple indexing is forbidden delebrately, one can use \texttt{tget(tuple, 2)} to get the second element of a tuple.
+
+\section{Training by consistency}\label{sec:train}
+We compute the output as
+\begin{equation}
+    y = f(x),
+\end{equation}
+and we have an expected output $\hat{y}$. In traditional machine learning, we define a loss and minimize it. However, this is not how human brain works.~\cite{Hintoncomment}
+Since the $\hat{y}$ is different with $y$, the network start to "think", if the output is $\hat{y}$, what should the input (including network parameters) be?
+So, we feed $\hat{y}$ back to the output end of network, and inverse the tape, with the runtime information generated by the input image. The network will compute a different value to network parameters, then the network feel "confused", and chose a value between old and new values.
+
+Let's look at the following example
+\begin{minipage}{.44\textwidth}
+\begin{lstlisting}[basicstyle=\small\ttfamily,columns=fullflexible]
+@i function f1(out!, x, y)
+    y += identity(x)
+    out! -= exp(x)
+    out! += exp(y)
+end
+
+@i function f2(out!, x, y)
+    y += identity(x)
+    out! -= exp(x)
+    x -= log(-out!)
+    out! += exp(y)
+end
+
+function train(f)
+    loss = Float64[]
+    y = 1.6
+    for i=1:100
+        out!, x = 0.0, 0.3
+        @instr f(out!, x, y)
+        push!(loss, out!)
+        out! = 1.0
+        @instr (~f)(out!, x, y)
+    end
+    loss
+end
+\end{lstlisting}
+\end{minipage}
+
+Loss function \texttt{f1} and \texttt{f2} computes $f(x, y) = e^{(y+x)} - e^x$ and stores the output in a new memory \texttt{out!}, the target is to find a $y$ that make the output $x$ equal to the target value $1$.
+After $200$ steps training, $y$ runs into the fixed point and $x$ is equal to $1$ upto machine precision.
+
+\begin{figure}
+    \centerline{\includegraphics[width=\columnwidth,trim={0 0 0 0},clip]{images/fig1.pdf}}
+    \caption{Target function value as a function of self-consistent training step.}\label{fig:invtrain}
+\end{figure}
+
+This training is similar the recursive convergence method that widely used in mathematics and physics.
+However, in programming language but it has a loophole, it is vulnarable to loss of injectivity.
+For example, if the result is accumulated to another variable $z += x$, and take $z$ as the loss, then the loss can not accumulated to the target value correctly since the inverse of above operation is $z -= x$ and $x$ is unchanged in the inverse run.
+This is because the redundancy introduced in operation $z = z+e^x$, which keeps both $x$ and $z$, the change of $z$ shifting $z$ directly is apparently a lazier approach to fit $z$ with target value $1$, to figure out the correct causality, corresponding change in output side to $x$ and $y$ are required. This redundancy can be detected by computing the entanglement entropy (or mutual information) between two output datas. We call this type of invertibility inference, which should be avoided in this type of training. Then how shall we calculate $f(x) = e^x$ like functions, which are not partly invertible from the numeric perspective? Here we introduce the notion of "weak invertibility"
+\begin{align}
+    &@assert y == 0\\
+    &\fl(y) += exp(\fl(x))\\
+    &\fl(x) -= log(y)
+\end{align}
+We can keep $x$ to ensure numerical invertibility, meanwhile erase most informations inside it. Since $x$ is effectively $0$, thus no redundancy (or entanglement entropy) in output, in this way, the above training is still valid.
+
+\subsection{Compactness of data}
+Measure of compactness by entanglement entropy.
+In invertible programming, we define the entanglement between output space garbage space as the compactness of information.
+
+If the output information is compact, then we have
+$(x, x_a)\rightarrow (y, y_a)$
+
+mutual information is
+\begin{align}
+    I(x, y) = S(x, y) - S(x) - S(y)\\
+    S(x, x_a) = S(y, y_a)\\
+    I(x, x_a) = 0\\
+    I(y, y_a) = S(y, y_a) - S(y_a)
+\end{align}
+
 
 \section{Examples}\label{sec:example}
 
