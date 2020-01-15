@@ -95,6 +95,7 @@
 \newcommand{\minuseq}{\mathrel{-}=}
 \newcommand{\vx}{{\vec x}}
 \newcommand{\vg}{{\vec g}}
+\newcommand{\vp}{{\vec p}}
 \newcommand{\vy}{{\vec y}}
 \newcommand{\vvalue}{{\texttt{value}}}
 \newcommand{\grad}{{\texttt{grad}}}
@@ -480,13 +481,17 @@ julia> x
 Broadcasting is supported. To avoid possible confusing, tuple indexing is forbidden delebrately, one can use \texttt{tget(tuple, 2)} to get the second element of a tuple.
 
 \section{Learn by consistency}\label{sec:train}
-Consider a function $\vy = f(\vx)$, and an expected output $\vy^*$.
-The goal is to find an input that $\vy^* = f(\vx^*)$. In traditional machine learning, we define a loss $\mathcal{L} = {\rm dist}(\vy^*, f(\vx^*))$ and minimize it.
+Consider training data consist of input $\vx^*$ and output $\vy^*$.
+The goal is to find a set of parameters $\vp_x$ that satisfy $\vy^* = f(\vx^*, \vp_x)$.
+In traditional machine learning, we define a loss $\mathcal{L} = {\rm dist}(\vy^*, f(\vx^*, \vp_x))$ and minimize it with gradient $\frac{\partial L}{\partial \vp_x}$. This is viable only when the target function is locally differentiable.
 
-Instead, we make use of the consistency relation directly by constructing a reversible program $\vy, \vg_y =  f_r(\vx, \vg_x)$, where $\vg_x$ and $\vg_y$ are ``garbage'' spaces that including parameters.
+Here we provide an alternative by making use of reversibility.
+We construct a reversible program $\vy, \vp_y =  f_r(\vx, \vp_x)$, where $\vp_x$ and $\vp_y$ are ``garbage'' spaces which include parameters.
+The algorithm can be summarized as
+
 \begin{algorithm}[H]
     \KwResult{$\vg_x$}
-    Initialize $\vx$ and garbage space $\vg_x$.\\
+    Initialize $\vx$ to $\vx^*$, garbage space $\vg_x$ to random.\\
     \eIf{$\vg_y$ is \texttt{null}}{
         $\vx, \vg_x = f_r^{-1}(\vy^*)$\\
     }{
@@ -501,14 +506,15 @@ Instead, we make use of the consistency relation directly by constructing a reve
     \caption{Learn by consistency}
 \end{algorithm}
 
-Similar idea of training by consistency is used in self-consistent meanfield theory~\cite{} in physics.
-The difficult part of self-consistent training is to find a consistency relation.
-In reversible computing, one has a trivil self-consistency relation 
-\begin{equation}
+Here, $\garbage(\cdot)$ is a function for taking the garbage space.
+This algorithm utilizes the self-consistency relation
+\begin{equation}\label{eq:selfconsistent}
     \vg_x^* = \garbage(f_r^{-1}(\vy^*, \garbage(f_r(\vx^*, \vg^*_x)))),
 \end{equation}
-where $\garbage(\cdot)$ is a function for taking the garbage field.
-Learn by consistency is not a silver bullet, it should be used with causion.
+
+Similar idea of training by consistency is used in self-consistent meanfield theory~\cite{} in physics.
+The difficult part of self-consistent training is to find a self-consistency relation, here the reversibility provides a natural self-consistency relation.
+Learn by consistency can be used to handle descrete optimization. However, it is not a silver bullet, and should be used with causion.
 Let's consider the following example
 
 \begin{minipage}{.44\textwidth}
@@ -541,12 +547,12 @@ end
 \end{lstlisting}
 \end{minipage}
 
-Loss function \texttt{f1} and \texttt{f2} computes $f(x, y) = e^{(y+x)} - e^x$ and stores the output in a new memory \texttt{out!}.
+Functions \texttt{f1} and \texttt{f2} computes $f(x, y) = e^{(y+x)} - e^x$ and stores the output in a new memory \texttt{out!}.
 The only difference is $f_2$ ``uncompute'' $x$ arithmetically.
-The task of training is to find a $y$ that make the output $x$ equal to the target value $1$.
+The task of training is to find a $y$ that make the output value equal to target value $1$.
 After $200$ steps, $f_2$ runs into the fixed point with $x$ equal to $1$ upto machine precision.
 However, $f_1$ does not do any training.
-The training fails because this function actually computes $f_1(out!, x, y!) = out! + x + e^{(y!+x)} - e^x, x, x+y!$, where the training parameter $x$ is completely determined by the output garbage space $x, x+y!$. Hence decreasing the initial value of $out!$ directly is a shorcut for training. While $f_2(out!, x, y!) = out! + x + e^{(y!+x)} - e^x, \left(x-log(exp(x))\right), x+y!$, parameters $x$ is not completely determined by the garbage space $\left(x-log(exp(x))\right), x+y!$.
+The training of $f_2$ fails because this function actually computes $f_1(out!, x, y!) = out! + e^{(y!+x)} - e^x, x, x+y!$, where the training parameter $y$ is completely determined by the garbage space on output side $x$ and $x+y!$. As a result, shifting $out!$ directly is the only approach to satisfy the consistency relation. On the other side, $f_2(out!, x, y!) = out! + e^{(y!+x)} - e^x, \left(x-\log(e^x)\right), x+y!$, parameters $y$ is not completely determined by the garbage space $\left(x-;\log(e^x)\right), x+y!$.
 
 \begin{figure}
     \centerline{\includegraphics[width=\columnwidth,trim={0 0 0 0},clip]{images/fig1.pdf}}
@@ -554,15 +560,23 @@ The training fails because this function actually computes $f_1(out!, x, y!) = o
 \end{figure}
 
 Then it comes to when does training by consistency work?
-It can be told by the mutual information between the input variable and output garbage space.
-The mutual information is defined as
+The answer is
+\begin{theorem}
+    If and only if the mutal-information between output $\vy$ and its garbage space $\vp_y$ is not maximial (i.e. completely entangled),
+    \Eq{eq:selfconsistent} can have a solution.
+\end{theorem}
+
+The condition \Eq{eq:selfconsistent} has a solution is the mutual information between the input garbage space and output garbage space is not maximum
 \begin{align}
-    \begin{split}
-        I(x, y) &= S(x, y) - S(x) - S(y)\\
-        S(x, x_a) &= S(y, y_a)\\
-        I(x, x_a) &= 0\\
-        I(y, y_a) &= S(y, y_a) - S(y_a)
-    \end{split}
+    I(\vp_x, \vp_y) &= S(\vp_x, \vp_y) - S(\vp_x) - S(\vp_y).
+\end{align}
+By applying the bijectivity, we have
+\begin{align}
+    S(\vx \cup \vp_x) &= S(\vy \cup \vp_y).
+\end{align}
+Then the parameter space and input training data are indepedant
+\begin{align}
+    I(\vx, \vp_x) = S(\vy \cup \vp_y) - S(\vp_y) = 0
 \end{align}
 
 
@@ -689,8 +703,14 @@ julia> simple_hessian(iexp, (Loss(out!), x))
 
 \texttt{iexp\textquotesingle} returns an object of type \texttt{Grad\{typeof(exp)\}}, it returns input variables with updated gradient field.
 The loss variable is specified by a wrapper \texttt{Loss}, notice we don't distinguish input and output in reversible programming.
-The gradient functions are implemented reversibally so that the gradients can be differentiated again to obtain Hessians.
-In NiLang, one can use function \texttt{simple\_hessian} to obtain the Hessian matrix in this way.
+The gradient functions are implemented reversibally so that the gradients can be differentiated again to obtain Hessians as shown in \Fig{fig:simplehessian}.
+
+\begin{figure}[h]
+    \centerline{\includegraphics[width=0.9\columnwidth,trim={0 0cm 11cm 0cm},clip]{images/simplehessian.pdf}}
+    \caption{Obtaining the second order gradient, the naive approach, colors blue, green, orange and red indicate the four stages.}\label{fig:simplehessian}
+\end{figure}
+
+Their are four stages in computing Hessian in the naive approach, the first two stages are obtaining gradients, the thrid stage is wrapping each field in \texttt{GVar} with \texttt{GVar} and compute forward function. Then we pick a variable $y$ to compute a row of Hessian by adding $1$ to \texttt{grad($y$)}. At the final stage, the \texttt{$\sim$GVar} operation does not unwrap \texttt{GVar} directly because the gradient field of gradients may be non-zeros. Instead, we use \texttt{Partial\{:FIELD\}($\cdot$)} to savely invert \texttt{GVar} on data type \texttt{GVar\{<:GVar, <:GVar\}}. It take a field without discarding information. In NiLang, \texttt{simple\_hessian} obtains the Hessian matrix in this way by iterating over different $y$s.
 
 The back propagation approach can be more efficient in obtaining higher order gradients.
 
