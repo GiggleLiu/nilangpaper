@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 import fire
 from plotlib import *
+from viznet import *
+import numpy as np
 
 class PLT(object):
     def fig1(self, tp='pdf'):
@@ -17,5 +19,15 @@ class PLT(object):
             plt.xlabel("training step")
             plt.ylabel("value")
             plt.tight_layout()
+
+    def fig2(self, tp='pdf'):
+        setting.node_setting['lw']=1.5
+        setting.node_setting['inner_lw']=1.5
+        edge = EdgeBrush('-', lw=2)
+        node = NodeBrush('box', rotate=np.pi/4,size='small', color='none')
+        with DynamicShow((5,3), 'fig2.%s'%tp) as ds:
+            a = pin >> (-1, 0)
+            b = node >> (0, 0)
+            edge >> (a, b)
 
 fire.Fire(PLT())

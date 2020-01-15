@@ -11,7 +11,8 @@
 \usepackage{upquote}
 %\usepackage{multicol}
 %\usepackage{caption}
-\usepackage[plain]{algorithm}
+%\usepackage[plain]{algorithm}
+\usepackage[ruled, vlined]{algorithm2e}
 \usepackage{algpseudocode}
 \usepackage{rotating}
 %\usepackage{cite}
@@ -93,7 +94,11 @@
 \newcommand{\pluseq}{\mathrel{+}=}
 \newcommand{\minuseq}{\mathrel{-}=}
 \newcommand{\vx}{{\vec x}}
+\newcommand{\vg}{{\vec g}}
 \newcommand{\vy}{{\vec y}}
+\newcommand{\vvalue}{{\texttt{value}}}
+\newcommand{\grad}{{\texttt{grad}}}
+\newcommand{\garbage}{{\texttt{garbage}}}
 %%%%%% Convention related
 \newcommand{\SWAP}{{\rm SWAP}}
 \newcommand{\CNOT}{{\rm CNOT}}
@@ -238,6 +243,12 @@ In the invertible programming style, this kind of design pattern is nolonger the
 
 NiLang is a reversible eDSL in Julia that simulates reversible Turing machine. The grammar is shown in \App{app:grammar}.
 Its main feature is contained in a single macro \texttt{@i}. It interprets a reversible function, and compile this function, as well as its inverse to a finite set of ``instructions'' written in julia language. These instructions are closed under the inverse operation ``$\sim$'', hence all functions defined in NiLang are also closed under ``$\sim$'' operations.
+
+\begin{figure}
+    \centerline{\includegraphics[width=0.7\columnwidth,trim={0 0cm 0 0cm},clip]{images/controlflow.pdf}}
+    \caption{Flow chart for reversible (a) \texttt{if} statement and (b) while statement. ``stmts'', ``stmts1'' and ``stmts2'' are statements, statements in true branch and statements in false branch respectively. ``pre'' and ``post'' are precondition and postconditions respectively. ``error'' refers to \texttt{InvertibilityError}.}\label{fig:controlflow}
+\end{figure}
+
 The interprecation of a reversible function consists three stages.
 The first stage preprocess human input to a reversible IR. It checks human input and removes redundancy in grammar. To be specific, It
 \begin{itemize}
@@ -248,7 +259,7 @@ The first stage preprocess human input to a reversible IR. It checks human input
 
     Here, the macro \texttt{@anc <a> = <expr>} binds variable \texttt{<a>} to an initial value specified by \texttt{<expr>}, while \texttt{@deanc <a> = <expr>} deallocates the variable \texttt{<a>}. Before deallocating a variable, the program checks that the variable is restored to its initial value, otherwise an \texttt{InvertibilityError} will be thrown. \texttt{@anc} and \texttt{@deanc} must appear in pairs inside a function call, a while statement or a for statement, otherwise \texttt{@deanc} will be added automatically. Similar designs in Janus and R are \texttt{local/delocal} statement and \texttt{let} statement. The additional check underlines the difference between the irreversible assign statement and reversible ancilla statement.
     \texttt{@routine <name> Stmt} is a statements recorder, it records a statement to symbol <name>. When \texttt{@routine <name>} or \texttt{$\sim$@routine <name>} is called, the statement or inverse statement is inserted to that position.
-    A condition expression that appear in the \texttt{if} statement is consist of two boolean expressions, the precondition and postcondition. If the precondition is unchanged after the execution of body statements, we can use the precondition as postcondition by inserting \texttt{$\sim$} in the postcondition field.
+    A condition expression that appear in the \texttt{if} statement is consist of two boolean expressions, the precondition and postcondition as shown in \Fig{fig:controlflow} (a). If the precondition is unchanged after the execution of body statements, we can omit the postcondition by inserting \texttt{$\sim$} in the postcondition field. This shorthand is expanded in this stage.
     
 The second stage generates the inverse function.
 \begin{table}[h!]\centering
@@ -270,13 +281,13 @@ The second stage generates the inverse function.
             \hline
             \texttt{@anc <a> = <expr>} & \texttt{@deanc <a> = <expr>}\\
             \hline
-            \texttt{begin\newline $_\quad$<Stmts>\newline end} & \texttt{begin\newline $_\quad$ $\sim$(<Stmts>)\newline end}\\
+            \texttt{begin\newline $_\quad$<stmts>\newline end} & \texttt{begin\newline $_\quad$ $\sim$(<stmts>)\newline end}\\
             \hline
-            \texttt{if (<pre>, <post>)\linebreak $_\quad$<Stmts>\newline else\newline $_\quad$<Stmts>\newline end} & \texttt{if (<post>, <pre>)\newline $_\quad$$\sim$(<Stmts>)\newline else\newline $_\quad$ $\sim$(<Stmts>)\newline end}\\
+            \texttt{if (<pre>, <post>)\linebreak $_\quad$<stmts1>\newline else\newline $_\quad$<stmts2>\newline end} & \texttt{if (<post>, <pre>)\newline $_\quad$$\sim$(<stmts>)\newline else\newline $_\quad$ $\sim$(<stmts>)\newline end}\\
             \hline
-            \texttt{while (<pre>, <post>)\newline $_\quad$<Stmts> \newline end} & \texttt{while (<post>, <pre>)\newline $_\quad$ $\sim$(<Stmts>)\newline end}\\
+            \texttt{while (<pre>, <post>)\newline $_\quad$<stmts> \newline end} & \texttt{while (<post>, <pre>)\newline $_\quad$ $\sim$(<stmts>)\newline end}\\
             \hline
-            \texttt{for <i>=<m>:<s>:<n>\newline $_\quad$<Stmts>\newline end} & \texttt{for <i>=<m>:-<s>:<n>\newline $_\quad$ $\sim$(<Stmts>)\newline end}\\
+            \texttt{for <i>=<m>:<s>:<n>\newline $_\quad$<stmts>\newline end} & \texttt{for <i>=<m>:-<s>:<n>\newline $_\quad$ $\sim$(<stmts>)\newline end}\\
             \hline
             \texttt{@safe <expr>} & \texttt{@safe <expr>}\\
             \bottomrule
@@ -360,22 +371,25 @@ Here, $\inp$ is the inputs and $\out$ is the outputs.
 Einstein's notation is used so that duplicated indices are summed over.
 Tagent mode instruction level automatic differentiation can be implemented easily in a irreversible language with dual numbers,
 here we focus on the adjoint mode.
-The backward rule can be described in tensor network language as shown in \Fig{fig:ad}.
+The backward rule can be described in tensor network~\cite{} language as shown in \Fig{fig:ad}.
 \begin{figure}
-    \centerline{\includegraphics[width=\columnwidth,trim={0 1cm 0 1cm},clip]{images/ad.pdf}}
+    \centerline{\includegraphics[width=0.9\columnwidth,trim={0.5cm 1cm 0 1cm},clip]{images/ad.pdf}}
     \caption{Adjoint rules for Jacobians and Hessians in tensor network language.}\label{fig:ad}
 \end{figure}
 
 In reversible programming, we have the following implementation
-\begin{enumerate}
-    \item The program runs forward and computes outputs,
-    \item call constructor \texttt{GVar} that transfer a floating point number type to a \texttt{GVar} type.
-    \item Add $1$ to the gradient field of the loss variable,
-    \item The program uncomputes outputs and recover all inputs, gradients are the \texttt{grad} fields of input variables.
-\end{enumerate}
+\begin{algorithm}[H]
+    \KeResult{\grad.($\vx_g$)}
+    let \texttt{iloss} be the index of loss variable
+    $\vy = f(\vx)$\\
+    $\vy_g$ = \texttt{GVar}.($\vy$)\\
+    $\vx_g = f^{-1}(\vy_g)$\\
+    \grad($\vy_g$[\texttt{iloss}]) += 1.0
+    \caption{Reversible programming AD}
+\end{algorithm}
 
-Here, \texttt{GVar} is a ``reversible type''. \texttt{GVar(x)} wraps a variable into a GVar, which attaches a zero gradient field to a variable just like the dual number in tangent mode automatic differentiation. Its inverse $~GVar$ deallocate the gradient field safely and returns its value field. Here, "safely" means it will check the gradient field to make sure it is in $0$ state.
-When a \texttt{instruct} meets a \texttt{GVar}, besides computing its value field $value(\vx) \leftarrow f^{-1}(value(\vy))$, it also updates the gradient field $grad(\vx) = f^{-1}(value(\vx), grad(\vy))$. Since $f^{-1}$ is bijective, $J^\vy_\vx$ can be easily obtained by inspecting its inverse function $f$.
+Here, ``.'' is the broadcast operations in Julia. \texttt{GVar} is a ``reversible type''. \texttt{GVar(x)} attaches a zero gradient field to a variable, which is similar to the dual number in tangent mode automatic differentiation. The gradient can be accessed by \texttt{grad} function. Its inverse \texttt{$\sim$GVar} deallocates the gradient field safely and returns its value field. Here, "safely" means it will check the gradient field to make sure it is in $0$ state.
+When a \texttt{instruct} meets a \texttt{GVar}, besides computing its value field $\vvalue(\vx) = f^{-1}(\vvalue(\vy))$, it also updates the gradient field $\grad(\vx) = J^{\vx}_{\vy} \grad(\vy)$. Since $f^{-1}$ is bijective, $J^\vy_\vx$ can be easily obtained by inspecting its inverse function $f$.
 The final output is stored in the gradient field, when then gradient is not used anymore, the faithful reversible programming style to compute gradients would be uncomputing the whole process to obtain gradient, which increases the hyrachy by 1. Whenever the hyrachy increase by 1, the computational overhead doubles comparing with its irreversible counter part.
 
 \subsection{Second order gradient}
@@ -392,6 +406,7 @@ This approach can be easily extended to higher orders, or taylor propagation.
 However, this is not the widely adopted approach to compute higher order gradients.
 Althought backpropagating higher order gradients directly is exponentially faster than back propagating the computational graph for computing lower order gradients for computing higher order gradients, one has to extending the backward rules for each primitive rather than reusing existing ones.
 Here, we emphasis that with instruction level AD, rewritting backward rules for primitives turns out to be not so difficult.
+An example is provided in \Sec{sec:exp}.
 
 \subsection{Gradient on ancilla problem}
 Ancilla can also carry gradients during computation, sometimes these gradients can not be uncomputed even if their parents can be uncomputed regoriously. In these case, we simply ``drop'' the gradient field instead of raising an error. In this subsection, we prove doing this is safe, i.e. does not have effect on rest parts of program.
@@ -464,29 +479,51 @@ julia> x
 
 Broadcasting is supported. To avoid possible confusing, tuple indexing is forbidden delebrately, one can use \texttt{tget(tuple, 2)} to get the second element of a tuple.
 
-\section{Training by consistency}\label{sec:train}
-We compute the output as
-\begin{equation}
-    y = f(x),
-\end{equation}
-and we have an expected output $\hat{y}$. In traditional machine learning, we define a loss and minimize it. However, this is not how human brain works.~\cite{Hintoncomment}
-Since the $\hat{y}$ is different with $y$, the network start to "think", if the output is $\hat{y}$, what should the input (including network parameters) be?
-So, we feed $\hat{y}$ back to the output end of network, and inverse the tape, with the runtime information generated by the input image. The network will compute a different value to network parameters, then the network feel "confused", and chose a value between old and new values.
+\section{Learn by consistency}\label{sec:train}
+Consider a function $\vy = f(\vx)$, and an expected output $\vy^*$.
+The goal is to find an input that $\vy^* = f(\vx^*)$. In traditional machine learning, we define a loss $\mathcal{L} = {\rm dist}(\vy^*, f(\vx^*))$ and minimize it.
 
-Let's look at the following example
+Instead, we make use of the consistency relation directly by constructing a reversible program $\vy, \vg_y =  f_r(\vx, \vg_x)$, where $\vg_x$ and $\vg_y$ are ``garbage'' spaces that including parameters.
+\begin{algorithm}[H]
+    \KwResult{$\vg_x$}
+    Initialize $\vx$ and garbage space $\vg_x$.\\
+    \eIf{$\vg_y$ is \texttt{null}}{
+        $\vx, \vg_x = f_r^{-1}(\vy^*)$\\
+    }{
+        $\vy, \vg_y= f_r(\vx, \vg_x)$\\
+        \While{$\vy \not\approx \vy^*$}{
+            $\vy = \vy^*$\\
+            $\vx, \vg_x = f_r^{-1}(\vy, \vg_y)$.\\
+            $\vx = \vx^*$\\
+            $\vy, \vg_y= f_r(\vx, \vg_x)$
+        }
+    }
+    \caption{Learn by consistency}
+\end{algorithm}
+
+Similar idea of training by consistency is used in self-consistent meanfield theory~\cite{} in physics.
+The difficult part of self-consistent training is to find a consistency relation.
+In reversible computing, one has a trivil self-consistency relation 
+\begin{equation}
+    \vg_x^* = \garbage(f_r^{-1}(\vy^*, \garbage(f_r(\vx^*, \vg^*_x)))),
+\end{equation}
+where $\garbage(\cdot)$ is a function for taking the garbage field.
+Learn by consistency is not a silver bullet, it should be used with causion.
+Let's consider the following example
+
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}[basicstyle=\small\ttfamily,columns=fullflexible]
-@i function f1(out!, x, y)
-    y += identity(x)
+@i function f1(out!, x, y!)
+    y! += identity(x)
     out! -= exp(x)
-    out! += exp(y)
+    out! += exp(y!)
 end
 
-@i function f2(out!, x, y)
-    y += identity(x)
-    out! -= exp(x)
-    x -= log(-out!)
-    out! += exp(y)
+@i function f2(out!, x!, y!)
+    y! += identity(x!)
+    out! -= exp(x!)
+    x! -= log(-out!)
+    out! += exp(y!)
 end
 
 function train(f)
@@ -504,38 +541,28 @@ end
 \end{lstlisting}
 \end{minipage}
 
-Loss function \texttt{f1} and \texttt{f2} computes $f(x, y) = e^{(y+x)} - e^x$ and stores the output in a new memory \texttt{out!}, the target is to find a $y$ that make the output $x$ equal to the target value $1$.
-After $200$ steps training, $y$ runs into the fixed point and $x$ is equal to $1$ upto machine precision.
+Loss function \texttt{f1} and \texttt{f2} computes $f(x, y) = e^{(y+x)} - e^x$ and stores the output in a new memory \texttt{out!}.
+The only difference is $f_2$ ``uncompute'' $x$ arithmetically.
+The task of training is to find a $y$ that make the output $x$ equal to the target value $1$.
+After $200$ steps, $f_2$ runs into the fixed point with $x$ equal to $1$ upto machine precision.
+However, $f_1$ does not do any training.
+The training fails because this function actually computes $f_1(out!, x, y!) = out! + x + e^{(y!+x)} - e^x, x, x+y!$, where the training parameter $x$ is completely determined by the output garbage space $x, x+y!$. Hence decreasing the initial value of $out!$ directly is a shorcut for training. While $f_2(out!, x, y!) = out! + x + e^{(y!+x)} - e^x, \left(x-log(exp(x))\right), x+y!$, parameters $x$ is not completely determined by the garbage space $\left(x-log(exp(x))\right), x+y!$.
 
 \begin{figure}
     \centerline{\includegraphics[width=\columnwidth,trim={0 0 0 0},clip]{images/fig1.pdf}}
-    \caption{Target function value as a function of self-consistent training step.}\label{fig:invtrain}
+    \caption{The value of $x$ as a function of self-consistent training step.}\label{fig:invtrain}
 \end{figure}
 
-This training is similar the recursive convergence method that widely used in mathematics and physics.
-However, in programming language but it has a loophole, it is vulnarable to loss of injectivity.
-For example, if the result is accumulated to another variable $z += x$, and take $z$ as the loss, then the loss can not accumulated to the target value correctly since the inverse of above operation is $z -= x$ and $x$ is unchanged in the inverse run.
-This is because the redundancy introduced in operation $z = z+e^x$, which keeps both $x$ and $z$, the change of $z$ shifting $z$ directly is apparently a lazier approach to fit $z$ with target value $1$, to figure out the correct causality, corresponding change in output side to $x$ and $y$ are required. This redundancy can be detected by computing the entanglement entropy (or mutual information) between two output datas. We call this type of invertibility inference, which should be avoided in this type of training. Then how shall we calculate $f(x) = e^x$ like functions, which are not partly invertible from the numeric perspective? Here we introduce the notion of "weak invertibility"
+Then it comes to when does training by consistency work?
+It can be told by the mutual information between the input variable and output garbage space.
+The mutual information is defined as
 \begin{align}
-    &@assert y == 0\\
-    &\fl(y) += exp(\fl(x))\\
-    &\fl(x) -= log(y)
-\end{align}
-We can keep $x$ to ensure numerical invertibility, meanwhile erase most informations inside it. Since $x$ is effectively $0$, thus no redundancy (or entanglement entropy) in output, in this way, the above training is still valid.
-
-\subsection{Compactness of data}
-Measure of compactness by entanglement entropy.
-In invertible programming, we define the entanglement between output space garbage space as the compactness of information.
-
-If the output information is compact, then we have
-$(x, x_a)\rightarrow (y, y_a)$
-
-mutual information is
-\begin{align}
-    I(x, y) = S(x, y) - S(x) - S(y)\\
-    S(x, x_a) = S(y, y_a)\\
-    I(x, x_a) = 0\\
-    I(y, y_a) = S(y, y_a) - S(y_a)
+    \begin{split}
+        I(x, y) &= S(x, y) - S(x) - S(y)\\
+        S(x, x_a) &= S(y, y_a)\\
+        I(x, x_a) &= 0\\
+        I(y, y_a) &= S(y, y_a) - S(y_a)
+    \end{split}
 \end{align}
 
 
@@ -584,7 +611,7 @@ The reversible \texttt{while} statement contains two statements, the preconditio
 Before entering the while statement, the program check the postcondition to make sure it is false.
 After each iteration, postcondition returns true. The inverse function exchanges the precondition and postcondition so that the repeatition of loop body is not changed.
 
-\subsection{exp function}
+\subsection{exp function}\label{sec:exp}
 An $\exp$ function can be computed using Taylor expansion
 \begin{equation}
     {\rm out!} += \sum\limits_n \frac{x^n}{n!}
@@ -615,7 +642,7 @@ using NiLang, NiLang.AD
             anc2 += anc1 * x
             anc3 += anc2 / iplus
             expout += identity(anc3)
-            # speudo inverse
+            # arithmetic uncompute
             anc1 -= anc2 / x
             anc2 -= anc3 * iplus
             SWAP(anc1, anc3)
@@ -630,7 +657,7 @@ end
 \end{minipage}
 
 The definition of SWAP instruction can be found in \App{app:instr}.
-The two lines bellow the comment \texttt{\# pseudo inverse} "uncompute" variables \texttt{anc1} and \texttt{anc2} to avalue very close to zero.
+The two lines bellow the comment ``\texttt{\# arithmetic uncompute}'' "uncomputes" variables \texttt{anc1} and \texttt{anc2}, this uncomputation is only true arithmeticly, but not for floating point number due to the rouding error.
 Although the final output is not exact due to the rounding error, the reversibility is not harmed.
 Rouding error in output is not as toxical as that in ancilla, in the latter case, error accumulates in the whole program.
 In the second for loop inside the inverse notation \texttt{\~}, we uncompute all ancilla bits rigorously.
@@ -653,18 +680,19 @@ julia> grad(x)
 julia> out!, x = 0.0, 1.6
 (0.0, 1.6)
 
-julia> @instr iexp''(Loss(out!), x)
-
-julia> collect_hessian()
+julia> simple_hessian(iexp, (Loss(out!), x))
 2×2 Array{Float64,2}:
  0.0  0.0
  0.0  4.95303
 \end{lstlisting}
 \end{minipage}
 
-\texttt{iexp\textquotesingle} returns an object of type \texttt{Grad\{typeof(exp)\}}, it is a reversible function.
-Due to the non-locality of Hessians, we use a global tape for Hessian propagation. Whenever a new variable is created, the tape allocates a larger ring.
-It is global to ease the memory allocations of ancillas, the Hessian in ancilla is important to reach correct result.
+\texttt{iexp\textquotesingle} returns an object of type \texttt{Grad\{typeof(exp)\}}, it returns input variables with updated gradient field.
+The loss variable is specified by a wrapper \texttt{Loss}, notice we don't distinguish input and output in reversible programming.
+The gradient functions are implemented reversibally so that the gradients can be differentiated again to obtain Hessians.
+In NiLang, one can use function \texttt{simple\_hessian} to obtain the Hessian matrix in this way.
+
+The back propagation approach can be more efficient in obtaining higher order gradients.
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
@@ -679,8 +707,8 @@ julia> collect_hessian()
  0.0  4.95303
 \end{lstlisting}
 \end{minipage}
-
-The final result can be obtained by calling a global function \texttt{collect\_hessian}.
+\texttt{iexp\textquotesingle\textquotesingle} computes the second order derivative by wrapping the variable into type \texttt{BeijingRing}. This is a special data structure to store Hessians. Whenever an $n$-th variable is created, we push a ring of size $2n-1$ in to a global tape. Whenever an ancilla is deallocated, we pop a ring from the top. The $n$-th ring stores $H_{i\leq n,n}$ and $H_{n,i<n}$. We didn't use the symmetry relation $H_{i,j} = H_{j,i}$ here to simplify the implementation of backward rules described in the right most panel of \Fig{fig:ad}.
+The final result can be collected by calling a global function \texttt{collect\_hessian}.
 
 \subsection{QR decomposition}
 
@@ -846,8 +874,13 @@ end
 \end{minipage}
 
 \section{Discussion and outlook}\label{sec:discussion}
+In this paper, we introduce differential programing on a reversible Turing machine implemented as a Julia eDSL.
+It is able to differentiate over any program consisting of instructions and control flows to any order reliablely without sophisticated design of computational graph and intermediate state caching.
+Besides automatic differentiation, we introduce a new training strategy learn by consistency that does not rely on gradients.
 
-This could be used to reduce the momory cost in normalizing flow, time reversible integrator, recurrent neural network and residual neural network.
+In the following, we discussed the paractical side of writting reversible programs, and several future directions to go.
+Notablely, we introduce the concept of ``arithematic uncomputing'' to reduce the overhead of recursive reversible algorithms.
+
 \subsection{Time Space Tradeoff}\label{sec:timespace}
 So far, we have introduced the eDSL. There are many other designs of reversible language and instruction set.
 The reversible Turing machine may have either a space overhead propotional to computing time $T$ or a computational overhead that sometimes can be even exponential given limited space.
@@ -912,6 +945,7 @@ The quantum fourier transformation provides a shortcut to the adder bt introduci
 \subsection{Outlook}\label{sec:outlook}
 So far NiLang is not full ready for productivility. It can be improved from multiple perspectives, compiling support to merge the uncomputing can decrease granularity and hence reduce overhead. Additional instructions like stack operations and logical operations are under consideration. It is also interesting to see how it can be combined with a high performance quantum simulator like \texttt{Yao}. It is able to provide control flow to \texttt{Yao}'s QBIR. By porting a quantum simulator. it is interesting to see how quantum simulator can improve the instruction design. Notice a quantum fourier transformation (QFT) based quantum adder and multiplier is sometimes more efficient than a classical adder~\cite{Haener2018} \blue{Is this true?}.
 Reversible programming is known to have the advantage in parallel computing~\cite{Jefferson1985} and debugging~\cite{Boothe2000}, it is interesting to see how it combines with other parts of Julia packages like CUDAnative~\cite{Besard2018} and Debugger, it would be interesting to see our eDSL running on a GPU with little synchronization overhead~\blue{Is this even possible?} and using an interative debugging with bidirectional move.
+This could be used to reduce the momory cost in normalizing flow, time reversible integrator, recurrent neural network and residual neural network.
 
 \section{acknowledgments}
 Jin-Guo Liu thank Lei Wang for motivating the project with possible applications reversible integrator, normalizing flow and neural ODE.
