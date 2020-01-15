@@ -552,7 +552,7 @@ The only difference is $f_2$ ``uncompute'' $x$ arithmetically.
 The task of training is to find a $y$ that make the output value equal to target value $1$.
 After $200$ steps, $f_2$ runs into the fixed point with $x$ equal to $1$ upto machine precision.
 However, $f_1$ does not do any training.
-The training of $f_2$ fails because this function actually computes $f_1(out!, x, y!) = out! + e^{(y!+x)} - e^x, x, x+y!$, where the training parameter $y$ is completely determined by the garbage space on output side $x$ and $x+y!$. As a result, shifting $out!$ directly is the only approach to satisfy the consistency relation. On the other side, $f_2(out!, x, y!) = out! + e^{(y!+x)} - e^x, \left(x-\log(e^x)\right), x+y!$, parameters $y$ is not completely determined by the garbage space $\left(x-;\log(e^x)\right), x+y!$.
+The training of $f_2$ fails because this function actually computes $f_1(out!, x, y!) = out! + e^{(y!+x)} - e^x, x, x+y!$, where the training parameter $y$ is completely determined by the garbage space on output side $x$ and $x+y!$. As a result, shifting $out!$ directly is the only approach to satisfy the consistency relation. On the other side, $f_2(out!, x, y!) = out! + e^{(y!+x)} - e^x, \left(x-\log(e^x)\right), x+y!$, parameters $y$ is not completely determined by the garbage space $\left(x-\log(e^x)\right), x+y!$.
 
 \begin{figure}
     \centerline{\includegraphics[width=\columnwidth,trim={0 0 0 0},clip]{images/fig1.pdf}}
