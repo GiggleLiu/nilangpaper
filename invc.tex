@@ -184,7 +184,7 @@
 \affiliation{Department of Computer Science, University of Tsukuba}
 
 \begin{abstract}
-    This paper considers instruction level differential programming, i.e. knowing only the backward rule of basic instructions like +, -, * and /, differentiate a program with proper performance. We will review briefly why instruction level automatic differentiation is hard for current machine learning package even for a source to source automatic differentiation package. Then we propose a reversible Turing machine implementation to achieve instruction level automatic differentiation.
+    This paper considers the instruction level adjoint mode differential programming, i.e. knowing only the backward rules of basic instructions like +, -, * and /, obtain the gradient of parameters in an arbituary differentiable program with proper performance. In this paper, we review briefly why instruction level automatic differentiation is hard for current machine learning frameworks and propose an implementation of reversible Turing machine as a solution. We show how reversible programming can differentiate a general program to an arbituary order automatically by viewing basic instructions as the computational graph.
 \end{abstract}
 
 
@@ -503,7 +503,7 @@ The algorithm can be summarized as
             $\vy, \vg_y= f_r(\vx, \vg_x)$
         }
     }
-    \caption{Learn by consistency}
+    \caption{Learn by consistency}\label{algo:train}
 \end{algorithm}
 
 Here, $\garbage(\cdot)$ is a function for taking the garbage space.
@@ -555,30 +555,29 @@ However, $f_1$ does not do any training.
 The training of $f_2$ fails because this function actually computes $f_1(out!, x, y!) = out! + e^{(y!+x)} - e^x, x, x+y!$, where the training parameter $y$ is completely determined by the garbage space on output side $x$ and $x+y!$. As a result, shifting $out!$ directly is the only approach to satisfy the consistency relation. On the other side, $f_2(out!, x, y!) = out! + e^{(y!+x)} - e^x, \left(x-\log(e^x)\right), x+y!$, parameters $y$ is not completely determined by the garbage space $\left(x-\log(e^x)\right), x+y!$.
 
 \begin{figure}
-    \centerline{\includegraphics[width=\columnwidth,trim={0 0 0 0},clip]{images/fig1.pdf}}
+    \centerline{\includegraphics[width=0.9\columnwidth,trim={0 0.3cm 0 0},clip]{images/fig1.pdf}}
     \caption{The value of $x$ as a function of self-consistent training step.}\label{fig:invtrain}
 \end{figure}
 
-Then it comes to when does training by consistency work?
-The answer is
+By viewing $\vx$ and parameters in $\vp_x$ as variables, we can study the trainability from the information perspective.
 \begin{theorem}
-    If and only if the mutal-information between output $\vy$ and its garbage space $\vp_y$ is not maximial (i.e. completely entangled),
-    \Eq{eq:selfconsistent} can have a solution.
+    Only if the the conditional entropy $S(\vy|\vp_y)$ is nonzero, algorithm \ref{algo:train} is trainable.
 \end{theorem}
-
-The condition \Eq{eq:selfconsistent} has a solution is the mutual information between the input garbage space and output garbage space is not maximum
+\begin{proof}
+The above discussion reveals a fact that the training can not work when the output $\vp_y$ completely determines $\vp_x$, that is
 \begin{align}
-    I(\vp_x, \vp_y) &= S(\vp_x, \vp_y) - S(\vp_x) - S(\vp_y).
+    \begin{split}
+        S(\vp_x | \vp_y) &= S(\vp_x \cup \vp_y) - S(\vp_y)\\
+        &\leq S\left((\vp_x \cup \vx) \cup \vp_y \right) - S(\vp_y),\\
+        &\leq S\left((\vp_y \cup \vy) \cup \vp_y\right) - S(\vp_y),\\
+    &\leq S(\vy|\vp_y).
+    \end{split}
 \end{align}
-By applying the bijectivity, we have
-\begin{align}
-    S(\vx \cup \vp_x) &= S(\vy \cup \vp_y).
-\end{align}
-Then the parameter space and input training data are indepedant
-\begin{align}
-    I(\vx, \vp_x) = S(\vy \cup \vp_y) - S(\vp_y) = 0
-\end{align}
-
+The third line uses the bijectivity $S(\vx \cup \vp_x) = S(\vy \cup \vp_y)$.
+\end{proof}
+This inequality shows that when the garbage space on the output side satisfies $S(\vy | \vp_y) = 0$, i.e. contains all information to determine the output field, the input parameters are also completely determined by this garbage space.
+In the above examples, it corresponds to the case $S\left(e^{(x+y)-e^x} | x \cup x + y\right) = 0$ in $f_1$.
+One should remove the redundancy of information by uncomputing to make training by consistency work properly.
 
 \section{Examples}\label{sec:example}
 
@@ -677,8 +676,6 @@ Rouding error in output is not as toxical as that in ancilla, in the latter case
 In the second for loop inside the inverse notation \texttt{\~}, we uncompute all ancilla bits rigorously.
 The \texttt{while} statement takes two conditions, the precondition and postconditoin. Precondition \texttt{val(anc1) > atol} indicates when to break the forward pass and post condition \texttt{!isapprox(iplus, 0.0)} indicates when to break the backward pass.
 
-The appendix gives another example of QR decomposition.
-
 To obtain the gradient, one can wrap the loss with \texttt{Loss} type.
 
 \begin{minipage}{.44\textwidth}
@@ -707,7 +704,7 @@ The gradient functions are implemented reversibally so that the gradients can be
 
 \begin{figure}[h]
     \centerline{\includegraphics[width=0.9\columnwidth,trim={0 0cm 11cm 0cm},clip]{images/simplehessian.pdf}}
-    \caption{Obtaining the second order gradient, the naive approach, colors blue, green, orange and red indicate the four stages.}\label{fig:simplehessian}
+    \caption{Obtaining the second order gradient with the reversive differentiation approach. Colors blue, green, orange and red indicate the four stages, data types and fields used for computation are marked in the same color.}\label{fig:simplehessian}
 \end{figure}
 
 Their are four stages in computing Hessian in the naive approach, the first two stages are obtaining gradients, the thrid stage is wrapping each field in \texttt{GVar} with \texttt{GVar} and compute forward function. Then we pick a variable $y$ to compute a row of Hessian by adding $1$ to \texttt{grad($y$)}. At the final stage, the \texttt{$\sim$GVar} operation does not unwrap \texttt{GVar} directly because the gradient field of gradients may be non-zeros. Instead, we use \texttt{Partial\{:FIELD\}($\cdot$)} to savely invert \texttt{GVar} on data type \texttt{GVar\{<:GVar, <:GVar\}}. It take a field without discarding information. In NiLang, \texttt{simple\_hessian} obtains the Hessian matrix in this way by iterating over different $y$s.
@@ -836,8 +833,10 @@ Hence a real unitary matrix can be parametrized compactly by $k$ rotation angles
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
-@i function umm!(x, θ, Nin::Int, Nout::Int)
+@i function umm!(x, θ)
     @anc k = 0
+    @anc Nin = size(x, 2)
+    @anc Nout = size(x, 1)
     for j=1:Nout
         for i=Nin-1:-1:j
             k += identity(1)
@@ -950,7 +949,7 @@ In the following, we comment briefly on a special type of reversible device Quan
 
 \subsection{Quantum Computers}\label{sec:qc}
 One of the fundamental difficulty of building a quantum computer is, unlike a classical state, an unknown quantum state can not be copied.
-Quantum random access memory~\cite{} is very hard to design and implement, it is known to have many caveats~\cite{Scott}.
+Quantum random access memory~\cite{Giovannetti2008} is very hard to design and implement, it is known to have many caveats~\cite{Aaronson2015}.
 A quantum state in a environment will decoherence and can not be recovered, this underlines the simulation nature of quantum devices.
 %In the era of noisy intermediate sized quantum devices, more and more people are switching to classical-quantum hybrid devices, where a quantum device plays the role of a programmable simulator.
 Reversible computing does not enjoy the quantum advantage from entanglement, nor the quantum disadvantages from non-cloning and decoherence.
@@ -997,29 +996,32 @@ Terminologies
 \input{bnf.tex}
 \end{minipage}
 
-Dataview is a special bijective mapping of an object or a field (or item) of an object.
-The dataview can feedback to parent data with the 
-\texttt{chfield} method, so that the modified object can generate desired dataview.
+One can use \texttt{@i function $\<Stmts\>$ end} to define a function as well as its inverse. All $JuliaExpr$ is should be pure, otherwise the reversibility is not gurantted.
+
+Dataview is a bijective mapping of an object or a field (or item) of an object.
+When modifying the dataview of an object, it changes the object directly with the \texttt{chfield} method.
 
 \section{Instruction Table}\label{app:instr}
-Even though \texttt{$\oplus(identity)$}, \texttt{$\oplus(*)$}, \texttt{$\oplus(/)$} and their reverse together with control flows are sufficient to write an arbituary differentiable program.
+Even though \texttt{$\oplus({\rm identity})$}, \texttt{$\oplus(*)$}, \texttt{$\oplus(/)$} and their reverse together with control flows are sufficient to write an arbituary differentiable program.
 For convinience we provide more,
 \begin{table}[h!]\centering
 \begin{minipage}{\columnwidth}
 \ra{1.3}
     \scalebox{1.0}{
         \begin{tabularx}{\textwidth}{X X}\toprule
-            ${\rm SWAP}(a, b) \rightarrow b, a$\\
-            ${\rm ROT}(a, b, \theta) \rightarrow a \cos\theta - b\sin\theta, b \cos\theta + a\sin\theta, \theta$\\
-            ${\rm IROT}(a, b, \theta) \rightarrow a \cos\theta + b\sin\theta, b \cos\theta - a\sin\theta, \theta$\\
-            $y \pluseq a^\wedge b \rightarrow y+a^b, a, b$\\
-            $y \pluseq \exp(x) \rightarrow y+e^x, x$\\
-            $y \pluseq \log(x) \rightarrow y+\log x, x$\\
-            $y \pluseq \sin(x) \rightarrow y+\sin x, x$\\
-            $y \pluseq \cos(x) \rightarrow y+\cos x, x$\\
-            $y \pluseq {\rm abs}(x) \rightarrow y+ |x|, x$\\
-            ${\rm NEG}(y) \rightarrow -y$\\
-            ${\rm CONJ}(y) \rightarrow y'$\\
+            \textbf{instruction} & \textbf{output}\\
+            \hline
+            ${\rm SWAP}(a, b)$ & $b, a$\\
+            ${\rm ROT}(a, b, \theta)$ & $a \cos\theta - b\sin\theta, b \cos\theta + a\sin\theta, \theta$\\
+            ${\rm IROT}(a, b, \theta)$ & $a \cos\theta + b\sin\theta, b \cos\theta - a\sin\theta, \theta$\\
+            $y \pluseq a^\wedge b$ & $y+a^b, a, b$\\
+            $y \pluseq \exp(x)$ & $y+e^x, x$\\
+            $y \pluseq \log(x)$ & $y+\log x, x$\\
+            $y \pluseq \sin(x)$ & $y+\sin x, x$\\
+            $y \pluseq \cos(x)$ & $y+\cos x, x$\\
+            $y \pluseq {\rm abs}(x)$ & $y+ |x|, x$\\
+            ${\rm NEG}(y)$ & $-y$\\
+            ${\rm CONJ}(y)$ & $y'$\\
             \bottomrule
         \end{tabularx}
     }
@@ -1028,12 +1030,4 @@ For convinience we provide more,
 \end{table}
 
 
-\section{Julia based eDSL implementation details}
-
-Macro `invfunc` defines a invertible function, ancillas are binded to a function, since ancillas are umcomputed to $0$ at the end of call, so that it can be used repeatedly in a function, it is like a class variable in a class, with no side effects. When the $JuliaExpr$ is a function all, it must be pure.
-
-Some variables can be uncomputed to $0$, but we choose not to for performance reason. For example
-\texttt{infer!(argmax, i, x)} which computes the location of maximum value in $x$ and store the output to $i$, if we uncompute it, it doubles additional computational time. Here, we trade off the memory with computation time. As a result, we must feed \texttt{imax} to the function, so that this variable can be manipulated in outer scopes.
-
-%\end{multicols}
 \end{document}
