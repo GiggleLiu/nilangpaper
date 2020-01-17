@@ -1,24 +1,13 @@
-using InvertibleVM.InvSimulator
-
-@newreg i
-@newvar x = 0.0
-@newvar one = 1.0
-prog = @invloop i=1:1:1000000 begin
-    add!(x, one)
-end
-
-function binv()
-    play!(prog)
-    grad(x)[] = 1.0
-    play!(prog')
-end
-
+using NiLang, NiLang.AD
+using DelimitedFiles
 using BenchmarkTools
-
-@benchmark binv()
-
-################ Zygote
 using Zygote
+
+@i function prog(x, one, n::Int)
+    for i=1:n
+        x += identity(one)
+    end
+end
 
 function f(x, one, n::Int)
     for i=1:n
@@ -27,4 +16,18 @@ function f(x, one, n::Int)
     return x
 end
 
-@benchmark gradient(f, 0.0, 1.0, 1000000)
+function run()
+    nmax = 5
+    lst_nilang = zeros(nmax)
+    lst_zygote = zeros(nmax)
+    for i=1:nmax
+        res = @benchmark Zygote.gradient(f, 0.0, 1.0, 1<<i)
+        lst_zygote[i] = minimum(res.times)
+        res = @benchmark NGrad{1}(prog)(Loss(0.0), 1.0, 1<<i)
+        lst_nilang[i] = minimum(res.times)
+    end
+    writedlm("zygote.dat", lst_zygote)
+    writedlm("nilang.dat", lst_nilang)
+end
+
+run()

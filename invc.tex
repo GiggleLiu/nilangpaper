@@ -627,12 +627,12 @@ After each iteration, postcondition returns true. The inverse function exchanges
 \subsection{exp function}\label{sec:exp}
 An $\exp$ function can be computed using Taylor expansion
 \begin{equation}
-    {\rm out!} += \sum\limits_n \frac{x^n}{n!}
+    {\rm out!} += \sum\limits_n \frac{x^n}{{\rm factorial}(n)}
 \end{equation}
-At a first glance, this is a recursive algorithm that mimics pebble game.
-Define the term for accumulation $s_n \equiv \frac{x^n}{n!}$, the recursion relation is written as $s_n = \frac{x s_{n-1}}{n}$.
-There is no known constant memory algorihm to pebble game.
-Notice that by viewing $*=$ and $/=$ a pair of reversible operations, we can uncompute $s_{n-1} = \frac{n s_n}{x}$ to deallocate memory.
+Here, the ``!'' after a variable is used to indicate that a variable is changed after the call of an instruction or function.
+This is a recursive algorithm that mimics pebble game.
+Define the term for accumulation $s_n \equiv \frac{x^n}{{\rm factorial}(n)}$, the recursion relation is written as $s_n = \frac{x s_{n-1}}{n}$. There is no known constant memory and polynomial time algorihm to pebble game.
+Here the case is different. Notice $*=$ and $/=$ are arithmetically reversible to each other, we can uncompute $s_{n-1} = \frac{n s_n}{x}$ to deallocate memory.
 By allowing loss of several digit precision of result, implementing the constant memory reversible $\exp$ function is possible
 
 \begin{minipage}{.44\textwidth}
@@ -670,13 +670,10 @@ end
 \end{minipage}
 
 The definition of SWAP instruction can be found in \App{app:instr}.
-The two lines bellow the comment ``\texttt{\# arithmetic uncompute}'' "uncomputes" variables \texttt{anc1} and \texttt{anc2}, this uncomputation is only true arithmeticly, but not for floating point number due to the rouding error.
-Although the final output is not exact due to the rounding error, the reversibility is not harmed.
-Rouding error in output is not as toxical as that in ancilla, in the latter case, error accumulates in the whole program.
-In the second for loop inside the inverse notation \texttt{\~}, we uncompute all ancilla bits rigorously.
+The two lines bellow the comment ``\texttt{\# arithmetic uncompute}'' "uncomputes" variables \texttt{anc1} and \texttt{anc2}, this uncomputation is only true arithmeticly, but not for floating point number due to the rouding error. As a result, the final output is not exact due to the rounding error. On the other side, the reversibility is not harmed since the inverse call at the last line of function uncomputes all ancilla bits rigorously.
 The \texttt{while} statement takes two conditions, the precondition and postconditoin. Precondition \texttt{val(anc1) > atol} indicates when to break the forward pass and post condition \texttt{!isapprox(iplus, 0.0)} indicates when to break the backward pass.
 
-To obtain the gradient, one can wrap the loss with \texttt{Loss} type.
+To obtain the gradient, one can wrap the loss with \texttt{Loss} type and feed it into \texttt{iexp\textsinglequote} function
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
@@ -827,8 +824,18 @@ Here, the \texttt{check\_grad} function is a gradient checker function defined i
 
 \subsection{Unitary Matrices}
 Recurrent networks with a unitary parametrized network ease the gradient exploding and vanishing problem~\cite{Arjovsky2015,Wisdom2016,Li2016}.
-Among different parametrization schemes, the most elegant one is \cite{Li2016}, which parametrized the unitary matrix with two-level unitary operations, any unitary matrix of size $N\times N$ can be parametrized by $k = N(N-1)/2$ two level unitary matrices~\cite{Li2013}. All these two-level unitary matrices can be applied in $O(1)$ time as a two register instruction.
-Hence a real unitary matrix can be parametrized compactly by $k$ rotation angles, each represents a rotation operations between datas in two target parameters.
+One of the simplest way to parametrize a unitary matrix is representing a unitary matrix as a product of two-level unitary operations~\cite{Li2016}. A unitary matrix of size $N\times N$ can be parametrized by $k = N(N-1)/2$ two level unitary matrices~\cite{Li2013}. A two-level unitary matrices can be applied in $O(1)$ time. A real unitary matrix can be parametrized compactly by $k$ rotation operations \texttt{ROT(a!, b!, $\theta$)}, where \texttt{$\theta$} is the rotation angle, \texttt{a!} and \texttt{b!} are target registers.
+
+\begin{align}
+    {\rm ROT}(a!, b!, \theta)  = \begin{bmatrix}
+        \cos(\theta) & - \sin(\theta)\\
+        \sin(\theta)  & \cos(\theta)
+    \end{bmatrix}
+    \begin{bmatrix}
+        a!\\
+        b!
+    \end{bmatrix}
+\end{align}
 
 
 \begin{minipage}{.44\textwidth}
@@ -853,16 +860,6 @@ Hence a real unitary matrix can be parametrized compactly by $k$ rotation angles
 end
 \end{lstlisting}
 \end{minipage}
-
-\texttt{ROT(a!, b!, $\theta$)} is the rotation instruction, \texttt{$\theta$} is the rotation angle, which represents rotating data in \texttt{a!} and \texttt{b!} by an angle of $\theta$.
-
-\begin{align}
-    R(\theta)  = \begin{bmatrix}
-        \cos(\theta) & - \sin(\theta)\\
-        \sin(\theta)  & \cos(\theta)
-    \end{bmatrix}
-\end{align}
-
 
 Its backward rule of a \texttt{ROT} instruction is
 \begin{align}
