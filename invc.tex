@@ -239,30 +239,18 @@ Potensial applications includes
     In \Sec{sec:discussion}, we discuss on several important issues, how time space tradeoff works, reversible instructions and hardwares and finally an outlook to some open problems to be solved.
 
     \section{Language design}\label{sec:lang}
-In a mordern programming language, functions are pushed to a global stack for scheduling. The memory layout of a function is consisted of input arguments, a function frame with informations like return address and saved memory segments, local variables and working stack. After each call, the function clears the input arguments, function frame, local variables and working stack and only stores the return value.
-In the invertible programming style, this kind of design pattern is nolonger the best practise, input variables can not be easily discarded after a function call, since discarding information may ruin reversibility. Hence, a reversible instruction/function call in NiLang changes inputs "inplace".
-
+In a mordern programming language, functions are pushed to a global stack for scheduling. The memory layout of a function is consisted of input arguments, a function frame with informations like return address and saved memory segments, local variables and working stack. After each call, the function clears the input arguments, function frame, local variables and working stack, only stores the return value.
+    In the reversible programming style, this kind of design pattern is nolonger the best practise, input variables can not be easily discarded after a function call, since discarding information may ruin reversibility. Hence, a reversible instruction or a function call in our eDSL NiLang changes inputs "inplace".
 NiLang is a reversible eDSL in Julia that simulates reversible Turing machine. The grammar is shown in \App{app:grammar}.
-Its main feature is contained in a single macro \texttt{@i}. It interprets a reversible function, and compile this function, as well as its inverse to a finite set of ``instructions'' written in julia language. These instructions are closed under the inverse operation ``$\sim$'', hence all functions defined in NiLang are also closed under ``$\sim$'' operations.
+Its main feature is contained in a single macro \texttt{@i}. It interprets a function to a finite set of ``instructions'' written in julia language. At the same time, it generates the inverse of this function. The target instructions are closed under the inverse operation ``$\sim$'', hence all functions defined in NiLang are also closed under ``$\sim$'' operations. To design such a eDSL, we first introduce a reversible IR that used in NiLang.
+
+\subsection{Reversible IR}
 
 \begin{figure}
     \centerline{\includegraphics[width=0.7\columnwidth,trim={0 0cm 0 0cm},clip]{images/controlflow.pdf}}
-    \caption{Flow chart for reversible (a) \texttt{if} statement and (b) while statement. ``stmts'', ``stmts1'' and ``stmts2'' are statements, statements in true branch and statements in false branch respectively. ``pre'' and ``post'' are precondition and postconditions respectively. ``error'' refers to \texttt{InvertibilityError}.}\label{fig:controlflow}
+    \caption{Flow chart for reversible (a) \texttt{if} statement and (b) \texttt{while} statement. ``stmts'', ``stmts1'' and ``stmts2'' are statements, statements in true branch and statements in false branch respectively. ``pre'' and ``post'' are precondition and postconditions respectively. ``error'' refers to \texttt{InvertibilityError}.}\label{fig:controlflow}
 \end{figure}
 
-The interprecation of a reversible function consists three stages.
-The first stage preprocess human input to a reversible IR. It checks human input and removes redundancy in grammar. To be specific, It
-\begin{itemize}
-    \item adds missing \texttt{@deanc} to make sure \texttt{@anc} and \texttt{@deanc} statements appear in pairs,
-    \item expands \texttt{@routine} macro,
-    \item and expands the symbol \texttt{$\sim$} in postcondition field as precondition.
-\end{itemize}
-
-    Here, the macro \texttt{@anc <a> = <expr>} binds variable \texttt{<a>} to an initial value specified by \texttt{<expr>}, while \texttt{@deanc <a> = <expr>} deallocates the variable \texttt{<a>}. Before deallocating a variable, the program checks that the variable is restored to its initial value, otherwise an \texttt{InvertibilityError} will be thrown. \texttt{@anc} and \texttt{@deanc} must appear in pairs inside a function call, a while statement or a for statement, otherwise \texttt{@deanc} will be added automatically. Similar designs in Janus and R are \texttt{local/delocal} statement and \texttt{let} statement. The additional check underlines the difference between the irreversible assign statement and reversible ancilla statement.
-    \texttt{@routine <name> Stmt} is a statements recorder, it records a statement to symbol <name>. When \texttt{@routine <name>} or \texttt{$\sim$@routine <name>} is called, the statement or inverse statement is inserted to that position.
-    A condition expression that appear in the \texttt{if} statement is consist of two boolean expressions, the precondition and postcondition as shown in \Fig{fig:controlflow} (a). If the precondition is unchanged after the execution of body statements, we can omit the postcondition by inserting \texttt{$\sim$} in the postcondition field. This shorthand is expanded in this stage.
-    
-The second stage generates the inverse function.
 \begin{table}[h!]\centering
 \begin{minipage}{\columnwidth}
 \ra{1.3}
@@ -270,15 +258,15 @@ The second stage generates the inverse function.
         \begin{tabularx}{\textwidth}{X X}\toprule
             \textbf{statement} & \textbf{inverse}\\
             \hline
-            \texttt{<f>(<args>)} & \texttt{($\sim$<f>)(<args>)}\\
+            \texttt{<f>(<args>...)} & \texttt{($\sim$<f>)(<args>...)}\\
             \hline
-            \texttt{<out!> += <f>(<args>)} & \texttt{<out!> -= <f>(<args>)}\\
+            \texttt{<y!> += <f>(<args>...)} & \texttt{<y!> -= <f>(<args>...)}\\
             \hline
-            \texttt{<out!> .+= <f>.(<args>)} & \texttt{<out!> .-= <f>.(<args>)}\\
+            \texttt{<y!> .+= <f>.(<args>...)} & \texttt{<y!> .-= <f>.(<args>...)}\\
             \hline
-            \texttt{<out!> $\veebar$= <f>(<args>)} & \texttt{<out!> $\veebar$= <f>(<args>)}\\
+            \texttt{<y!> $\veebar$= <f>(<args>...)} & \texttt{<y!> $\veebar$= <f>(<args>...)}\\
             \hline
-            \texttt{<out!> .$\veebar$= <f>(<args>)} & \texttt{<out!> .$\veebar$= <f>(<args>)}\\
+            \texttt{<y!> .$\veebar$= <f>(<args>...)} & \texttt{<y!> .$\veebar$= <f>(<args>...)}\\
             \hline
             \texttt{@anc <a> = <expr>} & \texttt{@deanc <a> = <expr>}\\
             \hline
@@ -298,58 +286,83 @@ The second stage generates the inverse function.
 \end{minipage}
 \end{table}
 
-A condition expression is a two-element tuple, it also allows user putting additional postcondition in control flows to help reverse the program.
-A postcondition is a boolean expression that evaluated after the controlled body being executed.
-The \texttt{@safe} macro can be followed by an arbituary statement, it allows user to use external statements that does not break reversibility.
-\texttt{@safe @show var} is often used for debugging.
+In NiLang's IR, a statement can be an instruction, a function call, a controlflow, a macrocall or the inverse statement $\sim$.
+With the reversible IR, the inverse statement can be defined easily as shown in  in \Tbl{tbl:revstatements}.
+An instruction \texttt{y! += f(args...)} is interpreted as a julia function call \texttt{PlusEq(f)(y!, args...)} or \texttt{$\oplus$(f)(y!, args...)} as a shorthand.
+Here, the ``!'' after a variable is used as a convension to indicate that a variable is changed after the call of an instruction or function.
+The detailed specification of instructions is listed in \App{app:instr}. The function call is same as the host language, except every function \texttt{f} has a \texttt{$\sim$f} that binded to an object of type \texttt{Inv\{typeof(f)\}}. \texttt{$\sim$f} invokes the compiled inverse functions of \texttt{f}.
 
+The reversible control flow is different from the irreversible one that a condition expression in a \texttt{if} or a \texttt{while} statements is a two-element tuple that consist of a precondition and a postcondition. This design allows user putting additional postcondition in control flows to help reverse the program.
+A postcondition is a boolean expression that being evaluated after the body expressions being executed.
+For the \texttt{if} statement as shown in \Fig{fig:controlflow} (a), the program checks the consistency of precondition and postcondition to make sure they are same. In the reverse pass, the program enters the branch specified by the postcondition.
+For the \texttt{while} statement as shown in \Fig{fig:controlflow} (b), before entering, the program check the postcondition to make sure it is false.
+After each iteration, the program asserts the postcondition to be true. The inverse function exchanges the precondition and postcondition.
+The reverse of \texttt{for} statement is straightforward.
+The program first stores the loop informations, start, step and stop, after the execusion of the loop, the program checks the values of these variables are not changed. The reverse program exchanges start and stop and inverse the sign of step.
+
+    There is no assign statements in a reversible language, a reversible replacement is the macro \texttt{@anc}. \texttt{@anc a = <expr>} binds variable \texttt{a} to an initial value specified by \texttt{<expr>}. Its inverse \texttt{@deanc a = <expr>} deallocates the variable \texttt{a}. Before deallocating the variable, the program checks that the value of variable is same as the value of \texttt{<expr>} (or restored), otherwise throws an \texttt{InvertibilityError}. \texttt{@anc} and \texttt{@deanc} must appear in pairs inside a function call, a while statement or a for statement.
+    \texttt{@deanc} will be added automatically. Similar designs in Janus and R are \texttt{local/delocal} statement and \texttt{let} statement. The additional check underlines the difference between the irreversible assign statement and reversible ancilla statement.
+The \texttt{@safe} macro can be followed by an arbituary statement, it allows user to use external statements that does not break reversibility.
+For example, one can use \texttt{@safe @show var} for debugging.
+
+\subsection{Compiling stages}
+The interprecation of a reversible function consists three stages.
+The first stage preprocess human inputs to a reversible IR, 
+The second stage generates the reversed IR according to table \Tbl{tbl:revstatements}.
 The third stage is translating this reversible IR to native Julia code.
-It
+
+In the first stage, the preprocessor
+\begin{itemize}
+    \item adds missing \texttt{@deanc} to make sure \texttt{@anc} and \texttt{@deanc} statements appear in pairs,
+    \item expands \texttt{@routine} macro,
+    \item and expands the symbol \texttt{$\sim$} in postcondition field of \texttt{if} statement to the precondition.
+\end{itemize}
+\texttt{@routine r Stmt} is a statements recorder, it records a statement to symbol \texttt{r}. When \texttt{$\sim$@routine r} is called, the inverse statement is inserted to that position.
+
+In the last stage, the compiler
 \begin{itemize}
     \item adds \texttt{@instr} before each instruction and function call statement,
     \item attach a return statement after the function definition which returns the modified input variables as the output,
     \item adds statements to check the consistency between preconditions and postconditions to ensure reversibility,
     \item compile the inverse function at the same time.
 \end{itemize}
-The macro \texttt{@instr} assign the output of a function to the argument list of a function. Hence, the values are changed while the symbol table is not changed. Here, the statement \texttt{out! += x * y} calls instruction \texttt{$\oplus$(*)(out!, x, y)}, which means accumulate a product of two variables to target symbol. Combine it with \texttt{@instr} that assigns each output to each input, we simulate a mutable operations.
+The macro \texttt{@instr} assign the output of a function to the argument list of a function. Hence, the values are changed while the symbol table is not changed. For example, the statement \texttt{out! += x * y} compiles to \texttt{@instr $\oplus$(*)(out!, x, y)}.
 
-\subsection{Types and dataviews}
-A constructor is also a reversible function, it changes the behavior of data or derive a new field from a data.
-Its reverse function is a ``destructor'', a destructor does not deallocate memory directly but unpacks data.
+\subsection{Types and Dataviews}
+The constructor of a type is also a reversible function.
+The inverse function is a ``destructor'', which does not deallocate memory directly but unpacks data.
 
 Before introducing dataviews, let's first consider the following example
+
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
 grad(arr[3].value) += x * y
 \end{lstlisting}
 \end{minipage}
+
 In Julia, this statement will raise a syntax error, since a function call can not be assigned.
 Meanwhile \texttt{arr[3]} might be a immutable type.
-In our eDSL, assigning a single argument function call or a immutable type is allowed.
+In our eDSL, we wish it works because every memory cell should be able to modified ``inplace''.
 
-In our interpreter, \texttt{grad(arr[3].value) += x * y} is translated to \texttt{@instr grad(arr[3].value) += x * y} at the thrid stage.
+As we have mensioned, \texttt{grad(arr[3].value) += x * y} is translated to \texttt{@instr grad(arr[3].value) += x * y} at the thrid stage.
 To execute the instruction, \texttt{@instr} translate the statement to
+
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
-res = ⊕(*)(grad(arr[3].value), x, y)
+res = PlusEq(*)(grad(arr[3].value), x, y)
 arr[3] = chfield(arr[1], Val(:value), 
     chfield(arr[3].value, grad, res[1]))
 x = res[2]
 y = res[3]
 \end{lstlisting}
 \end{minipage}
-\texttt{$\oplus$(*)(grad(arr[3].value), x, y)} computes the output, which is a tuple of length $3$.
+
+\texttt{PlusEq(*)(grad(arr[3].value), x, y)} computes the output, which is a tuple of length $3$.
 \texttt{chfield} is used to infer the new data by modifying a field or a bijective mapping of a field, it returns a new object.
 The second and third arguments can be assigned back directly.
 A dataview of a data can be data itself, a field of its view, an array element of its view, or a bijective mapping of its view.
 If the default constructor of a type is not overwritten by user, NiLang can modify a field of that type automatically.
 For a bijective mapping of a field, user need to specify the behavior of a dataview by overloading \texttt{chfield} function.
-
-\subsection{Traditional Invertible Computing Devices}
-It is possible to design and fabricate a fully reversible processor using resources which are comparable to a conventional microprocessor. Existing CAD tools and silicon technology are sufficient for reversible computer design.
-
-Like quantum computer, it should be able to reset to qubits $0$. The reset operation, sometimes can be expensive. In a quantum device, this reset operation can be done by dissipation and dicoherence (i.e. interact with environment and get thermalized). Alternatively, a immediate feedback loop can be introduced to a quantum device, where a classical computer is regarded as the dissipation source.
-
 
 \section{Taylor propagation on a reversible Turing machine}\label{sec:bp}
 Taylor propagation is exponentially (as the order) more efficient in obtaining higher order gradients than differentiating lower order gradients recursively.
@@ -641,16 +654,12 @@ end
 \end{minipage}
 
 Here, \texttt{fib} and \texttt{rfib} are defined in \App{sec:fib}.
-The reversible \texttt{while} statement contains two statements, the precondition and postcondition.
-Before entering the while statement, the program check the postcondition to make sure it is false.
-After each iteration, postcondition returns true. The inverse function exchanges the precondition and postcondition so that the repeatition of loop body is not changed.
 
 \subsection{exp function}\label{sec:exp}
 An $\exp$ function can be computed using Taylor expansion
 \begin{equation}
     {\rm out!} += \sum\limits_n \frac{x^n}{{\rm factorial}(n)}
 \end{equation}
-Here, the ``!'' after a variable is used to indicate that a variable is changed after the call of an instruction or function.
 This is a recursive algorithm that mimics pebble game.
 Define the term for accumulation $s_n \equiv \frac{x^n}{{\rm factorial}(n)}$, the recursion relation is written as $s_n = \frac{x s_{n-1}}{n}$. There is no known constant memory and polynomial time algorihm to pebble game.
 Here the case is different. Notice $*=$ and $/=$ are arithmetically reversible to each other, we can uncompute $s_{n-1} = \frac{n s_n}{x}$ to deallocate memory.
@@ -1020,8 +1029,27 @@ Dataview is a bijective mapping of an object or a field (or item) of an object.
 When modifying the dataview of an object, it changes the object directly with the \texttt{chfield} method.
 
 \section{Instruction Table}\label{app:instr}
-Even though \texttt{$\oplus({\rm identity})$}, \texttt{$\oplus(*)$}, \texttt{$\oplus(/)$} and their reverse together with control flows are sufficient to write an arbituary differentiable program.
-For convinience we provide more,
+
+The translation of instructions to Julia functions
+\begin{table}[h!]\centering
+\begin{minipage}{\columnwidth}
+\ra{1.3}
+    \scalebox{1.0}{
+        \begin{tabularx}{\textwidth}{X X X}\toprule
+            \textbf{instruction} & \textbf{translated} & \textbf{type}\\
+            \hline
+            $y \pluseq f(args...)$ & $\oplus(f)(args...)$ & \texttt{PlusEq}\\
+            $y \minuseq f(args...)$ & $\ominus(f)(args...)$ & \texttt{MinusEq}\\
+            $y \mathrel{\veebar}= f(args...)$ & $\odot(f)(args...)$ & \texttt{XorEq}\\
+            \bottomrule
+        \end{tabularx}
+    }
+    \caption{Instructions and their interpretation in NiLang.}\label{tbl:interp}
+\end{minipage}
+\end{table}
+
+
+The list of instructions implemented in NiLang
 \begin{table}[h!]\centering
 \begin{minipage}{\columnwidth}
 \ra{1.3}
@@ -1043,7 +1071,7 @@ For convinience we provide more,
             \bottomrule
         \end{tabularx}
     }
-    \caption{A collection of reversible instructions.}\label{tbl:revstatements}
+    \caption{A collection of reversible instructions.}\label{tbl:revinstructions}
 \end{minipage}
 \end{table}
 
