@@ -393,6 +393,27 @@ Here, ``.'' is the broadcast operations in Julia. \texttt{GVar} is a ``reversibl
 When a \texttt{instruct} meets a \texttt{GVar}, besides computing its value field $\vvalue(\vx) = f^{-1}(\vvalue(\vy))$, it also updates the gradient field $\grad(\vx) = J^{\vx}_{\vy} \grad(\vy)$. Since $f^{-1}$ is bijective, $J^\vy_\vx$ can be easily obtained by inspecting its inverse function $f$.
 The final output is stored in the gradient field, when then gradient is not used anymore, the faithful reversible programming style to compute gradients would be uncomputing the whole process to obtain gradient, which increases the hyrachy by 1. Whenever the hyrachy increase by 1, the computational overhead doubles comparing with its irreversible counter part.
 
+Due to the multiple dispatch and just in time compiling, most runtime overhead can be removed. Let's consider a simple example that acccumulate $1.0$ to a target variable $x$ for $n$ times
+
+\begin{minipage}{.44\textwidth}
+\begin{lstlisting}
+@i function prog(x, one, n::Int)
+    for i=1:n
+        x += identity(one)
+    end
+end
+\end{lstlisting}
+\end{minipage}
+
+\begin{figure}
+    \centerline{\includegraphics[width=0.9\columnwidth,trim={0 0cm 0 0},clip]{images/fig3.pdf}}
+    \caption{The time for obtaining gradient as function of loop size. $\times n$ in lengend represents a rescaling of time.}\label{fig:benchmark}
+\end{figure}
+From the benchmark result shown in \Fig{fig:benchmark}.
+One can see that the NiLang implementation is unreasonablely fast, even faster than two times the forward pass written in Julia. The code for benchmark is open for review in our paper github repository~\cite{nilangpaper}.
+This benchmark does show the actual performance in real applications.
+In real application, the reversible program can have memory or computing time overhead. We will discuss the details of time and space tradeoff in \Sec{sec:timespace}.
+
 \subsection{Second order gradient}
 The second order gradient can also be back propagated
 \begin{align}

@@ -17,15 +17,20 @@ function f(x, one, n::Int)
 end
 
 function run()
-    nmax = 5
+    nmax = 15
+    lst_forward = zeros(nmax)
     lst_nilang = zeros(nmax)
     lst_zygote = zeros(nmax)
     for i=1:nmax
-        res = @benchmark Zygote.gradient(f, 0.0, 1.0, 1<<i)
-        lst_zygote[i] = minimum(res.times)
-        res = @benchmark NGrad{1}(prog)(Loss(0.0), 1.0, 1<<i)
-        lst_nilang[i] = minimum(res.times)
+        @show i
+        res0 = @benchmark f(0.0, 1.0, 1<<$i) seconds = 1
+        lst_forward[i] = minimum(res0.times)
+        res1 = @benchmark Zygote.gradient(f, 0.0, 1.0, 1<<$i) seconds=1
+        lst_zygote[i] = minimum(res1.times)
+        res2 = @benchmark NGrad{1}(prog)(Loss(0.0), 1.0, 1<<$i) seconds=1
+        lst_nilang[i] = minimum(res2.times)
     end
+    writedlm("forward.dat", lst_forward)
     writedlm("zygote.dat", lst_zygote)
     writedlm("nilang.dat", lst_nilang)
 end
