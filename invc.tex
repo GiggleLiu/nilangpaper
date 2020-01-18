@@ -310,29 +310,84 @@ The interprecation of a reversible function consists three stages.
 The first stage preprocess human inputs to a reversible IR, 
 The second stage generates the reversed IR according to table \Tbl{tbl:revstatements}.
 The third stage is translating this reversible IR to native Julia code.
+The following example shows how to compile an \texttt{if} statement
 
-In the first stage, the preprocessor
-\begin{itemize}
-    \item adds missing \texttt{@deanc} to make sure \texttt{@anc} and \texttt{@deanc} statements appear in pairs,
-    \item expands \texttt{@routine} macro,
-    \item and expands the symbol \texttt{$\sim$} in postcondition field of \texttt{if} statement to the precondition.
-\end{itemize}
-\texttt{@routine r Stmt} is a statements recorder, it records a statement to symbol \texttt{r}. When \texttt{$\sim$@routine r} is called, the inverse statement is inserted to that position.
+\begin{minipage}{.44\textwidth}
+\begin{lstlisting}
+julia> using NiLangCore, MacroTools
 
-In the last stage, the compiler
-\begin{itemize}
-    \item adds \texttt{@instr} before each instruction and function call statement,
-    \item attach a return statement after the function definition which returns the modified input variables as the output,
-    \item adds statements to check the consistency between preconditions and postconditions to ensure reversibility,
-    \item compile the inverse function at the same time.
-\end{itemize}
-The macro \texttt{@instr} assign the output of a function to the argument list of a function. Hence, the values are changed while the symbol table is not changed. For example, the statement \texttt{out! += x * y} compiles to \texttt{@instr $\oplus$(*)(out!, x, y)}.
+julia> ex0 = :(if (x > 3, ~)
+            grad(arr[3].value) += x * y
+        end);
+        
+julia> ex0 |> prettify
+:(if (x > 3, ~)
+      grad((arr[3]).value) += x * y
+  end)
+
+julia> ex1 = NiLangCore.precom_ex(ex0,
+        NiLangCore.PreInfo());
+        
+julia> ex1 |> prettify  # after stage 1
+:(if (x > 3, x > 3)
+      grad((arr[3]).value) += x * y
+  else
+  end)
+
+julia> ex2 = NiLangCore.dual_ex(ex1);
+
+julia> ex2 |> prettify  # after stage 2
+:(if (x > 3, x > 3)
+      grad((arr[3]).value) -= x * y
+  else
+  end)
+
+julia> ex3 = NiLangCore.interpret_ex(ex2);
+
+julia> ex3 |> prettify  # after stage 3
+quote
+    wren = x > 3
+    if wren
+        @instr grad((arr[3]).value) -= x * y
+    else
+    end
+    @invcheck x > 3 wren
+end
+\end{lstlisting}
+\end{minipage}
+
+In the first stage, the preprocessor expands the symbol \texttt{$\sim$} in postcondition field of \texttt{if} statement to the precondition as shown above. Besides, it adds missing \texttt{@deanc} to ensure \texttt{@anc} and \texttt{@deanc} statements appear in pairs and  expands \texttt{@routine} macro.
+\texttt{@routine r Stmt} records a statement to symbol \texttt{r}. When \texttt{$\sim$@routine r} is called, the inverse statement is inserted to that position for uncomputing.
+In the last stage, the compiler adds \texttt{@instr} before each instruction and function call statement,
+The macro \texttt{@instr} assign the output of a function to the argument list of a function. We will explain this macro in detail in next subsection.
+It also adds statements to check the consistency between preconditions and postconditions to ensure reversibility,
+Finally, at the end of a function body, it attaches a return statement that uses input variables as the output.
+Now the function is ready to execute on the host language.
 
 \subsection{Types and Dataviews}
 The constructor of a type is also a reversible function.
 The inverse function is a ``destructor'', which does not deallocate memory directly but unpacks data.
 
-Before introducing dataviews, let's first consider the following example
+\begin{minipage}{.44\textwidth}
+\begin{lstlisting}
+using NiLangCore, Test
+
+struct DVar{T}
+    x::T
+    g::T
+end
+
+@iconstruct function DVar(xx, gg=zero(xx))
+    gg += identity(xx)
+end
+
+@test (~DVar)(DVar(0.5)) == 0.5
+\end{lstlisting}
+\end{minipage}
+
+The \texttt{@iconstruct} generates a reversible constructor with single parameters \texttt{xx} as input. The statement \texttt{gg = zero(xx)} initializes a new memory to be used. The body of function is a reversible program that modifies \texttt{xx} and \texttt{gg}. Finally call the default constructor \texttt{DVar(xx, gg)}. It is easy to find the inverse procedure that transform a \texttt{DVar{T}} instance to a \texttt{T} instance. With the flexibility to operate types, it is not nessesary to use global stacks in our eDSL.
+
+Before introducing dataviews, let's first consider the following line that appear in the last subsection
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
@@ -342,13 +397,13 @@ grad(arr[3].value) += x * y
 
 In Julia, this statement will raise a syntax error, since a function call can not be assigned.
 Meanwhile \texttt{arr[3]} might be a immutable type.
-In our eDSL, we wish it works because every memory cell should be able to modified ``inplace''.
+In our eDSL, we wish it works because every memory cell should be modifiable ``inplace''.
 
 As we have mensioned, \texttt{grad(arr[3].value) += x * y} is translated to \texttt{@instr grad(arr[3].value) += x * y} at the thrid stage.
 To execute the instruction, \texttt{@instr} translate the statement to
 
 \begin{minipage}{.44\textwidth}
-\begin{lstlisting}
+    \begin{lstlisting}[numberstyle=\scriptsize\color{codegray},numbers=left,numbersep=8pt]
 res = PlusEq(*)(grad(arr[3].value), x, y)
 arr[3] = chfield(arr[1], Val(:value), 
     chfield(arr[3].value, grad, res[1]))
@@ -358,7 +413,7 @@ y = res[3]
 \end{minipage}
 
 \texttt{PlusEq(*)(grad(arr[3].value), x, y)} computes the output, which is a tuple of length $3$.
-\texttt{chfield} is used to infer the new data by modifying a field or a bijective mapping of a field, it returns a new object.
+\texttt{chfield} is used to a dataview.
 The second and third arguments can be assigned back directly.
 A dataview of a data can be data itself, a field of its view, an array element of its view, or a bijective mapping of its view.
 If the default constructor of a type is not overwritten by user, NiLang can modify a field of that type automatically.
