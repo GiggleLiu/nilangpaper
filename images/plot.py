@@ -38,19 +38,21 @@ class PLT(object):
         L = len(zydata)
         tfdata = np.zeros(L)
         torchdata = np.zeros(L)
-        with open("../codes/.benchmarks/Linux-CPython-3.6-64bit/0004_ebe61f594294c6b2fb1cf2cdc82091bfaec89038_20200117_040913_uncommited-changes.json", 'r') as f:
+        with open("../codes/py.json", 'r') as f:
             pydata = json.load(f)
         for i in range(L):
             tfdata[i] = pydata['benchmarks'][i]['stats']['min']*1e9
             torchdata[i] = pydata['benchmarks'][L+i]['stats']['min']*1e9
         with DataPlt(filename="fig3.%s"%tp, figsize=(5,4)) as dp:
-            plt.plot(2**np.arange(1,L+1), tfdata/10, lw=2)
+            plt.plot(2**np.arange(1,L+1), tfdata, lw=2)
             plt.plot(2**np.arange(1,L+1), torchdata, lw=2)
             plt.plot(2**np.arange(1,L+1), zydata*10, lw=2)
             plt.plot(2**np.arange(1,L+1), nidata*1000, lw=2)
             plt.plot(2**np.arange(1,L+1), rawdata*1000, lw=2)
-            plt.legend(["TensorFlow/10", "PyTorch", r"Zygote $\times 10$", r"NiLang $\times 1000$", r"Forward Only (Julia) $\times 1000$"], fontsize=14)
+            plt.legend(["TensorFlow", "PyTorch", r"Zygote $\times 10$", r"NiLang $\times 1000$", r"Forward Only (Julia) $\times 1000$"], fontsize=12)
             plt.xlabel("loop size")
+            plt.ylim(0, 5e9)
+            plt.xlim(0, 2**(L))
             plt.ylabel("time/ns")
             plt.tight_layout()
 

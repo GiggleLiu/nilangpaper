@@ -204,7 +204,7 @@ However, implementing adjoint mode AD is harder than implementing the tangent mo
 \end{enumerate}
     A computational graph is a directed acyclic graph (DAG) that records the relation between data (edges) and functions (nodes).
 In Pytorch~\cite{Paszke2017} and Flux~\cite{Innes2018}, every variable has a tracker field that stores its parent information, i.e. the input data and function that generate this variable. TensorFlow~\cite{Tensorflow2015} implements a static computational graph as a description of the program before actual computation happens.
-    Source to source automatic differentiation package Zygote~\cite{Innes2018, Innes2019} use a intermediate representation of a program the static single assignment (SSA) form as the computation graph in order to propagate a native julia code. To cache the intermediate state, it uses a global storage.
+    Source to source automatic differentiation package Zygote~\cite{Innes2018, Innes2019} use a intermediate representation (IR) of a program the static single assignment (SSA) form as the computation graph in order to propagate a native julia code. To cache the intermediate state, it uses a global storage.
 
     Several limitations are observed in these AD implementions due to the recording and caching. First of all, these package requires a lot primitive functions with programmer defined backward rules. This is not nessesary given the fact that, at the lowest level, these primitive functions are compiled to a finite set of instructions including `+', `-', `*', `/' and conditional jump statements. By defining backward rules for these basic instructions, AD should just works. These machine learning packages can not use instructions as the computational graph for practical reasons. The cost of memorizing the computational graph and caching intermediate states is huge. It can decrease the performance for more than two orders when a program contains loops (as we will show latter).
     Even more, the memory consumption for caching intermediate results increases linearly as time. In many deep learning models like recurrent neural network~\cite{Lipton2015} and residual neural networks~\cite{He2016}, the depth can reach several thousand, the memory wall~\cite{memorywall} can be big problem.
@@ -239,15 +239,18 @@ Potensial applications includes
     In \Sec{sec:discussion}, we discuss on several important issues, how time space tradeoff works, reversible instructions and hardwares and finally an outlook to some open problems to be solved.
 
     \section{Language design}\label{sec:lang}
-In a mordern programming language, functions are pushed to a global stack for scheduling. The memory layout of a function is consisted of input arguments, a function frame with informations like return address and saved memory segments, local variables and working stack. After each call, the function clears the input arguments, function frame, local variables and working stack, only stores the return value.
-    In the reversible programming style, this kind of design pattern is nolonger the best practise, input variables can not be easily discarded after a function call, since discarding information may ruin reversibility. Hence, a reversible instruction or a function call in our eDSL NiLang changes inputs "inplace".
-NiLang is a reversible eDSL in Julia that simulates reversible Turing machine. The grammar is shown in \App{app:grammar}.
-Its main feature is contained in a single macro \texttt{@i}. It interprets a function to a finite set of ``instructions'' written in julia language. At the same time, it generates the inverse of this function. The target instructions are closed under the inverse operation ``$\sim$'', hence all functions defined in NiLang are also closed under ``$\sim$'' operations. To design such a eDSL, we first introduce a reversible IR that used in NiLang.
+We instroduce NiLang, a eDSL in Julia that simulates reversible Turing machine. Its grammar is shown in \App{app:grammar}.
+Its main feature is contained in a single macro \texttt{@i}. It interprets a NiLang function to a native Julia function.
+At the same time, it generates the inverse of this function. The target instructions are closed under the inverse operation ``$\sim$'', hence all functions defined in NiLang are also closed under ``$\sim$'' operations.
+
+    In a mordern programming language, functions are pushed to a global stack for scheduling. The memory layout of a function is consisted of input arguments, a function frame with informations like return address and saved memory segments, local variables and working stack. After each call, the function clears the input arguments, function frame, local variables and working stack, only stores the return value.
+    In the reversible programming style, this kind of design pattern is nolonger the best practise, input variables can not be easily discarded after a function call, since discarding information may ruin reversibility. Hence, a function or a instruction changes inputs "inplace" in NiLang.
+To design such a eDSL, we first introduce a reversible IR that plays a central role in NiLang.
 
 \subsection{Reversible IR}
 
 \begin{figure}
-    \centerline{\includegraphics[width=0.7\columnwidth,trim={0 0cm 0 0cm},clip]{images/controlflow.pdf}}
+    \centerline{\includegraphics[width=0.8\columnwidth,trim={0 0cm 0 0cm},clip]{images/controlflow.pdf}}
     \caption{Flow chart for reversible (a) \texttt{if} statement and (b) \texttt{while} statement. ``stmts'', ``stmts1'' and ``stmts2'' are statements, statements in true branch and statements in false branch respectively. ``pre'' and ``post'' are precondition and postconditions respectively. ``error'' refers to \texttt{InvertibilityError}.}\label{fig:controlflow}
 \end{figure}
 
@@ -287,25 +290,26 @@ Its main feature is contained in a single macro \texttt{@i}. It interprets a fun
 \end{table}
 
 In NiLang's IR, a statement can be an instruction, a function call, a controlflow, a macrocall or the inverse statement $\sim$.
-With the reversible IR, the inverse statement can be defined easily as shown in  in \Tbl{tbl:revstatements}.
-An instruction \texttt{y! += f(args...)} is interpreted as a julia function call \texttt{PlusEq(f)(y!, args...)} or \texttt{$\oplus$(f)(y!, args...)} as a shorthand.
-Here, the ``!'' after a variable is used as a convension to indicate that a variable is changed after the call of an instruction or function.
-The detailed specification of instructions is listed in \App{app:instr}. The function call is same as the host language, except every function \texttt{f} has a \texttt{$\sim$f} that binded to an object of type \texttt{Inv\{typeof(f)\}}. \texttt{$\sim$f} invokes the compiled inverse functions of \texttt{f}.
+With the reversible IR, the inverse of a statement can be defined easily as shown in  in \Tbl{tbl:revstatements}.
+%For example, an instruction \texttt{y! $\mathrel{+}=$ f(args...)} is interpreted as a julia function call \texttt{PlusEq(f)(y!, args...)} or \texttt{$\oplus$(f)(y!, args...)} as a shorthand.
+%Here, the ``!'' after a variable is used as a convension to indicate that a variable is changed after the call of an instruction or function.
+%The detailed specification of instructions is listed in \App{app:instr}. The function call is same as the host language, except every function \texttt{f} has a \texttt{$\sim$f} that binded to an object of type \texttt{Inv\{typeof(f)\}}. \texttt{$\sim$f} invokes the compiled inverse functions of \texttt{f}.
 
 The reversible control flow is different from the irreversible one that a condition expression in a \texttt{if} or a \texttt{while} statements is a two-element tuple that consist of a precondition and a postcondition. This design allows user putting additional postcondition in control flows to help reverse the program.
-A postcondition is a boolean expression that being evaluated after the body expressions being executed.
-For the \texttt{if} statement as shown in \Fig{fig:controlflow} (a), the program checks the consistency of precondition and postcondition to make sure they are same. In the reverse pass, the program enters the branch specified by the postcondition.
+%A postcondition is a boolean expression that being evaluated after the body expressions being executed.
+For the \texttt{if} statement as shown in \Fig{fig:controlflow} (a), the program enters the branch specified by precondition. After executing this branch, the program checks the consistency of precondition and postcondition to make sure they are same. In the reverse pass, the program enters the branch specified by the postcondition.
 For the \texttt{while} statement as shown in \Fig{fig:controlflow} (b), before entering, the program check the postcondition to make sure it is false.
 After each iteration, the program asserts the postcondition to be true. The inverse function exchanges the precondition and postcondition.
-The reverse of \texttt{for} statement is straightforward.
-The program first stores the loop informations, start, step and stop, after the execusion of the loop, the program checks the values of these variables are not changed. The reverse program exchanges start and stop and inverse the sign of step.
+The definition of reversible \texttt{for} statement is similar to irreversible ones except it is more restrictive.
+The program first stores the loop informations, start, step and stop. After the executing the loop, the program checks the values of these variables to make sure they are not changed. The reverse program exchanges start and stop and inverse the sign of step.
 
-    There is no assign statements in a reversible language, a reversible replacement is the macro \texttt{@anc}. \texttt{@anc a = <expr>} binds variable \texttt{a} to an initial value specified by \texttt{<expr>}. Its inverse \texttt{@deanc a = <expr>} deallocates the variable \texttt{a}. Before deallocating the variable, the program checks that the value of variable is same as the value of \texttt{<expr>} (or restored), otherwise throws an \texttt{InvertibilityError}. \texttt{@anc} and \texttt{@deanc} must appear in pairs inside a function call, a while statement or a for statement.
-    \texttt{@deanc} will be added automatically. Similar designs in Janus and R are \texttt{local/delocal} statement and \texttt{let} statement. The additional check underlines the difference between the irreversible assign statement and reversible ancilla statement.
+    There is no assign statements in a reversible language, a reversible replacement is the macro \texttt{@anc}. \texttt{@anc a = <expr>} binds variable \texttt{a} to an initial value specified by \texttt{<expr>}. Its inverse \texttt{@deanc a = <expr>} deallocates the variable \texttt{a}. Before deallocating the variable, the program checks that the value of variable is same as the value of \texttt{<expr>}, otherwise throws an \texttt{InvertibilityError}. \texttt{@anc} and \texttt{@deanc} must appear in pairs inside a function call, a while statement or a for statement.
+    \texttt{@deanc} will be added automatically. Similar designs in Janus and R are \texttt{local/delocal} statement and \texttt{let} statement.
+    The additional check underlines the difference between the irreversible assign statement and reversible ancilla statement.
 The \texttt{@safe} macro can be followed by an arbituary statement, it allows user to use external statements that does not break reversibility.
 For example, one can use \texttt{@safe @show var} for debugging.
 
-\subsection{Compiling stages}
+\subsection{Compiling}
 The interprecation of a reversible function consists three stages.
 The first stage preprocess human inputs to a reversible IR, 
 The second stage generates the reversed IR according to table \Tbl{tbl:revstatements}.
@@ -357,16 +361,22 @@ end
 \end{minipage}
 
 In the first stage, the preprocessor expands the symbol \texttt{$\sim$} in postcondition field of \texttt{if} statement to the precondition as shown above. Besides, it adds missing \texttt{@deanc} to ensure \texttt{@anc} and \texttt{@deanc} statements appear in pairs and  expands \texttt{@routine} macro.
-\texttt{@routine r Stmt} records a statement to symbol \texttt{r}. When \texttt{$\sim$@routine r} is called, the inverse statement is inserted to that position for uncomputing.
-In the last stage, the compiler adds \texttt{@instr} before each instruction and function call statement,
+\texttt{@routine r <stmt>} records a statement to symbol \texttt{r}. When \texttt{$\sim$@routine r} is called, the inverse statement is inserted to that position for uncomputing. We will use macro extensively in the example in \Sec{sec:example}.
+In the last stage, the compiler adds \texttt{@instr} before each instruction and function call statement.
 The macro \texttt{@instr} assign the output of a function to the argument list of a function. We will explain this macro in detail in next subsection.
-It also adds statements to check the consistency between preconditions and postconditions to ensure reversibility,
+It also adds statements to check the consistency between preconditions and postconditions to ensure reversibility.
+In the above example, \texttt{@invcheck x > 3 wren} will throw an error if the variable \texttt{wren} and \texttt{x > 3} are not equivalent.
 Finally, at the end of a function body, it attaches a return statement that uses input variables as the output.
 Now the function is ready to execute on the host language.
 
 \subsection{Types and Dataviews}
-The constructor of a type is also a reversible function.
-The inverse function is a ``destructor'', which does not deallocate memory directly but unpacks data.
+So far, the language design is not too different from a tranditional reversible language.
+Next, we introduce type and dataviews that are important to the implementation of adjoint mode AD.
+
+The constructor of a type is a reversible function.
+Its inverse function is a ``destructor'', which does not deallocate memory directly but unpacks data.
+One can use \texttt{@iconstruct} to define a reversible constructor.
+For example, we can define a type that copies the input data to a new field.
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
@@ -385,7 +395,7 @@ end
 \end{lstlisting}
 \end{minipage}
 
-The \texttt{@iconstruct} generates a reversible constructor with single parameters \texttt{xx} as input. The statement \texttt{gg = zero(xx)} initializes a new memory to be used. The body of function is a reversible program that modifies \texttt{xx} and \texttt{gg}. Finally call the default constructor \texttt{DVar(xx, gg)}. It is easy to find the inverse procedure that transform a \texttt{DVar{T}} instance to a \texttt{T} instance. With the flexibility to operate types, it is not nessesary to use global stacks in our eDSL.
+Here, the \texttt{@iconstruct} generates a reversible constructor with single parameters \texttt{xx} as input. The statement \texttt{gg = zero(xx)} initializes a new memory to be used. The body of function is a reversible program that modifies \texttt{xx} and \texttt{gg} reversiblely. Finally it calls the default constructor \texttt{DVar(xx, gg)}. It is easy to define the inverse procedure that transform a \texttt{DVar\{T\}} instance to a \texttt{T} instance by reversing the statements. With the flexibility to use types, it is not nessesary to use global stacks in our eDSL.
 
 Before introducing dataviews, let's first consider the following line that appear in the last subsection
 
@@ -395,12 +405,11 @@ Before introducing dataviews, let's first consider the following line that appea
 \end{lstlisting}
 \end{minipage}
 
-In Julia, this statement will raise a syntax error, since a function call can not be assigned.
+In Julia, this statement will raise a syntax error, since a function call \texttt{(-)} can not be assigned.
 Meanwhile \texttt{arr[3]} might be a immutable type.
 In our eDSL, we wish it works because every memory cell should be modifiable ``inplace''.
-
 As we have mensioned, \texttt{-arr[3].value += x * y} is translated to \texttt{@instr -arr[3].value += x * y} at the thrid stage.
-To execute the instruction, \texttt{@instr} translate the statement to
+\texttt{@instr} translate the statement to
 
 \begin{minipage}{.44\textwidth}
     \begin{lstlisting}[numberstyle=\scriptsize\color{codegray},numbers=left,numbersep=8pt]
@@ -418,12 +427,7 @@ A dataview of a data can be data itself, a field of its view, an array element o
 \texttt{chfield(x, Val\{:value\}, val)} can modify the \texttt{value} field of an instance given the default constructor of a type is not overwritten.
 A bijective mapping of a field can also be modified. To change \texttt{-x}, one simply overwrite the \texttt{chfield(x, -, res[1])} function.
 
-\section{Taylor propagation on a reversible Turing machine}\label{sec:bp}
-Taylor propagation is exponentially (as the order) more efficient in obtaining higher order gradients than differentiating lower order gradients recursively.
-The later requires traversing the computational graph repeatedly.
-In JAX, in order to support Taylor propagation, the propagation rules for part of primitives manually defined.
-The exhaused support requires much more effort than the first order gradient propagation.
-Instruction level automatic differentiation is more flexible in obtaining higher order gradients like Hessian.
+\section{Automatic differentiation}\label{sec:bp}
 
 \subsection{First order gradient}\label{sec:jacobian}
 Given a node $\vec y = f(\vec x)$ in a computational graph, we can propagate the Jacobians in tangent mode like
@@ -486,14 +490,20 @@ The second order gradient can be obtained with two approaches.
 \subsubsection{Back propagating first order gradients}
 Back propagating the first order gradients is the most widely used approach. Given the function space is closed under gradient operation, one can obtain higher order gradients reliablely without defining new backward rules.
 \begin{figure}[h]
-    \centerline{\includegraphics[width=0.9\columnwidth,trim={0 0cm 11cm 0cm},clip]{images/simplehessian.pdf}}
-    \caption{Obtaining the second order gradient with the reversive differentiation approach. Colors blue, green, orange and red indicate the four stages, data types and fields used for computation are marked in the same color.}\label{fig:simplehessian}
+    \centerline{\includegraphics[width=\columnwidth,trim={0 6.5cm 1cm 2cm},clip]{images/simplehessian.pdf}}
+    \caption{Obtaining the second order gradient with the reversive differentiation approach. Black lines are computing gradients, red lines are back propagating the process of obtaining the first order gradients. Annotations on lines are data types and their fields used in the computation.}\label{fig:simplehessian}
 \end{figure}
 
 Their are four stages in computing Hessian in the naive approach, the first two stages are obtaining gradients, the thrid stage is wrapping each field in \texttt{GVar} with \texttt{GVar} and compute forward function. Then we pick a variable $y$ to compute a row of Hessian by adding $1$ to \texttt{grad($y$)}. At the final stage, the \texttt{$\sim$GVar} operation does not unwrap \texttt{GVar} directly because the gradient field of gradients may be non-zeros. Instead, we use \texttt{Partial\{:FIELD\}($\cdot$)} to savely invert \texttt{GVar} on data type \texttt{GVar\{<:GVar, <:GVar\}}. It take a field without discarding information. In NiLang, \texttt{simple\_hessian} obtains the Hessian matrix in this way by iterating over different $y$s.
 
 \subsubsection{Taylor propagation}
-The second order gradient can also be propagated backward, which is a special case of Taylor propagation
+The second order gradient can also be propagated backward, which is a special case of Taylor propagation.
+Taylor propagation is exponentially (as the order) more efficient in obtaining higher order gradients than differentiating lower order gradients recursively.
+The later requires traversing the computational graph repeatedly.
+In JAX, in order to support Taylor propagation, the propagation rules for part of primitives manually defined.
+The exhaused support requires much more effort than the first order gradient propagation.
+Instruction level automatic differentiation is more flexible in obtaining higher order gradients like Hessian.
+
 \begin{align}
     \begin{split}
         &H^f_{y_L,y_L'} = 0\\
