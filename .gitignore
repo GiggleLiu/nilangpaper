@@ -17,3 +17,4 @@ _temp/
 .DS_store
 .ipynb_checkpoints/
 qmpsNotes.bib
+codes/.benchmarks/
