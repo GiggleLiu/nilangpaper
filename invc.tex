@@ -430,110 +430,70 @@ A bijective mapping of a field can also be modified. To change \texttt{-x}, one 
 \section{Automatic differentiation}\label{sec:bp}
 
 \subsection{First order gradient}\label{sec:jacobian}
-Given a node $\vec y = f(\vec x)$ in a computational graph, we can propagate the Jacobians in tangent mode like
+Given a node $\vec y = f(\vec x)$ in a computational graph,
+%the tangent mode AD propagates the Jacobians like
+%\begin{align}
+%    J^{\vy}_{\inp_j} = J^{\vy}_{\vx} J_{\inp_j}^{\vx}.
+%\end{align}
+%$\inp$ is the inputs and 
+%whereas the 
+the adjoint mode AD propagates the Jacobians in the reversed direction like
 \begin{align}
-    J^\out_{x_i} = J^\out_{y_j} J^{y_j}_{x_i}
+    \begin{split}
+        J^{\out}_{\out'} &= \delta_{\out,\out'}\\
+        J^{\out}_{x} &= J^{\out}_{y} J^{y}_{x},
+    \end{split}
 \end{align}
-and the adjoint mode
-\begin{align}
-    J^{y_j}_\inp = J^{y_j}_{x_i} J_\inp^{x_i}
-\end{align}
-
-Here, $\inp$ is the inputs and $\out$ is the outputs.
-Einstein's notation is used so that duplicated indices are summed over.
-Tagent mode instruction level automatic differentiation can be implemented easily in a irreversible language with dual numbers,
-here we focus on the adjoint mode.
-The backward rule can be described in tensor network~\cite{} language as shown in \Fig{fig:ad}.
+Here, $\out$ is the outputs. Einstein's notation is used so that duplicated indices are summed over.
+Tagent mode instruction level automatic differentiation can be implemented easily in a irreversible language with dual numbers~\cite{Revels2016}.
+Here we focus on the adjoint mode.
+Its propagation rule can be rewritten in the language of tensor networks~\cite{Orus2014} as shown in \Fig{fig:ad}.
 \begin{figure}
     \centerline{\includegraphics[width=0.9\columnwidth,trim={0.5cm 1cm 0 1cm},clip]{images/ad.pdf}}
     \caption{Adjoint rules for Jacobians and Hessians in tensor network language.}\label{fig:ad}
 \end{figure}
 
-In reversible programming, we have the following implementation
+In reversible programming with multiple dispatch, the adjoint mode AD algorithms can be implemented as
+
 \begin{algorithm}[H]
-    \KeResult{\grad.($\vx_g$)}
-    let \texttt{iloss} be the index of loss variable
+    \KwResult{\grad.($\vx_g$)}
+    let \texttt{iloss} be the index of loss variable in $\vx$\\
     $\vy = f(\vx)$\\
     $\vy_g$ = \texttt{GVar}.($\vy$)\\
-    $\vx_g = f^{-1}(\vy_g)$\\
-    \grad($\vy_g$[\texttt{iloss}]) += 1.0
-    \caption{Reversible programming AD}
+    \grad($\vy_g$[\texttt{iloss}]) += 1.0\\
+    $\vx_g= f^{-1}(\vy_g)$
+    \caption{Reversible programming AD}\label{alg:ad}
 \end{algorithm}
 
-Here, ``.'' is the broadcast operations in Julia. \texttt{GVar} is a ``reversible type''. \texttt{GVar(x)} attaches a zero gradient field to a variable, which is similar to the dual number in tangent mode automatic differentiation. The gradient can be accessed by \texttt{grad} function. Its inverse \texttt{$\sim$GVar} deallocates the gradient field safely and returns its value field. Here, "safely" means it will check the gradient field to make sure it is in $0$ state.
-When a \texttt{instruct} meets a \texttt{GVar}, besides computing its value field $\vvalue(\vx) = f^{-1}(\vvalue(\vy))$, it also updates the gradient field $\grad(\vx) = J^{\vx}_{\vy} \grad(\vy)$. Since $f^{-1}$ is bijective, $J^\vy_\vx$ can be easily obtained by inspecting its inverse function $f$.
-The final output is stored in the gradient field, when then gradient is not used anymore, the faithful reversible programming style to compute gradients would be uncomputing the whole process to obtain gradient, which increases the hyrachy by 1. Whenever the hyrachy increase by 1, the computational overhead doubles comparing with its irreversible counter part.
-
-Due to the multiple dispatch and just in time compiling, most runtime overhead can be removed. Let's consider a simple example that acccumulate $1.0$ to a target variable $x$ for $n$ times
+Here, \texttt{GVar} is a reversible type. The constructor attaches a zero gradient field to a variable, which is similar to the dual number in tangent mode automatic differentiation. If \texttt{x} is an array, \texttt{GVar} will be broadcasted to each array element automatically. The gradient field of a \texttt{GVar} instance can be accessed by the \texttt{grad} dataview. Its inverse \texttt{$\sim$GVar} deallocates the gradient field safely and returns its value field. Here, "safely" means before deallocation, the program will check the gradient field to make sure its value is $0$.
+When an instruction \texttt{instruct} meets a \texttt{GVar}, besides computing its value field $\vvalue(\vy) = \texttt{instruct}(\vvalue(\vx))$, it also updates the gradient field $\grad(\vx) = \left[J^{\vy}_{\vx}\right]^{-1} \grad(\vy)$, where $\left[J^{\vy}_{\vx}\right]^{-1}$ is the Jacobian of $\texttt{instruct}^{-1}$. When gradients are not used anymore, the reversible way to deallocate gradients is uncomputing the whole process of obtaining them.
+%, which increases the hyrachy by 1. Whenever the hyrachy increase by 1, the computational overhead doubles comparing with its irreversible counter part.
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
-@i function prog(x, one, n::Int)
-    for i=1:n
-        x += identity(one)
-    end
-end
+julia> using NiLang, NiLang.AD
+
+julia> x, y = GVar(0.5), GVar(0.6)
+(GVar(0.5, 0.0), GVar(0.6, 0.0))
+
+julia> @instr grad(x) += identity(1.0)
+
+julia> @instr x += identity(y)
+
+julia> y
+GVar(0.6, -1.0)
+
+julia> @instr grad(x) -= identity(1.0)
+
+julia> @instr (~GVar)(x)
+
+julia> x
+1.1
 \end{lstlisting}
 \end{minipage}
 
-\begin{figure}
-    \centerline{\includegraphics[width=0.9\columnwidth,trim={0 0cm 0 0},clip]{images/fig3.pdf}}
-    \caption{The time for obtaining gradient as function of loop size. $\times n$ in lengend represents a rescaling of time.}\label{fig:benchmark}
-\end{figure}
-From the benchmark result shown in \Fig{fig:benchmark}.
-One can see that the NiLang implementation is unreasonablely fast, even faster than two times the forward pass written in Julia. The code for benchmark is open for review in our paper github repository~\cite{nilangpaper}.
-This benchmark does show the actual performance in real applications.
-In real application, the reversible program can have memory or computing time overhead. We will discuss the details of time and space tradeoff in \Sec{sec:timespace}.
 
-\subsection{Second order gradient}
-The second order gradient can be obtained with two approaches.
-\subsubsection{Back propagating first order gradients}
-Back propagating the first order gradients is the most widely used approach. Given the function space is closed under gradient operation, one can obtain higher order gradients reliablely without defining new backward rules.
-\begin{figure}[h]
-    \centerline{\includegraphics[width=\columnwidth,trim={0 6.5cm 1cm 2cm},clip]{images/simplehessian.pdf}}
-    \caption{Obtaining the second order gradient with the reversive differentiation approach. Black lines are computing gradients, red lines are back propagating the process of obtaining the first order gradients. Annotations on lines are data types and their fields used in the computation.}\label{fig:simplehessian}
-\end{figure}
-
-Their are four stages in computing Hessian in the naive approach, the first two stages are obtaining gradients, the thrid stage is wrapping each field in \texttt{GVar} with \texttt{GVar} and compute forward function. Then we pick a variable $y$ to compute a row of Hessian by adding $1$ to \texttt{grad($y$)}. At the final stage, the \texttt{$\sim$GVar} operation does not unwrap \texttt{GVar} directly because the gradient field of gradients may be non-zeros. Instead, we use \texttt{Partial\{:FIELD\}($\cdot$)} to savely invert \texttt{GVar} on data type \texttt{GVar\{<:GVar, <:GVar\}}. It take a field without discarding information. In NiLang, \texttt{simple\_hessian} obtains the Hessian matrix in this way by iterating over different $y$s.
-
-\subsubsection{Taylor propagation}
-The second order gradient can also be propagated backward, which is a special case of Taylor propagation.
-Taylor propagation is exponentially (as the order) more efficient in obtaining higher order gradients than differentiating lower order gradients recursively.
-The later requires traversing the computational graph repeatedly.
-In JAX, in order to support Taylor propagation, the propagation rules for part of primitives manually defined.
-The exhaused support requires much more effort than the first order gradient propagation.
-Instruction level automatic differentiation is more flexible in obtaining higher order gradients like Hessian.
-
-\begin{align}
-    \begin{split}
-        &H^f_{y_L,y_L'} = 0\\
-        &H^f_{y_{i-1},y_{i-1}'} = J^{y_i}_{y_{i-1}} H^f_{y_i, y_i'} J^{y_i'}_{y_{i-1}'} + J^f_{y_i} H^{y_i}_{y_{i-1}, y_{i-1}'}
-    \end{split}
-\end{align}
-
-In tensor network language, it can be represented as in \Fig{fig:ad}.
-This approach can be easily extended to higher orders, or taylor propagation.
-However, this is not the widely adopted approach to compute higher order gradients.
-Althought backpropagating higher order gradients directly is exponentially faster than back propagating the computational graph for computing lower order gradients for computing higher order gradients, one has to extending the backward rules for each primitive rather than reusing existing ones.
-Here, we emphasis that with instruction level AD, rewritting backward rules for primitives turns out to be not so difficult.
-An example is provided in \Sec{sec:exp}.
-
-\subsection{Gradient on ancilla problem}
-Ancilla can also carry gradients during computation, sometimes these gradients can not be uncomputed even if their parents can be uncomputed regoriously. In these case, we simply ``drop'' the gradient field instead of raising an error. In this subsection, we prove doing this is safe, i.e. does not have effect on rest parts of program.
-
-Ancilla is the fixed point of a function, which means 
-\begin{align}
-    \begin{split}
-    &b, y \leftarrow f(x, a)\; \text{, where } b==a\\
-    &\frac{\partial b}{\partial x} = 0
-    \end{split}
-\end{align}
-
-During the computation, the gradient field does not have any effect to the \texttt{value} field of variables. The key question is will the loss of gradient part in ancilla affect the reversibility of the gradient part of argument variables.
-The gradient of argument variable is defined as $\frac{\partial L}{\partial x} = \frac{\partial L}{\partial y}\frac{\partial y}{\partial x} + \frac{\partial L}{\partial b}\frac{\partial b}{\partial x}$, where the second term vanish naturally.
-
-\subsection{Implementation}
-The automatic differentiation engine is so short that we present the function defintion as follows
+The implementation of Algorithm \ref{alg:ad} is so short that we present the function defintion as follows
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
@@ -559,38 +519,78 @@ end
 \end{lstlisting}
 \end{minipage}
 
-The program first checks the input parameters and locate the loss variable.
-Then \texttt{~Loss} unwraps the loss variable, the location of loss variable is transferred to the ancilla \texttt{iloss} of integer type.
+In NiLang, broadcasting and array indexing are supported. To avoid confusion, tuple indexing is forbidden delebrately, e.g. one can use \texttt{tget(tuple, 2)} to get the second element of a tuple.
+This program first checks the input parameters and locate the loss variable.
+Then \texttt{~Loss} unwraps the loss variable, the information about location of loss variable is transferred to the ancilla \texttt{iloss}.
+After computing the forward pass and backward pass, \texttt{~@routine getiloss} uncomputes \texttt{iloss} and returns the location information to the target variable.
 
-\texttt{GVar}
+The overhead of using \texttt{GVar} type can be removed thanks to Julia's multiple dispatch and type inference. Let's consider a simple example that acccumulate $1.0$ to a target variable $x$ for $n$ times
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
-julia> using NiLang, NiLang.AD
-
-julia> x, y = GVar(0.5), GVar(0.6)
-(GVar(0.5, 0.0), GVar(0.6, 0.0))
-
-julia> @instr grad(x) += identity(1.0)
-
-julia> @instr x += identity(y)
-
-julia> y
-GVar(0.6, -1.0)
-
-julia> @instr grad(x) -= identity(1.0)
-
-julia> @instr (~GVar)(x)
-
-julia> x
-1.1
+@i function prog(x, one, n::Int)
+    for i=1:n
+        x += identity(one)
+    end
+end
 \end{lstlisting}
 \end{minipage}
 
-Broadcasting is supported. To avoid possible confusing, tuple indexing is forbidden delebrately, one can use \texttt{tget(tuple, 2)} to get the second element of a tuple.
+\begin{figure}
+    \centerline{\includegraphics[width=0.9\columnwidth,trim={0 0cm 0 0},clip]{images/fig3.pdf}}
+    \caption{The time for obtaining gradient as function of loop size. $\times n$ in lengend represents a rescaling of time.}\label{fig:benchmark}
+\end{figure}
+We implement the same function with TensorFlow, PyTorch and Zygote for comparison. The codes could be found in our paper's github repository~\cite{benchmark}. Benchmark results on CPU Intel(R) Xeon(R) CPU E5-2680 v4 @ 2.40GHz are shown in \Fig{fig:benchmark}.
+One can see that the NiLang implementation is unreasonablely fast, it is approximately two times the forward pass written in native Julia code.
+In real application, the reversible program can have memory or computing time overhead. We will discuss the details of time and space tradeoff in \Sec{sec:timespace}.
+
+\subsection{Second order gradient}
+Second order gradients can be obtained with two different approaches.
+\subsubsection{Back propagating first order gradients}
+Back propagating the first order gradients is the most widely used approach to obtain the second order gradients. Given the function space is closed under gradient operation, one can obtain higher order gradients recursively without defining new backward rules.
+\begin{figure}[h]
+    \centerline{\includegraphics[width=\columnwidth,trim={0 6.5cm 1cm 2cm},clip]{images/simplehessian.pdf}}
+    \caption{Obtaining the second order gradient with the reversive differentiation approach. Black lines are computing gradients, red lines are back propagating the process of obtaining the first order gradients. Annotations on lines are data types and their fields used in the computation.}\label{fig:simplehessian}
+\end{figure}
+
+\Fig{fig:simplehessian} show the four passes in computing Hessian. The first two passes (black lines) are obtaining gradients. Before entering the third pass, the program wraps each field in \texttt{GVar} with \texttt{GVar}. Then we pick a variable $x_i$ and add $1$ to \texttt{grad(grad($x_i$))} to compute one row of Hessian. At the final stage, the \texttt{$\sim$GVar} operation does not unwrap \texttt{GVar} directly because the gradient fields may not be zero in this case. Instead, we use \texttt{Partial\{:x\}($\cdot$)} to safely compute \texttt{$\sim$GVar} on data type \texttt{GVar\{<:GVar, <:GVar\}}. It takes the \texttt{x} field without actually deallocating memory. By iterating over different $x_i$, one can obtains the Hessian matrix.
+
+\subsubsection{Taylor propagation}
+A probably more efficient approach is back propagating Hessians directly~\cite{Martens2012}
+\begin{align}
+    \begin{split}
+        &H^{O}_{O',O''} = \mathbf{0}\\
+        &H^{O}_{x,x'} = J^{y}_{x} H^{O}_{y, y'} J^{y'}_{x'} + J^{O}_{y} H^{y}_{x, x'}
+    \end{split}
+\end{align}
+The Hessian tensor $H^O_{x,x'}$ is a rank three, where the top index is often takes as a scalar and omitted.
+In tensor network language, the above equation can be represented as in \Fig{fig:ad}.
+Hessian propagation is a special case of Taylor propagation.
+With respect to the order of gradients, Taylor propagation is exponentially more efficient in obtaining higher order gradients than differentiating lower order gradients recursively. The later requires traversing the computational graph repeatedly.
+In JAX, in order to support Taylor propagation, the propagation rules for part of primitives should be manually defined.
+The exhaused support requires much more effort than the first order gradient propagation, this is why most AD packages use the recursive approach.
+Instruction level automatic differentiation has the advantage of having very limited primitives. It is more flexible in obtaining higher order gradients like Hessian.
+An example is provided in \Sec{sec:exp}.
+
+\subsection{Gradient on ancilla problem}
+Ancilla can also carry gradients during computation. As a result, even if an ancilla can be uncomputed regoriously in the original program, its \texttt{GVar} version can not be safely uncomputed.
+In these case, we simply ``drop'' the gradient field instead of raising an error. In this subsection, we prove doing this is safe, i.e. dropping the gradient field of an ancilla when deallocating does not have side effect to the output variables of a function.
+
+Consider a reversible function $\vy, b = f(\vx, a)$, where $a$ and $b$ are the input and output values of an ancilla. The reversibility requires $b=a$ for any $\vx$. So that
+\begin{align}
+    \frac{\partial b}{\partial \vx} = \vec 0.
+\end{align}
+In the backward pass, we discarded the gradient field of $b$.
+So the question becomes does \texttt{grad(b)} have effect on the $\vx$?
+The gradient fields are derived from the values of variables, they should not have any effect to the \texttt{value} fields.
+The rest is to show \texttt{grad(b)} does not have effect on \texttt{grad.($\vx$)} too. It can be seen from the expression the back propagation rule 
+\begin{equation}
+    \frac{\partial O}{\partial \vx} = \frac{\partial O}{\partial \vy}\frac{\partial \vy}{\partial \vx} + \frac{\partial O}{\partial b}\frac{\partial b}{\partial \vx},
+\end{equation}
+where the second term with $\frac{\partial O}{\partial{b}}$ vanishes naturally.
 
 \section{Learn by consistency}\label{sec:train}
-Consider training data consist of input $\vx^*$ and output $\vy^*$.
+Consider training data consisting of input $\vx^*$ and output $\vy^*$.
 The goal is to find a set of parameters $\vp_x$ that satisfy $\vy^* = f(\vx^*, \vp_x)$.
 In traditional machine learning, we define a loss $\mathcal{L} = {\rm dist}(\vy^*, f(\vx^*, \vp_x))$ and minimize it with gradient $\frac{\partial L}{\partial \vp_x}$. This is viable only when the target function is locally differentiable.
 
@@ -628,40 +628,40 @@ Let's consider the following example
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}[basicstyle=\small\ttfamily,columns=fullflexible]
-@i function f1(out!, x, y!)
-    y! += identity(x)
-    out! -= exp(x)
-    out! += exp(y!)
+@i function f1(y!, x, p!)
+    p! += identity(x)
+    y! -= exp(x)
+    y! += exp(p!)
 end
 
-@i function f2(out!, x!, y!)
-    y! += identity(x!)
-    out! -= exp(x!)
-    x! -= log(-out!)
-    out! += exp(y!)
+@i function f2(y!, x!, p!)
+    p! += identity(x!)
+    y! -= exp(x!)
+    x! -= log(-y!)
+    y! += exp(p!)
 end
 
 function train(f)
     loss = Float64[]
-    y = 1.6
+    p = 1.6
     for i=1:100
-        out!, x = 0.0, 0.3
-        @instr f(out!, x, y)
-        push!(loss, out!)
-        out! = 1.0
-        @instr (~f)(out!, x, y)
+        y!, x = 0.0, 0.3
+        @instr f(y!, x, p)
+        push!(loss, y!)
+        y! = 1.0
+        @instr (~f)(y!, x, p)
     end
     loss
 end
 \end{lstlisting}
 \end{minipage}
 
-Functions \texttt{f1} and \texttt{f2} computes $f(x, y) = e^{(y+x)} - e^x$ and stores the output in a new memory \texttt{out!}.
-The only difference is $f_2$ ``uncompute'' $x$ arithmetically.
-The task of training is to find a $y$ that make the output value equal to target value $1$.
-After $200$ steps, $f_2$ runs into the fixed point with $x$ equal to $1$ upto machine precision.
-However, $f_1$ does not do any training.
-The training of $f_2$ fails because this function actually computes $f_1(out!, x, y!) = out! + e^{(y!+x)} - e^x, x, x+y!$, where the training parameter $y$ is completely determined by the garbage space on output side $x$ and $x+y!$. As a result, shifting $out!$ directly is the only approach to satisfy the consistency relation. On the other side, $f_2(out!, x, y!) = out! + e^{(y!+x)} - e^x, \left(x-\log(e^x)\right), x+y!$, parameters $y$ is not completely determined by the garbage space $\left(x-\log(e^x)\right), x+y!$.
+Functions \texttt{f1} and \texttt{f2} computes $f(x, p) = e^{(p+x)} - e^x$ and stores the output in a new memory \texttt{y!}.
+The only difference is \texttt{f2} ``uncompute'' $x$ arithmetically.
+The task of training is to find a $p$ that make the output value equal to target value $1$.
+After $200$ steps, \texttt{f2} runs into the fixed point with $x$ equal to $1$ upto machine precision.
+However, \texttt{f1} does not do any training.
+The training of \texttt{f2} fails because this function actually computes $\texttt{f1}(y, x, p) = y + e^{(p+x)} - e^{x}, x, x+p$, where the training parameter $y$ is completely determined by the garbage space on the output side $x \cup x+p$. As a result, shifting $y$ directly is the only approach to satisfy the consistency relation. On the other side, $\texttt{f2}(y, x, p) = y + e^{(p+x)} - e^x, \left(x-\log(e^x)\right), x+p$, the garbage space can not uniquely determine the input garbage space $p$ and $y$.
 
 \begin{figure}
     \centerline{\includegraphics[width=0.9\columnwidth,trim={0 0.3cm 0 0},clip]{images/fig1.pdf}}
@@ -673,7 +673,7 @@ By viewing $\vx$ and parameters in $\vp_x$ as variables, we can study the traina
     Only if the the conditional entropy $S(\vy|\vp_y)$ is nonzero, algorithm \ref{algo:train} is trainable.
 \end{theorem}
 \begin{proof}
-The above discussion reveals a fact that the training can not work when the output $\vp_y$ completely determines $\vp_x$, that is
+The above example reveals a fact that the training can not work when the output $\vp_y$ completely determines $\vp_x$, that is
 \begin{align}
     \begin{split}
         S(\vp_x | \vp_y) &= S(\vp_x \cup \vp_y) - S(\vp_y)\\
@@ -1139,7 +1139,7 @@ The list of instructions implemented in NiLang
             \bottomrule
         \end{tabularx}
     }
-    \caption{A collection of reversible instructions.}\label{tbl:revinstructions}
+    \caption{A collection of reversible instructions, ``.'' is the broadcast operations in Julia.}\label{tbl:revinstructions}
 \end{minipage}
 \end{table}
 

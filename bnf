@@ -32,7 +32,7 @@ Range : <$JuliaExpr$> ':' <$JuliaExpr$> [':' <$JuliaExpr$>];
 
 ForStmt : 'for' <ident> '=' Range Stmts 'end';
 
-CallStmt : <$JuliaExpr$> '(' [DataViews] ')';
+CallStmt : <$JuliaExpr$> '(' [DataViews] [';' <$JuliaExpr$>] ')';
 
 Constant : <num> | '$\pi$';
 
@@ -66,4 +66,5 @@ DataView : DataView '[' <$JuliaExpr$> ']'
          | '-' DataView
          | Constant
          | <ident>
+         | <ident> '...'
          ;
