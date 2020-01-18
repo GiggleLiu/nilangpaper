@@ -16,8 +16,7 @@ function f(x, one, n::Int)
     return x
 end
 
-function run()
-    nmax = 15
+function run(nmax::Int)
     lst_forward = zeros(nmax)
     lst_nilang = zeros(nmax)
     lst_zygote = zeros(nmax)
@@ -35,4 +34,4 @@ function run()
     writedlm("nilang.dat", lst_nilang)
 end
 
-run()
+run(20)

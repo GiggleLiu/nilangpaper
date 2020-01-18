@@ -1,5 +1,6 @@
 import pdb, pytest
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
+tf.disable_v2_behavior()
 import torch
 
 def btorch(n):
@@ -29,10 +30,10 @@ def btf(n):
     with tf.Session() as sess:
         sess.run([gx, gone])
 
-@pytest.mark.parametrize('i', range(1,16))
+@pytest.mark.parametrize('i', range(1,21))
 def test_tf(benchmark, i):
     benchmark(btf, 2**i)
 
-@pytest.mark.parametrize('i', range(1,16))
+@pytest.mark.parametrize('i', range(1,21))
 def test_torch(benchmark, i):
     benchmark(btorch,  2**i)
