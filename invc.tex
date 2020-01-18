@@ -317,12 +317,12 @@ The following example shows how to compile an \texttt{if} statement
 julia> using NiLangCore, MacroTools
 
 julia> ex0 = :(if (x > 3, ~)
-            grad(arr[3].value) += x * y
+            -arr[3].value += x * y
         end);
         
 julia> ex0 |> prettify
 :(if (x > 3, ~)
-      grad((arr[3]).value) += x * y
+      -(arr[3]).value += x * y
   end)
 
 julia> ex1 = NiLangCore.precom_ex(ex0,
@@ -330,7 +330,7 @@ julia> ex1 = NiLangCore.precom_ex(ex0,
         
 julia> ex1 |> prettify  # after stage 1
 :(if (x > 3, x > 3)
-      grad((arr[3]).value) += x * y
+      -(arr[3]).value += x * y
   else
   end)
 
@@ -338,7 +338,7 @@ julia> ex2 = NiLangCore.dual_ex(ex1);
 
 julia> ex2 |> prettify  # after stage 2
 :(if (x > 3, x > 3)
-      grad((arr[3]).value) -= x * y
+      -(arr[3]).value -= x * y
   else
   end)
 
@@ -348,7 +348,7 @@ julia> ex3 |> prettify  # after stage 3
 quote
     wren = x > 3
     if wren
-        @instr grad((arr[3]).value) -= x * y
+        @instr -(arr[3]).value -= x * y
     else
     end
     @invcheck x > 3 wren
@@ -391,7 +391,7 @@ Before introducing dataviews, let's first consider the following line that appea
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
-grad(arr[3].value) += x * y
+-arr[3].value += x * y
 \end{lstlisting}
 \end{minipage}
 
@@ -399,25 +399,24 @@ In Julia, this statement will raise a syntax error, since a function call can no
 Meanwhile \texttt{arr[3]} might be a immutable type.
 In our eDSL, we wish it works because every memory cell should be modifiable ``inplace''.
 
-As we have mensioned, \texttt{grad(arr[3].value) += x * y} is translated to \texttt{@instr grad(arr[3].value) += x * y} at the thrid stage.
+As we have mensioned, \texttt{-arr[3].value += x * y} is translated to \texttt{@instr -arr[3].value += x * y} at the thrid stage.
 To execute the instruction, \texttt{@instr} translate the statement to
 
 \begin{minipage}{.44\textwidth}
     \begin{lstlisting}[numberstyle=\scriptsize\color{codegray},numbers=left,numbersep=8pt]
-res = PlusEq(*)(grad(arr[3].value), x, y)
+res = PlusEq(*)(-arr[3].value, x, y)
 arr[3] = chfield(arr[1], Val(:value), 
-    chfield(arr[3].value, grad, res[1]))
+    chfield(arr[3].value, -, res[1]))
 x = res[2]
 y = res[3]
 \end{lstlisting}
 \end{minipage}
 
-\texttt{PlusEq(*)(grad(arr[3].value), x, y)} computes the output, which is a tuple of length $3$.
-\texttt{chfield} is used to a dataview.
-The second and third arguments can be assigned back directly.
+\texttt{PlusEq(*)(-arr[3].value, x, y)} computes the output, which is a tuple of length $3$.
+The assignments in line 4 and 5 can be handled directly while the assignment in line 2-3 are not so, where \texttt{chfield} is used to modify a dataview.
 A dataview of a data can be data itself, a field of its view, an array element of its view, or a bijective mapping of its view.
-If the default constructor of a type is not overwritten by user, NiLang can modify a field of that type automatically.
-For a bijective mapping of a field, user need to specify the behavior of a dataview by overloading \texttt{chfield} function.
+\texttt{chfield(x, Val\{:value\}, val)} can modify the \texttt{value} field of an instance given the default constructor of a type is not overwritten.
+A bijective mapping of a field can also be modified. To change \texttt{-x}, one simply overwrite the \texttt{chfield(x, -, res[1])} function.
 
 \section{Taylor propagation on a reversible Turing machine}\label{sec:bp}
 Taylor propagation is exponentially (as the order) more efficient in obtaining higher order gradients than differentiating lower order gradients recursively.
@@ -483,7 +482,18 @@ This benchmark does show the actual performance in real applications.
 In real application, the reversible program can have memory or computing time overhead. We will discuss the details of time and space tradeoff in \Sec{sec:timespace}.
 
 \subsection{Second order gradient}
-The second order gradient can also be back propagated
+The second order gradient can be obtained with two approaches.
+\subsubsection{Back propagating first order gradients}
+Back propagating the first order gradients is the most widely used approach. Given the function space is closed under gradient operation, one can obtain higher order gradients reliablely without defining new backward rules.
+\begin{figure}[h]
+    \centerline{\includegraphics[width=0.9\columnwidth,trim={0 0cm 11cm 0cm},clip]{images/simplehessian.pdf}}
+    \caption{Obtaining the second order gradient with the reversive differentiation approach. Colors blue, green, orange and red indicate the four stages, data types and fields used for computation are marked in the same color.}\label{fig:simplehessian}
+\end{figure}
+
+Their are four stages in computing Hessian in the naive approach, the first two stages are obtaining gradients, the thrid stage is wrapping each field in \texttt{GVar} with \texttt{GVar} and compute forward function. Then we pick a variable $y$ to compute a row of Hessian by adding $1$ to \texttt{grad($y$)}. At the final stage, the \texttt{$\sim$GVar} operation does not unwrap \texttt{GVar} directly because the gradient field of gradients may be non-zeros. Instead, we use \texttt{Partial\{:FIELD\}($\cdot$)} to savely invert \texttt{GVar} on data type \texttt{GVar\{<:GVar, <:GVar\}}. It take a field without discarding information. In NiLang, \texttt{simple\_hessian} obtains the Hessian matrix in this way by iterating over different $y$s.
+
+\subsubsection{Taylor propagation}
+The second order gradient can also be propagated backward, which is a special case of Taylor propagation
 \begin{align}
     \begin{split}
         &H^f_{y_L,y_L'} = 0\\
@@ -783,13 +793,6 @@ julia> simple_hessian(iexp, (Loss(out!), x))
 \texttt{iexp\textquotesingle} returns an object of type \texttt{Grad\{typeof(exp)\}}, it returns input variables with updated gradient field.
 The loss variable is specified by a wrapper \texttt{Loss}, notice we don't distinguish input and output in reversible programming.
 The gradient functions are implemented reversibally so that the gradients can be differentiated again to obtain Hessians as shown in \Fig{fig:simplehessian}.
-
-\begin{figure}[h]
-    \centerline{\includegraphics[width=0.9\columnwidth,trim={0 0cm 11cm 0cm},clip]{images/simplehessian.pdf}}
-    \caption{Obtaining the second order gradient with the reversive differentiation approach. Colors blue, green, orange and red indicate the four stages, data types and fields used for computation are marked in the same color.}\label{fig:simplehessian}
-\end{figure}
-
-Their are four stages in computing Hessian in the naive approach, the first two stages are obtaining gradients, the thrid stage is wrapping each field in \texttt{GVar} with \texttt{GVar} and compute forward function. Then we pick a variable $y$ to compute a row of Hessian by adding $1$ to \texttt{grad($y$)}. At the final stage, the \texttt{$\sim$GVar} operation does not unwrap \texttt{GVar} directly because the gradient field of gradients may be non-zeros. Instead, we use \texttt{Partial\{:FIELD\}($\cdot$)} to savely invert \texttt{GVar} on data type \texttt{GVar\{<:GVar, <:GVar\}}. It take a field without discarding information. In NiLang, \texttt{simple\_hessian} obtains the Hessian matrix in this way by iterating over different $y$s.
 
 The back propagation approach can be more efficient in obtaining higher order gradients.
 
