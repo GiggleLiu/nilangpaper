@@ -715,7 +715,7 @@ end
 \end{lstlisting}
 \end{minipage}
 
-To compute the first Fibonacci number that is greater or equal to 100
+The following example shows how to construct a reversible \texttt{while} statement. It computes the first Fibonacci number that greater or equal to 100
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
@@ -728,23 +728,22 @@ end
 \end{lstlisting}
 \end{minipage}
 
-Here, \texttt{fib} and \texttt{rfib} are defined in \App{sec:fib}.
+In this example, the postcondition \texttt{n!=0} is false before entering the loop, and becomes true in later iterations. In the reverse program, the \texttt{while} statement stops at \texttt{n==0}.
 
 \subsection{exp function}\label{sec:exp}
 An $\exp$ function can be computed using Taylor expansion
 \begin{equation}
-    {\rm out!} += \sum\limits_n \frac{x^n}{{\rm factorial}(n)}
+    {\rm y!} += \sum\limits_n \frac{x^n}{{\rm factorial}(n)}
 \end{equation}
-This is a recursive algorithm that mimics pebble game.
-Define the term for accumulation $s_n \equiv \frac{x^n}{{\rm factorial}(n)}$, the recursion relation is written as $s_n = \frac{x s_{n-1}}{n}$. There is no known constant memory and polynomial time algorihm to pebble game.
-Here the case is different. Notice $*=$ and $/=$ are arithmetically reversible to each other, we can uncompute $s_{n-1} = \frac{n s_n}{x}$ to deallocate memory.
-By allowing loss of several digit precision of result, implementing the constant memory reversible $\exp$ function is possible
+This is a recursive algorithm that mimics the famous pebble game~\cite{Perumalla2013}.
+In each iteration, the accumulated term is $s_n \equiv \frac{x^n}{{\rm factorial}(n)}$, the recursion relation is written as $s_n = \frac{x s_{n-1}}{n}$. There is no known constant memory and polynomial time algorihm to pebble game.
+Here the case is different. Notice $\mathrel{*}=$ and $\mathrel{/}=$ are arithmetically reversible to each other, we can ``uncompute'' with the previous state with the relation $s_{n-1} = \frac{n s_n}{x}$ to deallocate the memory.
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
 using NiLang, NiLang.AD
 
-@i function iexp(out!, x::T; atol::Float64=1e-14)
+@i function iexp(y!, x::T; atol::Float64=1e-14)
         where T
     @anc anc1 = zero(T)
     @anc anc2 = zero(T)
@@ -752,7 +751,7 @@ using NiLang, NiLang.AD
     @anc iplus = 0
     @anc expout = zero(T)
 
-    out! += identity(1.0)
+    y! += identity(1.0)
     @routine r1 begin
         anc1 += identity(1.0)
         while (value(anc1) > atol, iplus != 0)
@@ -767,7 +766,7 @@ using NiLang, NiLang.AD
         end
     end
 
-    out! += identity(expout)
+    y! += identity(expout)
 
     ~@routine r1
 end
@@ -775,43 +774,43 @@ end
 \end{minipage}
 
 The definition of SWAP instruction can be found in \App{app:instr}.
-The two lines bellow the comment ``\texttt{\# arithmetic uncompute}'' "uncomputes" variables \texttt{anc1} and \texttt{anc2}, this uncomputation is only true arithmeticly, but not for floating point number due to the rouding error. As a result, the final output is not exact due to the rounding error. On the other side, the reversibility is not harmed since the inverse call at the last line of function uncomputes all ancilla bits rigorously.
+The two lines bellow the comment ``\texttt{\# arithmetic uncompute}'' "uncomputes" variables \texttt{anc1} and \texttt{anc2} approximately. This uncomputation is only arithmeticly true. As a result, the final output is not exact due to the rounding error. On the other side, the reversibility is not harmed since the inverse call at the last line of function uncomputes all ancilla bits rigorously.
 The \texttt{while} statement takes two conditions, the precondition and postconditoin. Precondition \texttt{val(anc1) > atol} indicates when to break the forward pass and post condition \texttt{!isapprox(iplus, 0.0)} indicates when to break the backward pass.
 
-To obtain the gradient, one can wrap the loss with \texttt{Loss} type and feed it into \texttt{iexp\textsinglequote} function
+To obtain the gradient, one can wrap the loss with \texttt{Loss} type and feed it into \texttt{iexp\textquotesingle} function
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
-julia> out!, x = 0.0, 1.6
+julia> y!, x = 0.0, 1.6
 (0.0, 1.6)
 
-julia> @instr iexp'(Loss(out!), x)
+julia> @instr iexp'(Loss(y!), x)
 
 julia> grad(x)
 4.9530324244260555
 
-julia> out!, x = 0.0, 1.6
+julia> y!, x = 0.0, 1.6
 (0.0, 1.6)
 
-julia> simple_hessian(iexp, (Loss(out!), x))
+julia> simple_hessian(iexp, (Loss(y!), x))
 2×2 Array{Float64,2}:
  0.0  0.0
  0.0  4.95303
 \end{lstlisting}
 \end{minipage}
 
-\texttt{iexp\textquotesingle} returns an object of type \texttt{Grad\{typeof(exp)\}}, it returns input variables with updated gradient field.
-The loss variable is specified by a wrapper \texttt{Loss}, notice we don't distinguish input and output in reversible programming.
-The gradient functions are implemented reversibally so that the gradients can be differentiated again to obtain Hessians as shown in \Fig{fig:simplehessian}.
+\texttt{iexp\textquotesingle} is a callable instance of type \texttt{Grad\{typeof(iexp)\}}. \texttt{iexp\textquotesingle($\cdot$)} returns input variables with updated gradient field.
+%The loss variable is specified by a wrapper \texttt{Loss}, notice we don't distinguish input and output in reversible programming.
+The gradient function is implemented reversibally so that the gradient field of output can be differentiated again to obtain Hessians as shown in \Fig{fig:simplehessian}.
 
 The back propagation approach can be more efficient in obtaining higher order gradients.
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
-julia> out!, x = 0.0, 1.6
+julia> y!, x = 0.0, 1.6
 (0.0, 1.6)
 
-julia> @instr iexp''(Loss(out!), x)
+julia> @instr iexp''(Loss(y!), x)
 
 julia> collect_hessian()
 2×2 Array{Float64,2}:
@@ -819,7 +818,7 @@ julia> collect_hessian()
  0.0  4.95303
 \end{lstlisting}
 \end{minipage}
-\texttt{iexp\textquotesingle\textquotesingle} computes the second order derivative by wrapping the variable into type \texttt{BeijingRing}. This is a special data structure to store Hessians. Whenever an $n$-th variable is created, we push a ring of size $2n-1$ in to a global tape. Whenever an ancilla is deallocated, we pop a ring from the top. The $n$-th ring stores $H_{i\leq n,n}$ and $H_{n,i<n}$. We didn't use the symmetry relation $H_{i,j} = H_{j,i}$ here to simplify the implementation of backward rules described in the right most panel of \Fig{fig:ad}.
+\texttt{iexp\textquotesingle\textquotesingle} computes the second order gradients by wrapping variables with type \texttt{BeijingRing}~\footnote{When people ask the location in Beijing, they will start by asking which ring.}. Whenever an $n$-th variable is created, we push a ring of size $2n-1$ to a global tape. Whenever an ancilla is deallocated, we pop a ring from the top. The $n$-th ring stores $H_{i\leq n,n}$ and $H_{n,i<n}$. We didn't use the symmetry relation $H_{i,j} = H_{j,i}$ here to simplify the implementation of backward rules described in the right most panel of \Fig{fig:ad}.
 The final result can be collected by calling a global function \texttt{collect\_hessian}.
 
 \subsection{QR decomposition}
