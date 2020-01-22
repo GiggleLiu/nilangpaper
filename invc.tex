@@ -184,7 +184,7 @@
 \affiliation{Department of Computer Science, University of Tsukuba}
 
 \begin{abstract}
-    This paper considers the instruction level adjoint mode differential programming, i.e. knowing only the backward rules of basic instructions like +, -, * and /, obtain the gradient of parameters in an arbituary differentiable program with proper performance. In this paper, we review briefly why instruction level automatic differentiation is hard for current machine learning frameworks and propose an implementation of reversible Turing machine as a solution. We show how reversible programming can differentiate a general program to an arbituary order automatically by viewing basic instructions as the computational graph.
+    This paper considers the instruction level adjoint mode automatic differentiation. Here, instruction level means, given the backward rules of basic instructions like +, -, * and /, one can differentiate an arbituary program efficiently. In this paper, we review briefly why instruction level automatic differentiation is hard for traditional machine learning frameworks and propose a solution to these problems by back propagating a reversible Turing machine. This implementation can be used to generate the backward rules for functions from exp to unitary matrix multiplication and QR decomposition. Also we discuss the challenges that we face towards a rigorious reversible programing from the instruction and hardware perspective.
 \end{abstract}
 
 
@@ -192,49 +192,48 @@
 
 %\begin{multicols}{2}
 \section{Introduction}\label{sec:intro}
-    \blue{TODOs: quantum example?}
-    There are two modes of automatic differentiation (AD)~\cite{Hascoet2013}, the tangent mode~\cite{Revels2016} and the adjoint mode.
+    There are two modes of automatic differentiation (AD)~\cite{Hascoet2013}, the tangent mode and the adjoint mode.
     Consider a multi-in multi-out function $\vy = f(\vx)$, the tangent mode computes one column of its Jacobian $\frac{\partial \vy}{\partial x_i}$ efficiently, where $x_i$ is one of the input variables.
 Whereas the adjoint mode computes one row of Jacobian $\frac{\partial y_i}{\partial \vec{x}}$ efficiently.
-Most popular automatic differentiation package implements the adjoint mode AD. Because the adjoint mode is computational more efficient in variational applications, where the loss as output is always a scalar.
-However, implementing adjoint mode AD is harder than implementing the tangent mode AD. It requires a program's intermediate state for back propagation, including
+Most popular automatic differentiation packages implement the adjoint mode AD. Because the adjoint mode is computational more efficient in variational applications, where the loss as output is always a scalar.
+However, implementing adjoint mode AD is harder than implementing its tangent mode counterpart. It requires a program's intermediate state for back propagation, which includes
 \begin{enumerate}
     \item the computation graph,
     \item and input variables of nodes in computation graph.
 \end{enumerate}
     A computational graph is a directed acyclic graph (DAG) that records the relation between data (edges) and functions (nodes).
 In Pytorch~\cite{Paszke2017} and Flux~\cite{Innes2018}, every variable has a tracker field that stores its parent information, i.e. the input data and function that generate this variable. TensorFlow~\cite{Tensorflow2015} implements a static computational graph as a description of the program before actual computation happens.
-    Source to source automatic differentiation package Zygote~\cite{Innes2018, Innes2019} use a intermediate representation (IR) of a program the static single assignment (SSA) form as the computation graph in order to propagate a native julia code. To cache the intermediate state, it uses a global storage.
+    Source to source automatic differentiation package Zygote~\cite{Innes2018, Innes2019} use a intermediate representation (IR) of a program, the static single assignment (SSA) form, as the computation graph in order to back propagate a native julia code. To cache intermediate states, it has to accesss a global storage.
 
-    Several limitations are observed in these AD implementions due to the recording and caching. First of all, these package requires a lot primitive functions with programmer defined backward rules. This is not nessesary given the fact that, at the lowest level, these primitive functions are compiled to a finite set of instructions including `+', `-', `*', `/' and conditional jump statements. By defining backward rules for these basic instructions, AD should just works. These machine learning packages can not use instructions as the computational graph for practical reasons. The cost of memorizing the computational graph and caching intermediate states is huge. It can decrease the performance for more than two orders when a program contains loops (as we will show latter).
-    Even more, the memory consumption for caching intermediate results increases linearly as time. In many deep learning models like recurrent neural network~\cite{Lipton2015} and residual neural networks~\cite{He2016}, the depth can reach several thousand, the memory wall~\cite{memorywall} can be big problem.
-    Secondly, inplace functions are not handled properly in the diagram of computation graph. Even in source to source AD engine Zygote, it is not trivil to handle inplace functions. Most functions in BLAS and LAPACK are implemented as inplace functions. The lack of automatic differentiation support to inplace functions make the memory wall problem even more sevire. It is also harmful to code reusing since all packages using BLAS functions should define their own backward rules for their non-inplace wrappers.
-    Thridly, obtaining higher order gradients are not efficient in these packages. For example, in most machine learning packages, people back propagate the whole program of obtaining first order gradient to obtain the second order gradients. The repeated use of back propagation cause exponential overhead with respect to the order of gradients. A better approach to obtain higher order gradients is through Taylor propagation like in JAX~\cite{Bettencourt2019}. However Taylor propagation requires writing rules for all primitives. Besides the exponential overhead, the sorce to source AD engine Zygote suffers from the significant overhead of just in time compiling in Julia language~\cite{Bezanson2017}.
+    Several limitations are observed in these AD implementions due to the recording and caching. First of all, these package requires a lot primitive functions with programmer defined backward rules. This is not nessesary given the fact that, at the lowest level, these primitive functions are compiled to a finite set of instructions including `+', `-', `*', `/' and conditional jump. By defining backward rules for these basic instructions, AD should just works. These machine learning packages can not use instructions as the computational graph for practical reasons. The cost of memorizing the computational graph and caching intermediate states is huge. It can decrease the performance for more than two orders when a program contains loops (as we will show latter).
+    Even more, the memory consumption for caching intermediate results increases linearly as time. In many deep learning models like recurrent neural network~\cite{Lipton2015} and residual neural networks~\cite{He2016}, the depth can reach several thousand. The memory is often the bottleneck of these programs, which is known as the memory wall problem.~\cite{memorywall}
+    Secondly, inplace functions are not handled properly in the diagram of computation graph, because the notation of parent and child are not compatible with inplace operations.
+ Even in Zygote that uses SSA as the computation graph, it is not trivil to handle inplace functions.
+    On the other side, most functions in BLAS and LAPACK are implemented as inplace functions. All AD packages that use BLAS and LAPACK functions have to define their own backward rules for their non-inplace wrappers due to the lack of AD support to inplace functions.
+    Thridly, obtaining higher order gradients are not efficient in these packages. For example, in most machine learning packages, people back propagate the whole program of obtaining first order gradients to obtain second order gradients. The repeated use of back propagation cause an exponential overhead with respect to the order of gradients. A better approach is using Taylor propagation like in JAX~\cite{Bettencourt2019}. However Taylor propagation requires writing backward rules for all primitives\blue{true?}. %Besides the exponential overhead, the sorce to source AD engine Zygote suffers from the significant overhead of just in time compiling in Julia language~\cite{Bezanson2017}.
 
 % where the manually derived backwards rule still faces the degenerate spectrum problem (gradients explodes), instruction level AD will return reasonable gradients. With instruction level AD, people don't worry about inplace functions, which may be a huge problem in traditional approaches. We can back propagate over a quantum simulator, where all instructions are reversible two level unitaries (i.e. Jacobian rotation).
 
 %We don't need extra effort to learn meta parameters.~\cite{} Neural ODE is much easier to design~\cite{Chen2018}.
 
-Our solution to these issues is making a program time reversible. Making use of reversibility has been used in machine learning as a promising approach to save memory. People use information buffer~\cite{Maclaurin2015} and reversible activation functions to reduce the memory allocations in recurrent neural network~\cite{MacKay2018} and residual neural networks~\cite{Behrmann2018}. However, the use of reversiblity in these cases are not general purposed.
-
-    Hence we develop a embeded domain specific language (eDSL) in Julia language that implements reversible Turing machine (RTM).~\cite{Perumalla2013,Frank2017}.
-The gradient of any program writting in this eDSL can be obtained in comparable time with the forward computation. The implementation of AD is similar to \texttt{ForwardDiff}~\cite{Revels2016} but runs backward.
-    There has been some prototypes of reversible languages like Janus~\cite{Lutz1986}, R (not the popular one)~\cite{Frank1997}, Erlang~\cite{Lanese2018} and object oriented ROOPL~\cite{Haulund2017}. These languages have reversible control flow that allowing user to input an additional postcondition in control flows to help programs run backward.
-    In the past, the main motivation of making a program time reversible is to support reversible devices. Reversible devices do not have a lower bound of energy consumption by Landauer principle~\cite{Landauer1961}. However CMOS devices still has two orders~\cite{Frank2017} space to optimize regarding this lower bound.
-    The main contribtion of our work is breaking the information barrier between machine learning community and reversible programming community, providing yet another strong motivation to develop a reversible programming.
-    Our eDSL borrows the design of reversible control flow in the Janus, meanwhile provides multiple dispatch based abstraction. With these additional features, the AD engine differentiating a general program could be implemented in less than 100 lines.
-Our eDSL generates native julia code, and is completely compatible with Julia language.
+Our solution to these issues is making a program time reversible. It is not same as the work arounds in the machine learning field that use information buffer~\cite{Maclaurin2015} and reversible activation functions to reduce the memory allocations in recurrent neural network~\cite{MacKay2018} and residual neural networks~\cite{Behrmann2018}. Our approach is more general, we develop a embeded domain specific language (eDSL) in Julia language that implements reversible Turing machine (RTM).~\cite{Perumalla2013,Frank2017}.
+The gradient of any program written in this eDSL can be obtained in comparable time with the forward computation. The AD implementation is similar to \texttt{ForwardDiff}~\cite{Revels2016} but runs backward.
+    In history, there has been some prototypes of reversible languages like Janus~\cite{Lutz1986}, R (not the popular one)~\cite{Frank1997}, Erlang~\cite{Lanese2018} and object oriented ROOPL~\cite{Haulund2017}. These languages have reversible control flow that allows user to input an additional postcondition in control flows to help programs run backward.
+    In the past, the main motivation of making a program time reversible is to support reversible devices. Reversible devices do not have a lower bound of energy consumption by Landauer principle~\cite{Landauer1961}. However, people show less and less interest to reversible programming since 15 years ago since the energy efficiency of CMOS devices are still two orders~\cite{Frank2017} above this lower bound, this lower bound is not an urgent problem yet.
+    The main contribtion of our work is breaking the information barrier between machine learning community and reversible programming community, providing yet another strong motivation to develop reversible programming.
+    Our eDSL borrows the design of reversible control flow in the Janus, meanwhile provides multiple dispatch based abstraction. With these features, the AD engine could be implemented in less than 100 lines. It generates native julia code, and is completely compatible with Julia language.
 Potensial applications includes
 \begin{enumerate}
     \item generate AD rules for primitive functions like \texttt{exp},
     \item control problem in robotics~\cite{Giftthaler2017} where tensor is not the dominating data type,
     \item differentiating over reversible integrators~\cite{Laikov2018} without intermediate state caching,
-    \item Stablize linear algebras functions backward rules. Current backward rules for singular value decomposition (SVD) and eigenvalue decomposition (ED)~\cite{Seeger2017,Wan2019,Hubig2019} are vulnarable to spectrum degeneracy. The development of backward rules for these linear algebra functions can greatly change the researches in physics~\cite{Xie2020,Liao2019}.
+    \item Stablize the backward rules for linear algebra functions. Current backward rules for singular value decomposition (SVD) and eigenvalue decomposition (ED)~\cite{Seeger2017,Wan2019,Hubig2019} are vulnarable to spectrum degeneracy. The development of backward rules for these linear algebra functions can greatly change researches in physics~\cite{Xie2020,Liao2019}.
 
 \end{enumerate}
 
-    In this paper, we first introduce the design of this eDSL in \Sec{sec:lang}. On this eDSL, we show how to back propagation Jacobians and Hessians.
-    Then we propose a training strategy in \Sec{sec:train} that uses reversibility, rather than gradients.
+    In this paper, we first introduce the design of our eDSL in \Sec{sec:lang}.
+    In \Sec{sec:bp}, we show how to back propagation Jacobians and Hessians in a reversible programming language.
+    We propose a self consistent training strategy in \Sec{sec:train} that utilizes reversibility directly, which does require gradients.
     In \Sec{sec:example}, we show several examples.
     In \Sec{sec:discussion}, we discuss on several important issues, how time space tradeoff works, reversible instructions and hardwares and finally an outlook to some open problems to be solved.
 
