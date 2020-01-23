@@ -188,7 +188,7 @@
 \affiliation{Department of Computer Science, University of Tsukuba}
 
 \begin{abstract}
-    This paper considers the instruction level adjoint mode automatic differentiation. Here, instruction level means, given the backward rules of basic instructions like +, -, * and /, one can differentiate an arbituary program efficiently. In this paper, we review briefly why instruction level automatic differentiation is hard for traditional machine learning frameworks and propose a solution to these problems by back propagating a reversible Turing machine. This implementation can be used to generate the backward rules for functions from exp to unitary matrix multiplication and QR decomposition. Also we discuss the challenges that we face towards a rigorious reversible programing from the instruction and hardware perspective.
+    This paper considers the instruction-level adjoint mode automatic differentiation. Here, instruction-level means, given the backward rules of basic instructions like +, -, * and /, one can differentiate an arbitrary program efficiently. In this paper, we review why instruction-level automatic differentiation is hard for traditional machine learning frameworks and propose a solution to these problems by back-propagating a reversible Turing machine. It can generate the backward rules for functions from exp to unitary matrix multiplication and QR decomposition. Also, we discuss the challenges that we face towards rigorous reversible programming from the instruction and hardware perspective.
 \end{abstract}
 
 
@@ -196,36 +196,36 @@
 
 %\begin{multicols}{2}
 \section{Introduction}\label{sec:intro}
-    There are two modes of automatic differentiation (AD)~\cite{Hascoet2013}, the tangent mode and the adjoint mode.
-    Consider a multi-in multi-out function $\vy = f(\vx)$, the tangent mode computes one column of its Jacobian $\frac{\partial \vy}{\partial x_i}$ efficiently, where $x_i$ is one of the input variables.
-Whereas the adjoint mode computes one row of Jacobian $\frac{\partial y_i}{\partial \vec{x}}$ efficiently.
-Most popular automatic differentiation packages implement the adjoint mode AD. Because the adjoint mode is computational more efficient in variational applications, where the loss as output is always a scalar.
-However, implementing adjoint mode AD is harder than implementing its tangent mode counterpart. It requires a program's intermediate state for back propagation, which includes
+    There are two modes of automatic differentiation (AD)~\cite{Hascoet2013}, the tangent mode AD and the adjoint mode AD.
+    Consider a multi-in multi-out function $\vy = f(\vx)$, the tangent mode AD computes one column of its Jacobian $\frac{\partial \vy}{\partial x_i}$ efficiently, where $x_i$ is one of the input variables, whereas the adjoint mode AD computes one row of Jacobian $\frac{\partial y_i}{\partial \vec{x}}$ efficiently.
+Most popular automatic differentiation packages implement the adjoint mode AD because the adjoint mode is computational more efficient in variational applications, where the loss as output is always a scalar.
+However, implementing adjoint mode AD is harder than implementing its tangent mode counterpart. It requires a program's intermediate state for back-propagation, which includes
 \begin{enumerate}
     \item the computational graph,
-    \item and input variables of nodes in computational graph.
+    \item and input variables of nodes in the computational graph.
 \end{enumerate}
-    A computational graph is a directed acyclic graph (DAG) that records the relation between data (edges) and functions (nodes).
-In Pytorch~\cite{Paszke2017} and Flux~\cite{Innes2018}, every variable has a tracker field that stores its parent information, i.e. the input data and function that generate this variable. TensorFlow~\cite{Tensorflow2015} implements a static computational graph as a description of the program before actual computation happens.
-    Source to source automatic differentiation package Zygote~\cite{Innes2018, Innes2019} use a intermediate representation (IR) of a program, the static single assignment (SSA) form, as the computational graph in order to back propagate a native julia code. To cache intermediate states, it has to accesss a global storage.
+    A computational graph is a directed acyclic graph (DAG) that records the relationship between data (edges) and functions (nodes).
+In Pytorch~\cite{Paszke2017} and Flux~\cite{Innes2018}, every variable has a tracker field that stores its parent information, i.e., the input data and function that generate this variable. TensorFlow~\cite{Tensorflow2015} implements a static computational graph as a description of the program before actual computation happens.
+    Source to source AD package Zygote~\cite{Innes2018, Innes2019} uses an intermediate representation (IR) of a program, the static single assignment (SSA) form, as the computational graph in order to back-propagate a native Julia code. To cache intermediate states, it has to access the global storage.
 
-    Several limitations are observed in these AD implementions due to the recording and caching. First of all, these package requires a lot primitive functions with programmer defined backward rules. This is not nessesary given the fact that, at the lowest level, these primitive functions are compiled to a finite set of instructions including `+', `-', `*', `/' and conditional jump. By defining backward rules for these basic instructions, AD should just works. These machine learning packages can not use instructions as the computational graph for practical reasons. The cost of memorizing the computational graph and caching intermediate states is huge. It can decrease the performance for more than two orders when a program contains loops (as we will show latter).
+    Several limitations are observed in these AD implementations due to the recording and caching. First of all, these packages require a lot of primitive functions with programmer-defined backward rules. These backward rules are not necessary given the fact that, at the lowest level, these primitive functions are lowered to a finite set of instructions including `+', `-', `*', `/', and conditional jump. By defining backward rules for these basic instructions, AD should works without extra effort. These machine learning packages can not use instructions as the computational graph for practical reasons. The cost of memorizing the computational graph and caching intermediate states is huge. It can decrease the performance for more than two orders when a program contains loops (as we will show later).
     Even more, the memory consumption for caching intermediate results increases linearly as time. In many deep learning models like recurrent neural network~\cite{Lipton2015} and residual neural networks~\cite{He2016}, the depth can reach several thousand. The memory is often the bottleneck of these programs, which is known as the memory wall problem.~\cite{memorywall}
-    Secondly, inplace functions are not handled properly in the diagram of computational graph, because the notation of parent and child are not compatible with inplace operations.
- Even in Zygote that uses SSA as the computational graph, it is not trivil to handle inplace functions.
+    Secondly, inplace functions are not handled properly in the diagram of computational graphs, because the notation of parent and child are not compatible with inplace operations.
+ Even in Zygote that uses SSA as the computational graph, it is not trivial to handle inplace functions.
     On the other side, most functions in BLAS and LAPACK are implemented as inplace functions. All AD packages that use BLAS and LAPACK functions have to define their own backward rules for their non-inplace wrappers due to the lack of AD support to inplace functions.
-    Thridly, obtaining higher order gradients are not efficient in these packages. For example, in most machine learning packages, people back propagate the whole program of obtaining first order gradients to obtain second order gradients. The repeated use of back propagation cause an exponential overhead with respect to the order of gradients. A better approach is using Taylor propagation like in JAX~\cite{Bettencourt2019}. However Taylor propagation requires writing backward rules for all primitives\blue{true?}. %Besides the exponential overhead, the sorce to source AD engine Zygote suffers from the significant overhead of just in time compiling in Julia language~\cite{Bezanson2017}.
+    Thirdly, obtaining higher-order gradients are not efficient in these packages. For example, in most machine learning packages, people back-propagate the whole program of obtaining first-order gradients to obtain second-order gradients. The repeated use of back-propagation causes an exponential overhead concerning the order of gradients. A better approach is using Taylor propagation like in JAX~\cite{Bettencourt2019}. However, Taylor propagation requires writing backward rules for all primitives\blue{true?}. %Besides the exponential overhead, the sorce to source AD engine Zygote suffers from the significant overhead of just in time compiling in Julia language~\cite{Bezanson2017}.
 
-% where the manually derived backwards rule still faces the degenerate spectrum problem (gradients explodes), instruction level AD will return reasonable gradients. With instruction level AD, people don't worry about inplace functions, which may be a huge problem in traditional approaches. We can back propagate over a quantum simulator, where all instructions are reversible two level unitaries (i.e. Jacobian rotation).
+% where the manually derived backwards rule still faces the degenerate spectrum problem (gradients explodes), instruction-level AD will return reasonable gradients. With instruction-level AD, people don't worry about inplace functions, which may be a huge problem in traditional approaches. We can back-propagate over a quantum simulator, where all instructions are reversible two level unitaries (i.e. Jacobian rotation).
 
 %We don't need extra effort to learn meta parameters.~\cite{} Neural ODE is much easier to design~\cite{Chen2018}.
+\blue{Grammarly here!}
 
 Our solution to these issues is making a program time reversible. It is not same as the work arounds in the machine learning field that use information buffer~\cite{Maclaurin2015} and reversible activation functions to reduce the memory allocations in recurrent neural network~\cite{MacKay2018} and residual neural networks~\cite{Behrmann2018}. Our approach is more general, we develop a embeded domain specific language (eDSL) in Julia language that implements reversible Turing machine (RTM).~\cite{Perumalla2013,Frank2017}.
 The gradient of any program written in this eDSL can be obtained in comparable time with the forward computation. The AD implementation is similar to \texttt{ForwardDiff}~\cite{Revels2016} but runs backward.
     In history, there has been some prototypes of reversible languages like Janus~\cite{Lutz1986}, R (not the popular one)~\cite{Frank1997}, Erlang~\cite{Lanese2018} and object oriented ROOPL~\cite{Haulund2017}. These languages have reversible control flow that allows user to input an additional postcondition in control flows to help programs run backward.
     In the past, the main motivation of making a program time reversible is to support reversible devices. Reversible devices do not have a lower bound of energy consumption by Landauer principle~\cite{Landauer1961}. However, people show less and less interest to reversible programming since 15 years ago since the energy efficiency of CMOS devices are still two orders~\cite{Frank2017} above this lower bound, this lower bound is not an urgent problem yet.
     The main contribtion of our work is breaking the information barrier between machine learning community and reversible programming community, providing yet another strong motivation to develop reversible programming.
-    Our eDSL borrows the design of reversible control flow in the Janus, meanwhile provides multiple dispatch based abstraction. With these features, the AD engine could be implemented in less than 100 lines. It generates native julia code, and is completely compatible with Julia language.
+    Our eDSL borrows the design of reversible control flow in the Janus, meanwhile provides multiple dispatch based abstraction. With these features, the AD engine could be implemented in less than 100 lines. It generates native Julia code, and is completely compatible with Julia language.
 Potensial applications includes
 \begin{enumerate}
     \item generate AD rules for primitive functions like \texttt{exp},
@@ -236,20 +236,20 @@ Potensial applications includes
 \end{enumerate}
 
     In this paper, we first introduce the design of our eDSL in \Sec{sec:lang}.
-    In \Sec{sec:bp}, we show how to back propagation Jacobians and Hessians in a reversible programming language.
+    In \Sec{sec:bp}, we show how to back-propagation Jacobians and Hessians in a reversible programming language.
     We propose a self consistent training strategy in \Sec{sec:train} that utilizes reversibility directly, which does require gradients.
     In \Sec{sec:example}, we show several examples.
     In \Sec{sec:discussion}, we discuss on several important issues, how time space tradeoff works, reversible instructions and hardwares and finally an outlook to some open problems to be solved.
 
 \section{Language design}\label{sec:lang}
     \green{This is an example of comment!}
-We instroduce NiLang, a eDSL in Julia that simulates RTM. Its grammar is shown in \App{app:grammar}.
+We instroduce NiLang, an eDSL in Julia that simulates RTM. Its grammar is shown in \App{app:grammar}.
 Its main feature is contained in a single macro \texttt{@i}. It interprets a NiLang function to a native Julia function.
-At the same time, it generates the inverse of this function. The target instructions are closed under the inverse operation ``$\sim$'', hence all functions defined in NiLang are also closed under ``$\sim$'' operations.
+At the same time, it generates the inverse of this function. While the generated functions are compiled to reversile ``instructions'', these instructions are closed under the inverse operation ``$\sim$''. Hence all functions defined in NiLang are also closed under ``$\sim$'' operations.
 
     In a mordern programming language, functions are pushed to a global stack for scheduling. The memory layout of a function is consisted of input arguments, a function frame with informations like return address and saved memory segments, local variables and working stack. After each call, the function clears the input arguments, function frame, local variables and working stack, only stores the return value.
     In the reversible programming style, this kind of design pattern is nolonger the best practise, input variables can not be easily discarded after a function call, since discarding information may ruin reversibility. Hence, a function or a instruction changes inputs "inplace" in NiLang.
-To design such a eDSL, we first introduce a reversible IR that plays a central role in NiLang.
+To design such an eDSL, we first introduce a reversible IR that plays a central role in NiLang.
 
 \subsection{Reversible IR}
 
@@ -295,7 +295,7 @@ To design such a eDSL, we first introduce a reversible IR that plays a central r
 
 In NiLang's IR, a statement can be an instruction, a function call, a controlflow, a macrocall or the inverse statement $\sim$.
 With the reversible IR, the inverse of a statement can be defined easily as shown in  in \Tbl{tbl:revstatements}.
-%For example, an instruction \texttt{y! $\mathrel{+}=$ f(args...)} is interpreted as a julia function call \texttt{PlusEq(f)(y!, args...)} or \texttt{$\oplus$(f)(y!, args...)} as a shorthand.
+%For example, an instruction \texttt{y! $\mathrel{+}=$ f(args...)} is interpreted as a Julia function call \texttt{PlusEq(f)(y!, args...)} or \texttt{$\oplus$(f)(y!, args...)} as a shorthand.
 %Here, the ``!'' after a variable is used as a convension to indicate that a variable is changed after the call of an instruction or function.
 %The detailed specification of instructions is listed in \App{app:instr}. The function call is same as the host language, except every function \texttt{f} has a \texttt{$\sim$f} that binded to an object of type \texttt{Inv\{typeof(f)\}}. \texttt{$\sim$f} invokes the compiled inverse functions of \texttt{f}.
 
@@ -310,7 +310,7 @@ The program first stores the loop informations, start, step and stop. After the 
     There is no assign statements in a reversible language, a reversible replacement is the macro \texttt{@anc}. \texttt{@anc a = <expr>} binds variable \texttt{a} to an initial value specified by \texttt{<expr>}. Its inverse \texttt{@deanc a = <expr>} deallocates the variable \texttt{a}. Before deallocating the variable, the program checks that the value of variable is same as the value of \texttt{<expr>}, otherwise throws an \texttt{InvertibilityError}. \texttt{@anc} and \texttt{@deanc} must appear in pairs inside a function call, a while statement or a for statement.
     \texttt{@deanc} will be added automatically. Similar designs in Janus and R are \texttt{local/delocal} statement and \texttt{let} statement.
     The additional check underlines the difference between the irreversible assign statement and reversible ancilla statement.
-The \texttt{@safe} macro can be followed by an arbituary statement, it allows user to use external statements that does not break reversibility.
+The \texttt{@safe} macro can be followed by an arbitrary statement, it allows user to use external statements that does not break reversibility.
 For example, one can use \texttt{@safe @show var} for debugging.
 
 \subsection{Compiling}
@@ -403,7 +403,7 @@ end
 \end{lstlisting}
 \end{minipage}
 
-Here, the \texttt{@iconstruct} generates a reversible constructor with single parameter \texttt{xx} as input. The statement \texttt{gg = zero(xx)} initializes a new memory to be used. The body of function is a reversible program that modifies \texttt{xx} and \texttt{gg} reversiblely. Finally it calls the default constructor \texttt{DVar(xx, gg)}. It is easy to define the inverse procedure that transform a \texttt{DVar\{T\}} instance to a \texttt{T} instance by reversing the statements. With the flexibility to use types, it is not nessesary to use global stacks in our eDSL.
+Here, the \texttt{@iconstruct} generates a reversible constructor with single parameter \texttt{xx} as input. The statement \texttt{gg = zero(xx)} initializes a new memory to be used. The body of function is a reversible program that modifies \texttt{xx} and \texttt{gg} reversiblely. Finally it calls the default constructor \texttt{DVar(xx, gg)}. It is easy to define the inverse procedure that transform a \texttt{DVar\{T\}} instance to a \texttt{T} instance by reversing the statements. With the flexibility to use types, it is not necessary to use global stacks in our eDSL.
 
 Before introducing dataviews, let's first consider the following example
 
@@ -467,9 +467,9 @@ the adjoint mode AD propagates the Jacobians in the reversed direction like
     \end{split}
 \end{align}
 where $\out$ represents the outputs of the program, $J^{\out}_{x/y}$ is the adjoint to be propagated, and $J^{y}_x$ is the local Jacobian matrix. Einstein's notation is used so that duplicated indices are summed over.
-%Tagent mode instruction level automatic differentiation can be implemented easily in a irreversible language with dual numbers~\cite{Revels2016}.
+%Tagent mode instruction-level automatic differentiation can be implemented easily in a irreversible language with dual numbers~\cite{Revels2016}.
 %Here we focus on the adjoint mode.
-This back propagation rule can be rewritten in the language of tensor networks~\cite{Orus2014} as shown in \Fig{fig:ad}.
+This back-propagation rule can be rewritten in the language of tensor networks~\cite{Orus2014} as shown in \Fig{fig:ad}.
 \begin{figure}
     \centerline{\includegraphics[width=0.9\columnwidth,trim={0.5cm 1cm 0 1cm},clip]{images/ad.pdf}}
     \caption{Adjoint rules for Jacobians and Hessians in tensor network language.}\label{fig:ad}
@@ -596,19 +596,19 @@ We implement the same function with TensorFlow, PyTorch and Zygote for compariso
 One can see that the NiLang implementation is unreasonablely fast, it is approximately two times the forward pass written in native Julia code.
 Reversible programming is not always as fast as its irreversible counterparts. In practical applications, a reversible program may have memory or computation overhead. We will discuss the details of time and space tradeoff in \Sec{sec:timespace}.
 
-\subsection{Second order gradient}
-Second order gradients can be obtained in two different approaches.
-\subsubsection{Back propagating first order gradients}\label{sec:simplehessian}
-Back propagating the first order gradients is the most widely used approach to obtain the second order gradients. Suppose the function space is closed under gradient operation, one can obtain higher order gradients by recursively differentiating lower order gradients without defining new backward rules.
+\subsection{Second-order gradient}
+Second-order gradients can be obtained in two different approaches.
+\subsubsection{Back propagating first-order gradients}\label{sec:simplehessian}
+Back propagating the first-order gradients is the most widely used approach to obtain the second-order gradients. Suppose the function space is closed under gradient operation, one can obtain higher-order gradients by recursively differentiating lower order gradients without defining new backward rules.
 \begin{figure}[h]
     \centerline{\includegraphics[width=\columnwidth,trim={0 6.5cm 1cm 2cm},clip]{images/simplehessian.pdf}}
-    \caption{Obtaining the second order gradient with the reversive differentiation approach. Black lines are computing gradients, red lines are back propagating the process of obtaining the first order gradients. Annotations on lines are data types and their fields used in the computation.}\label{fig:simplehessian}
+    \caption{Obtaining the second-order gradient with the reversive differentiation approach. Black lines are computing gradients, red lines are back-propagating the process of obtaining the first-order gradients. Annotations on lines are data types and their fields used in the computation.}\label{fig:simplehessian}
 \end{figure}
 
-\Fig{fig:simplehessian} show the four passes in computing Hessian. The first two passes (black lines) are obtaining gradients. Before entering the third pass, the program wraps each field in \texttt{GVar} with \texttt{GVar}. Then we pick a variable $x_i$ and add $1$ to \texttt{grad(grad($x_i$))} to compute the $i$-th row of Hessian. At the final stage, the \texttt{$\sim$GVar} operation does not unwrap \texttt{GVar} directly because the second order gradient fields may not be zero in this case. Instead, we use \texttt{Partial\{:x\}($\cdot$)} to safely compute \texttt{$\sim$GVar} on data type \texttt{GVar\{<:GVar, <:GVar\}}. \texttt{Partial\{:x\}} takes the \texttt{x} field of an instance without deallocating memory. By repeating the above process for different $x_i$, one can obtains the Hessian matrix.
+\Fig{fig:simplehessian} show the four passes in computing Hessian. The first two passes (black lines) are obtaining gradients. Before entering the third pass, the program wraps each field in \texttt{GVar} with \texttt{GVar}. Then we pick a variable $x_i$ and add $1$ to \texttt{grad(grad($x_i$))} to compute the $i$-th row of Hessian. At the final stage, the \texttt{$\sim$GVar} operation does not unwrap \texttt{GVar} directly because the second-order gradient fields may not be zero in this case. Instead, we use \texttt{Partial\{:x\}($\cdot$)} to safely compute \texttt{$\sim$GVar} on data type \texttt{GVar\{<:GVar, <:GVar\}}. \texttt{Partial\{:x\}} takes the \texttt{x} field of an instance without deallocating memory. By repeating the above process for different $x_i$, one can obtains the Hessian matrix.
 
 \subsubsection{Taylor propagation}\label{sec:taylor}
-A probably more efficient approach is back propagating Hessians directly~\cite{Martens2012} by
+A probably more efficient approach is back-propagating Hessians directly~\cite{Martens2012} by
 \begin{align}
     \begin{split}
         &H^{O}_{O',O''} = \mathbf{0},\\
@@ -618,10 +618,10 @@ A probably more efficient approach is back propagating Hessians directly~\cite{M
 Here, the Hessian tensor $H^O_{x,x'}$ is rank three, where the top index is often takes as a scalar and omitted.
 In tensor network language, the above equation can be represented as in \Fig{fig:ad}.
 Hessian propagation is a special case of Taylor propagation.
-With respect to the order of gradients, Taylor propagation is exponentially more efficient in obtaining higher order gradients than differentiating lower order gradients recursively. %The later requires traversing the computational graph repeatedly.
+With respect to the order of gradients, Taylor propagation is exponentially more efficient in obtaining higher-order gradients than differentiating lower order gradients recursively. %The later requires traversing the computational graph repeatedly.
 %In JAX~\cite{Bettencourt2019}, in order to support Taylor propagation, the propagation rules for part of primitives should be manually defined.
 However, the exhaused support to Taylor propagation~\cite{Bettencourt2019} requires much more effort than Jacobian propagation, this is why most AD packages choose the recursive approach.
-Instruction level automatic differentiation has the advantage of having very limited primitives. It is more flexible in obtaining higher order gradients like Hessian.
+Instruction level automatic differentiation has the advantage of having very limited primitives. It is more flexible in obtaining higher-order gradients like Hessian.
 An example is provided in \Sec{sec:exp}.
 
 \subsection{Gradient on ancilla problem}
@@ -638,13 +638,13 @@ Consider a reversible function $\vy, b = f(\vx, a)$, where $a$ and $b$ are the i
 In the backward pass, we discarded the gradient field of $b$.
 %So the question becomes does \texttt{grad(b)} have effect on the $\vx$?
 The gradient fields are derived from the values of variables, they should not have any effect to the \texttt{value} fields.
-The rest is to show changing the value of \texttt{grad(b)} does not result in a different \texttt{grad.($\vx$)} in the backward pass. It can be seen from the expression the back propagation rule 
+The rest is to show changing the value of \texttt{grad(b)} does not result in a different \texttt{grad.($\vx$)} in the backward pass. It can be seen from the expression the back-propagation rule 
 \begin{equation}
     \frac{\partial O}{\partial \vx} = \frac{\partial O}{\partial \vy}\frac{\partial \vy}{\partial \vx} + \frac{\partial O}{\partial b}\frac{\partial b}{\partial \vx},
 \end{equation}
 where the second term with $\frac{\partial O}{\partial{b}}$ vanishes naturally. Hence one can assume any value in the gradient field of an ancilla when entering a function, it does not have to be the discarded value.
 \end{proof}
-This theorem is very important to the reversibility of gradient functions, without it, the recursive differentiation scheme to obtain second order gradients can not work.
+This theorem is very important to the reversibility of gradient functions, without it, the recursive differentiation scheme to obtain second-order gradients can not work.
 On the other side, we emphasis that although the inital value of the gradient field of an ancilla can be randomly chosen, not having a gradient field at the begining is a different story.
 
 \section{Learn by consistency}\label{sec:train}
@@ -837,7 +837,7 @@ Here, the definition of SWAP instruction can be found in \App{app:instr}.
 The two lines bellow the comment ``\texttt{\# arithmetic uncompute}'' uncompute variables \texttt{anc1} and \texttt{anc2} approximately, which is only arithmeticly true. As a result, the final output is not exact due to the rounding error. On the other side, the reversibility is not affected since the inverse call at the last line of function uncomputes all ancilla bits rigorously.
 The \texttt{while} statement takes two conditions, the precondition and postconditoin. Precondition \texttt{val(anc1) > atol} indicates when to break the forward pass and post condition \texttt{iplus != 0} indicates when to break the backward pass.
 
-To obtain gradients, one can wrap the variable \texttt{y!} with \texttt{Loss} type and feed it into \texttt{iexp\textquotesingle} or \texttt{simple\_hessian}
+To obtain gradients, one can wrap the variable \texttt{y!} with \texttt{Loss} type and feed it into \texttt{iexp\textquotesingle}
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
@@ -848,7 +848,13 @@ julia> @instr iexp'(Loss(y!), x)
 
 julia> grad(x)
 4.9530324244260555
+\end{lstlisting}
+\end{minipage}
 
+\texttt{iexp\textquotesingle} is a callable instance of type \texttt{Grad\{typeof(iexp)\}}, which wraps input variables with updates gradient fields as outputs. It is reversible and differentiable, hence one can use back-propagates this function to obtain Hessians as introduced in \Sec{sec:simplehessian}. It is implemented in NiLang as   \texttt{simple\_hessian}.
+
+\begin{minipage}{.44\textwidth}
+\begin{lstlisting}
 julia> y!, x = 0.0, 1.6
 (0.0, 1.6)
 
@@ -859,8 +865,6 @@ julia> simple_hessian(iexp, (Loss(y!), x))
 \end{lstlisting}
 \end{minipage}
 
-\texttt{iexp\textquotesingle} is a callable instance of type \texttt{Grad\{typeof(iexp)\}}. \texttt{iexp\textquotesingle($\cdot$)} returns input variables with updated gradient field.
-\texttt{simple\_hessian} back propagates the first order gradients to obtain Hessians as introduced in \Sec{sec:simplehessian}.
 %The loss variable is specified by a wrapper \texttt{Loss}, notice we don't distinguish input and output in reversible programming.
 %The gradient function is implemented reversibally so that the gradient field of output can be differentiated again to obtain Hessians as shown in \Fig{fig:simplehessian}.
 
@@ -880,14 +884,13 @@ julia> collect_hessian()
 \end{lstlisting}
 \end{minipage}
 
-\texttt{iexp\textquotesingle\textquotesingle} computes the second order gradients by wrapping variables with type \texttt{BeijingRing}~\footnote{When people ask for the location in Beijing, they will start by asking which ring.}.
-Whenever an $n$-th variable or ancilla is created, we push a ring of size $2n-1$ to a global tape. Whenever an ancilla is deallocated, we pop a ring from the top. The $n$-th ring stores $H_{i\leq n,n}$ and $H_{n,i<n}$. We didn't use the symmetry relation $H_{i,j} = H_{j,i}$ to save memory here.
-To simplify the implementation of backward rules described in the right most panel of \Fig{fig:ad}.
-The final result can be collected by calling a global function \texttt{collect\_hessian}.
+\texttt{iexp\textquotesingle\textquotesingle} computes the second-order gradients by wrapping variables with type \texttt{BeijingRing}~\footnote{When people ask for the location in Beijing, they will start by asking which ring. We use the similar approach to locate the elements of Hessian matrix.}.
+Whenever an $n$-th variable or ancilla is created, we push a ring of size $2n-1$ to a global tape. Whenever an ancilla is deallocated, we pop a ring from the top. The $n$-th ring stores $H_{i\leq n,n}$ and $H_{n,i<n}$. We didn't use the symmetry relation $H_{i,j} = H_{j,i}$ to save memory here in order to simplify the implementation of backward rules described in the right most panel of \Fig{fig:ad}.
+The final result can be collected by calling \texttt{collect\_hessian}, it will read out the Hessian stored in the global tape.
 
 \subsection{QR decomposition}
 
-Let's consider a slightly non-trivil function, the QR decomposition
+Let's consider a slightly non-trivial function, the QR decomposition
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
@@ -960,7 +963,7 @@ end
 \end{lstlisting}
 \end{minipage}
 
-One can easily check the gradient of this naive implementation of QR decomposition is correct
+One can easily check the correctness of the gradient function
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
@@ -1004,15 +1007,15 @@ One of the simplest way to parametrize a unitary matrix is representing a unitar
 where \texttt{$\theta$} is the rotation angle, \texttt{a!} and \texttt{b!} are target registers.
 
 \begin{minipage}{.44\textwidth}
-\begin{lstlisting}
-@i function umm!(x, θ)
+    \begin{lstlisting}[mathescape=true]
+@i function umm!(x, $\ctheta$)
     @anc k = 0
     @anc Nin = size(x, 2)
     @anc Nout = size(x, 1)
     for j=1:Nout
         for i=Nin-1:-1:j
             k += identity(1)
-            ROT(x[i], x[i+1], θ[k])
+            ROT(x[i], x[i+1], $\ctheta$[k])
         end
     end
 
@@ -1038,16 +1041,16 @@ end
 
 \section{Discussion and outlook}\label{sec:discussion}
 In this paper, we introduce a Julia eDSL NiLang that simulates a reversible Turing machine (RTM).
-We developed an instruction level automatic differentiation tool on this eDSL for differential programing.
+We developed an instruction-level automatic differentiation tool on this eDSL for differential programming.
 It can differentiate over any program to any order reliablely and efficiently without sophisticated designs to memorize computational graph and intermediate states.
 Also, we introduce a new training strategy that does not rely on gradients, learn by consistency.
 
-In the following, we discussed the paractical side of writting reversible programs, and several future directions to go.
+In the following, we discussed some practical issues reversible programming, and several future directions to go.
 %Notablely, we introduce the concept of ``arithematic uncomputing'' to reduce the overhead of recursive reversible algorithms.
 
 \subsection{Time Space Tradeoff}\label{sec:timespace}
 In history, there has been many other designs of reversible languages and instruction sets.
-One of the main reason why RTM is not so popular is it may have either a space overhead propotional to computing time $T$ or a computational overhead that sometimes can be even exponential.
+One of the main reason why RTM is not so popular is it may have either a space overhead propotional to computing time $T$ or a computational overhead that sometimes can be exponential.
 In the simplest g-segment trade off scheme~\cite{Bennett1989,Levine1990},
 \begin{align}
     Time(T) &= \frac{T^{1+\epsilon}}{S^\epsilon}\\
@@ -1111,13 +1114,17 @@ On the other side, the irreversibility is rare, it can come from interacting wit
 Given the fundamental limitations of quantum decoherence and non-cloning and the reversible nature of microscopic world.
 It is reasonable to have a reversible computing device to bridge the gap between classical and universal quantum computing.
 By introducing entanglement little by little, we can accelerate some basic components. For example, quantum Fourier transformation provides an interesting alternative to the adders and multipliers by introducing one additional CPHASE gate even though it is a classical-in classical-out algorithm.~\cite{RuizPerez2017}
-By introducing qantum rotation gates $R_y(\theta)$ and $R_z(\theta)$ in the reversible programming, we make NiLang a path integral based universal quantum simulator as shown in \App{app:quantum}. The compiling theory developed for reversible programming will have profounding effect to quantum computing.
+The compiling theory developed for reversible programming will have profounding effect to quantum computing.
 
 \subsection{Outlook}\label{sec:outlook}
-So far NiLang is not full ready for productivility. It can be improved from multiple perspectives. We call for better compiling that decreases granularity and hence reduces overhead, rigoriously reversible floating point arithematics to let the reversibility free from rounding error. It is also interesting to see how it can be combined with a high performance quantum simulator like Yao~\cite{Luo2019}. It can provide control flow to Yao's quantum block intermediate representation, while Yao can provide the quantum features for NiLang.
+So far NiLang is not full ready for productivility. It can be improved from multiple perspectives. We call for better compiling that decreases granularity and hence reduces overhead, rigorous reversible floating point arithematics to let the reversibility free from rounding error.
+
+It is also interesting to see how it can be combined with a high performance quantum simulator like Yao~\cite{Luo2019}. It can provide control flow to Yao's quantum block intermediate representation, while Yao can provide the quantum features for NiLang.
+By introducing qantum rotation gates $R_y(\theta)$ and $R_z(\theta)$ in the reversible programming, we can make NiLang a path integral based universal quantum simulator easily too.
 % By porting a quantum simulator. 
 %it is interesting to see how quantum simulator can improve the instruction design. Notice a quantum fourier transformation (QFT) based quantum adder and multiplier is sometimes more efficient than a classical adder~\cite{Haener2018} \blue{Is this true?}.
-Reversible programming is known to have advantage in parallel computingi in handle asynchronious computing~\cite{Jefferson1985} and debugging with bidirectional move~\cite{Boothe2000}.
+
+Reversible programming is known to have advantage in parallel computing in handle asynchronious computing~\cite{Jefferson1985} and debugging with bidirectional move~\cite{Boothe2000}.
 It is interesting to see how NiLang combines with other parts of Julia ecosystem like CUDAnative~\cite{Besard2018} and Debugger.
 %This could be used to reduce the momory cost in normalizing flow, time reversible integrator, recurrent neural network and residual neural network.
 
@@ -1142,7 +1149,7 @@ Terminologies
     \item $ident$, symbols
     \item $num$, numbers
     \item $\epsilon$, empty statement
-    \item $JuliaExpr$, native julia expression
+    \item $JuliaExpr$, native Julia expression
     \item $[$ $]$,  zero or one repetitions.
 \end{itemize}
 
