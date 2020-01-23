@@ -155,6 +155,8 @@
 \newcommand{\red}[1]{[{\bf  \color{red}{LW: #1}}]}
 \newcommand{\xred}[1]{[{\bf  \color{red}{\sout{LW: #1}}}]}
 \newcommand{\blue}[1]{[{\bf  \color{blue}{JG: #1}}]}
+\newcommand{\green}[1]{[{\bf  \color{green}{TZ: #1}}]}
+\newcommand{\xgreen}[1]{[{\bf  \color{green}{\sout{TZ: #1}}}]}
 \newcommand{\xblue}[1]{[{\bf  \color{blue}{\sout{JG: #1}}}]}
 \newcommand{\material}[1]{\iffalse[{\bf  \color{cyan}{Material: #1}}]\fi}
 
@@ -239,7 +241,8 @@ Potensial applications includes
     In \Sec{sec:example}, we show several examples.
     In \Sec{sec:discussion}, we discuss on several important issues, how time space tradeoff works, reversible instructions and hardwares and finally an outlook to some open problems to be solved.
 
-    \section{Language design}\label{sec:lang}
+\section{Language design}\label{sec:lang}
+    \green{This is an example of comment!}
 We instroduce NiLang, a eDSL in Julia that simulates RTM. Its grammar is shown in \App{app:grammar}.
 Its main feature is contained in a single macro \texttt{@i}. It interprets a NiLang function to a native Julia function.
 At the same time, it generates the inverse of this function. The target instructions are closed under the inverse operation ``$\sim$'', hence all functions defined in NiLang are also closed under ``$\sim$'' operations.
@@ -577,7 +580,7 @@ Reversible programming is not always as fast as its irreversible counterparts. I
 
 \subsection{Second order gradient}
 Second order gradients can be obtained in two different approaches.
-\subsubsection{Back propagating first order gradients}
+\subsubsection{Back propagating first order gradients}\label{sec:simplehessian}
 Back propagating the first order gradients is the most widely used approach to obtain the second order gradients. Suppose the function space is closed under gradient operation, one can obtain higher order gradients by recursively differentiating lower order gradients without defining new backward rules.
 \begin{figure}[h]
     \centerline{\includegraphics[width=\columnwidth,trim={0 6.5cm 1cm 2cm},clip]{images/simplehessian.pdf}}
@@ -586,7 +589,7 @@ Back propagating the first order gradients is the most widely used approach to o
 
 \Fig{fig:simplehessian} show the four passes in computing Hessian. The first two passes (black lines) are obtaining gradients. Before entering the third pass, the program wraps each field in \texttt{GVar} with \texttt{GVar}. Then we pick a variable $x_i$ and add $1$ to \texttt{grad(grad($x_i$))} to compute the $i$-th row of Hessian. At the final stage, the \texttt{$\sim$GVar} operation does not unwrap \texttt{GVar} directly because the second order gradient fields may not be zero in this case. Instead, we use \texttt{Partial\{:x\}($\cdot$)} to safely compute \texttt{$\sim$GVar} on data type \texttt{GVar\{<:GVar, <:GVar\}}. \texttt{Partial\{:x\}} takes the \texttt{x} field of an instance without deallocating memory. By repeating the above process for different $x_i$, one can obtains the Hessian matrix.
 
-\subsubsection{Taylor propagation}
+\subsubsection{Taylor propagation}\label{sec:taylor}
 A probably more efficient approach is back propagating Hessians directly~\cite{Martens2012} by
 \begin{align}
     \begin{split}
@@ -752,14 +755,14 @@ end
 \end{lstlisting}
 \end{minipage}
 
-The following example shows how to construct a reversible \texttt{while} statement. It computes the first Fibonacci number that greater or equal to 100
+The following example shows how to construct a reversible \texttt{while} statement. It computes the first Fibonacci number that greater or equal to $x$
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
-@i function rfib100(n)
+@i function rfib100(n, x)
     @safe @assert n == 0
-    while (fib(n) < 100, n != 0)
-        n += identity(1.0)
+    while (fib(n) < x, n != 0)
+        n += identity(1)
     end
 end
 \end{lstlisting}
@@ -770,11 +773,13 @@ In this example, the postcondition \texttt{n!=0} is false before entering the lo
 \subsection{exp function}\label{sec:exp}
 An $\exp$ function can be computed using Taylor expansion
 \begin{equation}
-    {\rm y!} += \sum\limits_n \frac{x^n}{{\rm factorial}(n)}
+    {\rm y} += \sum\limits_n \frac{x^n}{{\rm factorial}(n)}
 \end{equation}
-This is a recursive algorithm that mimics the famous pebble game~\cite{Perumalla2013}.
-In each iteration, the accumulated term is $s_n \equiv \frac{x^n}{{\rm factorial}(n)}$, the recursion relation is written as $s_n = \frac{x s_{n-1}}{n}$. There is no known constant memory and polynomial time algorihm to pebble game.
-Here the case is different. Notice $\mathrel{*}=$ and $\mathrel{/}=$ are arithmetically reversible to each other, we can ``uncompute'' with the previous state with the relation $s_{n-1} = \frac{n s_n}{x}$ to deallocate the memory.
+There is a recursive algorithm to compute this expression.
+The recursion relation is written as $s_n = \frac{x s_{n-1}}{n}$, where $s_{n} \equiv \frac{x^n}{{\rm factorial}(n)}$ is the term to be accumulated to $y$.
+This algorithm mimics the famous pebble game~\cite{Perumalla2013}. However, there is no known constant memory and polynomial time solution to pebble game.
+Here the case is different. Notice $\mathrel{*}=$ and $\mathrel{/}=$ are arithmetically reversible to each other, we can ``uncompute'' previous state $s_{n-1}$ by $s_{n-1} = \frac{n s_n}{x}$ approximately to deallocate the memory.
+The implementation is
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
@@ -810,11 +815,11 @@ end
 \end{lstlisting}
 \end{minipage}
 
-The definition of SWAP instruction can be found in \App{app:instr}.
-The two lines bellow the comment ``\texttt{\# arithmetic uncompute}'' "uncomputes" variables \texttt{anc1} and \texttt{anc2} approximately. This uncomputation is only arithmeticly true. As a result, the final output is not exact due to the rounding error. On the other side, the reversibility is not harmed since the inverse call at the last line of function uncomputes all ancilla bits rigorously.
-The \texttt{while} statement takes two conditions, the precondition and postconditoin. Precondition \texttt{val(anc1) > atol} indicates when to break the forward pass and post condition \texttt{!isapprox(iplus, 0.0)} indicates when to break the backward pass.
+Here, the definition of SWAP instruction can be found in \App{app:instr}.
+The two lines bellow the comment ``\texttt{\# arithmetic uncompute}'' uncompute variables \texttt{anc1} and \texttt{anc2} approximately, which is only arithmeticly true. As a result, the final output is not exact due to the rounding error. On the other side, the reversibility is not affected since the inverse call at the last line of function uncomputes all ancilla bits rigorously.
+The \texttt{while} statement takes two conditions, the precondition and postconditoin. Precondition \texttt{val(anc1) > atol} indicates when to break the forward pass and post condition \texttt{iplus != 0} indicates when to break the backward pass.
 
-To obtain the gradient, one can wrap the loss with \texttt{Loss} type and feed it into \texttt{iexp\textquotesingle} function
+To obtain gradients, one can wrap the variable \texttt{y!} with \texttt{Loss} type and feed it into \texttt{iexp\textquotesingle} or \texttt{simple\_hessian}
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
@@ -837,10 +842,11 @@ julia> simple_hessian(iexp, (Loss(y!), x))
 \end{minipage}
 
 \texttt{iexp\textquotesingle} is a callable instance of type \texttt{Grad\{typeof(iexp)\}}. \texttt{iexp\textquotesingle($\cdot$)} returns input variables with updated gradient field.
+\texttt{simple\_hessian} back propagates the first order gradients to obtain Hessians as introduced in \Sec{sec:simplehessian}.
 %The loss variable is specified by a wrapper \texttt{Loss}, notice we don't distinguish input and output in reversible programming.
-The gradient function is implemented reversibally so that the gradient field of output can be differentiated again to obtain Hessians as shown in \Fig{fig:simplehessian}.
+%The gradient function is implemented reversibally so that the gradient field of output can be differentiated again to obtain Hessians as shown in \Fig{fig:simplehessian}.
 
-The back propagation approach can be more efficient in obtaining higher order gradients.
+A more efficient Taylor propagation approach introduced in \Sec{sec:taylor} can be accessed by feeding variables into \texttt{iexp\textquotesingle\textquotesingle}
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
@@ -855,7 +861,9 @@ julia> collect_hessian()
  0.0  4.95303
 \end{lstlisting}
 \end{minipage}
-\texttt{iexp\textquotesingle\textquotesingle} computes the second order gradients by wrapping variables with type \texttt{BeijingRing}~\footnote{When people ask the location in Beijing, they will start by asking which ring.}. Whenever an $n$-th variable or ancilla is created, we push a ring of size $2n-1$ to a global tape. Whenever an ancilla is deallocated, we pop a ring from the top. The $n$-th ring stores $H_{i\leq n,n}$ and $H_{n,i<n}$. We didn't use the symmetry relation $H_{i,j} = H_{j,i}$ to save memory here.
+
+\texttt{iexp\textquotesingle\textquotesingle} computes the second order gradients by wrapping variables with type \texttt{BeijingRing}~\footnote{When people ask for the location in Beijing, they will start by asking which ring.}.
+Whenever an $n$-th variable or ancilla is created, we push a ring of size $2n-1$ to a global tape. Whenever an ancilla is deallocated, we pop a ring from the top. The $n$-th ring stores $H_{i\leq n,n}$ and $H_{n,i<n}$. We didn't use the symmetry relation $H_{i,j} = H_{j,i}$ to save memory here.
 To simplify the implementation of backward rules described in the right most panel of \Fig{fig:ad}.
 The final result can be collected by calling a global function \texttt{collect\_hessian}.
 
