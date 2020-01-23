@@ -32,7 +32,11 @@ Range : <$JuliaExpr$> ':' <$JuliaExpr$> [':' <$JuliaExpr$>];
 
 ForStmt : 'for' <ident> '=' Range Stmts 'end';
 
-CallStmt : <$JuliaExpr$> '(' [DataViews] [';' <$JuliaExpr$>] ')';
+KwArg : <ident> '=' <$JuliaExpr$>;
+
+KwArgs : [KwArgs ','] KwArg ;
+
+CallStmt : <$JuliaExpr$> '(' [DataViews] [';' KwArgs] ')';
 
 Constant : <num> | '$\pi$';
 

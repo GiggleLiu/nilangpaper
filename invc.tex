@@ -279,7 +279,7 @@ To design such a eDSL, we first introduce a reversible IR that plays a central r
             \hline
             \texttt{begin\newline $_\quad$<stmts>\newline end} & \texttt{begin\newline $_\quad$ $\sim$(<stmts>)\newline end}\\
             \hline
-            \texttt{if (<pre>, <post>)\linebreak $_\quad$<stmts1>\newline else\newline $_\quad$<stmts2>\newline end} & \texttt{if (<post>, <pre>)\newline $_\quad$$\sim$(<stmts>)\newline else\newline $_\quad$ $\sim$(<stmts>)\newline end}\\
+            \texttt{if (<pre>, <post>)\linebreak $_\quad$<stmts1>\newline else\newline $_\quad$<stmts2>\newline end} & \texttt{if (<post>, <pre>)\newline $_\quad$$\sim$(<stmts1>)\newline else\newline $_\quad$ $\sim$(<stmts2>)\newline end}\\
             \hline
             \texttt{while (<pre>, <post>)\newline $_\quad$<stmts> \newline end} & \texttt{while (<post>, <pre>)\newline $_\quad$ $\sim$(<stmts>)\newline end}\\
             \hline
@@ -315,62 +315,66 @@ For example, one can use \texttt{@safe @show var} for debugging.
 
 \subsection{Compiling}
 The interprecation of a reversible function consists three stages.
-The first stage preprocess human inputs to a reversible IR, 
-The second stage generates the reversed IR according to table \Tbl{tbl:revstatements}.
-The third stage is translating this reversible IR to native Julia code.
-The following example shows how to compile an \texttt{if} statement
+The first stage preprocess human inputs to a reversible IR.
+The following example preprocess an \texttt{if} statement
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
-julia> using NiLangCore, MacroTools
-
-julia> ex0 = :(if (x > 3, ~)
-            -arr[3].value += x * y
-        end);
-        
-julia> ex0 |> prettify
-:(if (x > 3, ~)
-      -(arr[3]).value += x * y
-  end)
-
-julia> ex1 = NiLangCore.precom_ex(ex0,
-        NiLangCore.PreInfo());
-        
-julia> ex1 |> prettify  # after stage 1
-:(if (x > 3, x > 3)
-      -(arr[3]).value += x * y
+julia> prettify(@code_preprocess if (pre, ~)
+           z += x * y
+       end)
+:(if (pre, pre)
+      z += x * y
   else
   end)
+\end{lstlisting}
+\end{minipage}
 
-julia> ex2 = NiLangCore.dual_ex(ex1);
+The preprocessor expands the symbol \texttt{$\sim$} in postcondition field of \texttt{if} statement to the precondition as shown above. In this stage, the preprocessor also adds missing \texttt{@deanc} to ensure \texttt{@anc} and \texttt{@deanc} statements appear in pairs and  expands \texttt{@routine} macro.
+\texttt{@routine r <stmt>} records a statement to symbol \texttt{r}. When \texttt{$\sim$@routine r} is called, the inverse statement is inserted to that position for uncomputing. We will use macro extensively in the example in \Sec{sec:example}.
 
-julia> ex2 |> prettify  # after stage 2
-:(if (x > 3, x > 3)
-      -(arr[3]).value -= x * y
+The second stage generates the reversed IR according to table \Tbl{tbl:revstatements}.
+
+\begin{minipage}{.44\textwidth}
+\begin{lstlisting}
+julia> prettify(@code_reverse if (pre, post)
+           z += x * y
+       else
+           z += x / y
+       end)
+:(if (post, pre)
+      z -= x * y
   else
+      z -= x / y
   end)
+\end{lstlisting}
+\end{minipage}
 
-julia> ex3 = NiLangCore.interpret_ex(ex2);
+The third stage is translating this IR and its inverse to native Julia codes. The following example shows how to compile an \texttt{if} statement
 
-julia> ex3 |> prettify  # after stage 3
+\begin{minipage}{.44\textwidth}
+\begin{lstlisting}
+julia> prettify(@code_interpret if (pre, post)
+           z += x * y
+       else
+           z += x / y
+       end)
 quote
-    wren = x > 3
-    if wren
-        @instr -(arr[3]).value -= x * y
+    bat = pre
+    if bat
+        @assignback (PlusEq(*))(z, x, y)
     else
+        @assignback (PlusEq(/))(z, x, y)
     end
-    @invcheck x > 3 wren
+    @invcheck post bat
 end
 \end{lstlisting}
 \end{minipage}
 
-In the first stage, the preprocessor expands the symbol \texttt{$\sim$} in postcondition field of \texttt{if} statement to the precondition as shown above. Besides, it adds missing \texttt{@deanc} to ensure \texttt{@anc} and \texttt{@deanc} statements appear in pairs and  expands \texttt{@routine} macro.
-\texttt{@routine r <stmt>} records a statement to symbol \texttt{r}. When \texttt{$\sim$@routine r} is called, the inverse statement is inserted to that position for uncomputing. We will use macro extensively in the example in \Sec{sec:example}.
-In the last stage, the compiler adds \texttt{@instr} before each instruction and function call statement.
-The macro \texttt{@instr} assign the output of a function to the argument list of a function. We will explain this macro in detail in next subsection.
+The compiler adds \texttt{@assignback} before each instruction and function call statement. The macro \texttt{@assignback} assign the output of a function to the argument list of a function. We will explain this macro in detail in next subsection.
 It also adds statements to check the consistency between preconditions and postconditions to ensure reversibility.
-In the above example, \texttt{@invcheck x > 3 wren} will throw an error if the variable \texttt{wren} and \texttt{x > 3} are not equivalent.
-Finally, at the end of a function body, it attaches a return statement that uses input variables as the output.
+In the above example, \texttt{@invcheck post bat} will throw an error if the variable \texttt{bat} and \texttt{post} are not equivalent.
+Finally, at the end of a function body, it attaches a return statement that uses input variables as outputs.
 Now the function is ready to execute on the host language.
 
 \subsection{Types and Dataviews}
@@ -399,37 +403,51 @@ end
 \end{lstlisting}
 \end{minipage}
 
-Here, the \texttt{@iconstruct} generates a reversible constructor with single parameters \texttt{xx} as input. The statement \texttt{gg = zero(xx)} initializes a new memory to be used. The body of function is a reversible program that modifies \texttt{xx} and \texttt{gg} reversiblely. Finally it calls the default constructor \texttt{DVar(xx, gg)}. It is easy to define the inverse procedure that transform a \texttt{DVar\{T\}} instance to a \texttt{T} instance by reversing the statements. With the flexibility to use types, it is not nessesary to use global stacks in our eDSL.
+Here, the \texttt{@iconstruct} generates a reversible constructor with single parameter \texttt{xx} as input. The statement \texttt{gg = zero(xx)} initializes a new memory to be used. The body of function is a reversible program that modifies \texttt{xx} and \texttt{gg} reversiblely. Finally it calls the default constructor \texttt{DVar(xx, gg)}. It is easy to define the inverse procedure that transform a \texttt{DVar\{T\}} instance to a \texttt{T} instance by reversing the statements. With the flexibility to use types, it is not nessesary to use global stacks in our eDSL.
 
-Before introducing dataviews, let's first consider the following line that appear in the last subsection
+Before introducing dataviews, let's first consider the following example
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
--arr[3].value += x * y
+julia> using NiLangCore.ADCore
+
+julia> arr = [GVar(3.0), GVar(1.0)]
+2-element Array{GVar{Float64,Float64},1}:
+ GVar(3.0, 0.0)
+ GVar(1.0, 0.0)
+
+julia> x, y = 1.0, 2.0
+(1.0, 2.0)
+
+julia> @instr -arr[2].g += x * y
+
+julia> arr
+2-element Array{GVar{Float64,Float64},1}:
+ GVar(3.0, 0.0)
+ GVar(1.0, -2.0)
 \end{lstlisting}
 \end{minipage}
 
-In Julia, this statement will raise a syntax error, since a function call \texttt{(-)} can not be assigned.
-Meanwhile \texttt{arr[3]} might be a immutable type.
+In Julia, \texttt{-grad(arr[2]) += x * y} statement will raise a syntax error, because a function call \texttt{(-)} can not be assigned and \texttt{arr[3]} is a immutable type.
 In our eDSL, we wish it works because every memory cell should be modifiable ``inplace''.
-As we have mensioned, \texttt{-arr[3].value += x * y} is translated to \texttt{@instr -arr[3].value += x * y} at the thrid stage.
-\texttt{@instr} translate the statement to
+\texttt{@instr} translate the above statement to
 
 \begin{minipage}{.44\textwidth}
     \begin{lstlisting}[numberstyle=\scriptsize\color{codegray},numbers=left,numbersep=8pt]
-res = PlusEq(*)(-arr[3].value, x, y)
-arr[3] = chfield(arr[1], Val(:value), 
-    chfield(arr[3].value, -, res[1]))
+res = (PlusEq(*))(-arr[2].g, x, y)
+arr[2] = chfield(arr[2], Val(:g),
+    chfield(arr[2].g, -, res[1]))
 x = res[2]
 y = res[3]
 \end{lstlisting}
 \end{minipage}
 
-\texttt{PlusEq(*)(-arr[3].value, x, y)} computes the output, which is a tuple of length $3$.
-The assignments in line 4 and 5 can be handled directly while the assignment in line 2-3 are not so, where \texttt{chfield} is used to modify a dataview.
-A dataview of a data can be data itself, a field of its view, an array element of its view, or a bijective mapping of its view.
-\texttt{chfield(x, Val\{:value\}, val)} can modify the \texttt{value} field of an instance given the default constructor of a type is not overwritten.
-A bijective mapping of a field can also be modified. To change \texttt{-x}, one simply overwrite the \texttt{chfield(x, -, res[1])} function.
+\texttt{PlusEq(*)(-arr[3].g, x, y)} computes the output, which is a tuple of length $3$.
+In line 2-3, the first dataview \texttt{-arr[3].g} is assigned.
+A dataview of a data can be the data itself, a field of its view, an array element of its view, or a bijective mapping of its view.
+\texttt{chfield(x, Val\{:g\}, val)} can modifies the \texttt{g} field of an instance given the default constructor of a type is not overwritten.
+Since \texttt{-} is a bijective function, to change \texttt{-x}, one simply overwrite the \texttt{chfield(x, -, res[1])} function.
+The assignments in line 4 and 5 are straight forward.
 
 \section{Automatic differentiation}\label{sec:bp}
 
@@ -1133,7 +1151,7 @@ Terminologies
 \input{bnf.tex}
 \end{minipage}
 
-One can use \texttt{@i function $\<Stmts\>$ end} to define a function and its inverse. All $JuliaExpr$ is should be pure, otherwise the reversibility is not gurantted.
+One can use \texttt{@i function $\<Stmts\>$ end} to define a function and its inverse. All $JuliaExpr$ should be pure, otherwise the reversibility is not gurantted.
 
 Dataview is a bijective mapping of an object or a field (or item) of an object.
 When modifying the dataview of an object, it changes the object directly with the \texttt{chfield} method.
