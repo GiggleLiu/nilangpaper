@@ -1,5 +1,5 @@
 %\documentclass[a4paper,superscriptaddress,11pt]{quantumarticle}
-\documentclass[aps,twocolumn,longbibliography,english,superscriptaddress,prr]{revtex4-1}
+\documentclass[aps,twocolumn,longbibliography,english,superscriptaddress]{revtex4-1}
 %\documentclass[a4paper,superscriptaddress,11pt]{article}
 \pdfoutput=1
 \usepackage[colorlinks=true,urlcolor=blue,citecolor=blue,linkcolor=blue]{hyperref}
@@ -51,7 +51,7 @@
     tabsize=2,
     rulecolor=\color{black!30},
     title=\lstname,
-    escapeinside={\%(*}{*)},
+    %escapeinside={\%(*}{*)},
     breaklines=true,
     breakatwhitespace=true,
     framextopmargin=2pt,
@@ -91,6 +91,7 @@
 \renewcommand{\>}{\rangle}
 \newcommand{\out}{{O}}
 \newcommand{\inp}{{I}}
+\newcommand{\cquad}{{{ }_{\quad}}}
 \newcommand{\pluseq}{\mathrel{+}=}
 \newcommand{\minuseq}{\mathrel{-}=}
 \newcommand{\vx}{{\vec x}}
@@ -205,7 +206,7 @@ However, implementing adjoint mode AD is harder than implementing its tangent mo
     \item and input variables \red{not only input} of nodes in the computational graph.
 \end{enumerate}
     A computational graph is a directed acyclic graph (DAG) that records the relationship between data (edges) and functions (nodes).
-In Pytorch~\cite{Paszke2017} and Flux~\cite{Innes2018}, every variable has a tracker field that stores its parent information, i.e., the input data and function that generate this variable. TensorFlow~\cite{Tensorflow2015} implements a static computational graph as a description of the program before actual computation happens.
+In Pytorch~\cite{Paszke2017} and Flux~\cite{Innes2018a}, every variable has a tracker field that stores its parent information, i.e., the input data and function that generate this variable. TensorFlow~\cite{Tensorflow2015} implements a static computational graph as a description of the program before actual computation happens.
     Source to source AD package Zygote~\cite{Innes2018, Innes2019} uses an intermediate representation (IR) of a program, the static single assignment (SSA) form, as the computational graph in order to back-propagate a native Julia code. To cache intermediate states, it has to access the global storage.
 
     Several limitations are observed in these AD implementations due to the recording and caching. First of all, these packages require a lot of primitive functions with programmer-defined backward rules. These backward rules are not necessary given the fact that, at the lowest level, these primitive functions are lowered to a finite set of instructions including `+', `-', `*', `/', and conditional jump. By defining backward rules for these basic instructions, AD should works without extra effort. These machine learning packages can not use instructions as the computational graph for practical reasons. The cost of memorizing the computational graph and caching intermediate states is huge. It can decrease the performance for more than two orders when a program contains loops (as we will show later).
@@ -278,15 +279,15 @@ To design such an eDSL, we first introduce a reversible IR that plays a central 
             \hline
             \texttt{@anc <a> = <expr>} & \texttt{@deanc <a> = <expr>}\\
             \hline
-            \texttt{begin\newline $_\quad$<stmts>\newline end} & \texttt{begin\newline $_\quad$ $\sim$(<stmts>)\newline end}\\
+            \texttt{begin}\newline \texttt{$\cquad$<stmts>}\newline \texttt{end} & \texttt{begin}\newline \texttt{$\cquad$ $\sim$(<stmts>)}\newline \texttt{end}\\
             \hline
-            \texttt{if (<pre>, <post>)\linebreak $_\quad$<stmts1>\newline else\newline $_\quad$<stmts2>\newline end} & \texttt{if (<post>, <pre>)\newline $_\quad$$\sim$(<stmts1>)\newline else\newline $_\quad$ $\sim$(<stmts2>)\newline end}\\
+            \texttt{if (<pre>, <post>)}\linebreak \texttt{$\cquad$<stmts1>}\newline \texttt{else}\newline \texttt{$\cquad$<stmts2>}\newline \texttt{end} & \texttt{if (<post>, <pre>)}\newline \texttt{$\cquad$$\sim$(<stmts1>)}\newline \texttt{else}\newline \texttt{$\cquad$ $\sim$(<stmts2>)}\newline \texttt{end}\\
             \hline
-            \texttt{while (<pre>, <post>)\newline $_\quad$<stmts> \newline end} & \texttt{while (<post>, <pre>)\newline $_\quad$ $\sim$(<stmts>)\newline end}\\
+            \texttt{while (<pre>, <post>)}\newline \texttt{$\cquad$<stmts>} \newline \texttt{end} & \texttt{while (<post>, <pre>)}\newline $\cquad$  \texttt{$\sim$(<stmts>)}\newline \texttt{end}\\
             \hline
-            \texttt{for <i>=<m>:<s>:<n>\newline $_\quad$<stmts>\newline end} & \texttt{for <i>=<m>:-<s>:<n>\newline $_\quad$ $\sim$(<stmts>)\newline end}\\
+            \texttt{for <i>=<m>:<s>:<n>}\newline $\cquad$\texttt{<stmts>}\newline \texttt{end} & \texttt{for <i>=<m>:-<s>:<n>}\newline $\cquad$ \texttt{$\sim$(<stmts>)}\newline \texttt{end}\\
             \hline
-            \texttt{@safe <expr>} & \texttt{@safe <expr>}\\
+            \texttt{@safe <expr>} x & \texttt{@safe <expr>}\\
             \bottomrule
         \end{tabularx}
     }
@@ -434,7 +435,7 @@ In our eDSL, we wish it works because every memory cell should be modifiable ``i
 \texttt{@instr} translate the above statement to
 
 \begin{minipage}{.44\textwidth}
-    \begin{lstlisting}[numberstyle=\scriptsize\color{codegray},numbers=left,numbersep=8pt]
+    \begin{lstlisting}[numberstyle=\scriptsize\color{gray},numbers=left,numbersep=8pt]
 res = (PlusEq(*))(-arr[2].g, x, y)
 arr[2] = chfield(arr[2], Val(:g),
     chfield(arr[2].g, -, res[1]))
@@ -489,7 +490,7 @@ In reversible programming with multiple dispatch, the adjoint mode AD algorithms
 \end{algorithm}
 
 Here, \texttt{GVar} is a reversible type. The constructor attaches a zero gradient field to a variable, which is similar to the dual number in tangent mode automatic differentiation~\cite{Revels2016}. If the input is an array, \texttt{GVar} will be broadcasted to each array element. The gradient field of a \texttt{GVar} instance can be accessed by the \texttt{grad} dataview. Its inverse \texttt{$\sim$GVar} deallocates the gradient field safely and returns its value field. Here, "safely" means before deallocation, the program will check the gradient field to make sure its value is restored to $0$.
-When an instruction \texttt{instruct} meets a \texttt{GVar}, besides computing its value field $\vvalue(\vy) = \texttt{instruct}(\vvalue(\vx))$, it also updates the gradient field $\grad(\vy) = \left[J^{\vy}_{\vx}\right]^{-1} \grad(\vx)$, where $\left[J^{\vy}_{\vx}\right]^{-1}$ is the Jacobian of $\texttt{instruct}^{-1}$. One can define this gradient function on either \texttt{instruct} or \texttt{instruct${}^{-1}$}, NiLang will generate the backward rule for the inverse function automatically. As an example, We bind the adjoint function of \texttt{ROT} to its reverse \texttt{IROT} by defining a new function that dispatch to \texttt{GVar}
+When an instruction \texttt{instruct} meets a \texttt{GVar}, besides computing its value field $\vvalue(\vy) = \texttt{instruct}(\vvalue(\vx))$, it also updates the gradient field $\grad(\vy) = \left[J^{\vy}_{\vx}\right]^{-1} \grad(\vx)$, where $\left[J^{\vy}_{\vx}\right]^{-1}$ is the Jacobian of $\texttt{instruct}^{-1}$. One can define this gradient function on either \texttt{instruct} or \texttt{instruct${}^{-1}$}. If one defines the backward rule on \texttt{instruct}, the compiler will generate the backward rule for its inverse \texttt{instruct${}^{-1}$} as the inverse function. This is doable because the inverse and adjoint operation commutes~\cite{Mcinerney2015}. In the following example, We bind the adjoint function of \texttt{ROT} to its reverse \texttt{IROT} by defining a new function that dispatch to \texttt{GVar}
 
 \begin{minipage}{.44\textwidth}
     \begin{lstlisting}[mathescape=true]
