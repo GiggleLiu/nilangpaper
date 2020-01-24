@@ -332,7 +332,7 @@ julia> prettify(@code_preprocess if (pre, ~)
 \end{minipage}
 
 The preprocessor expands the symbol \texttt{$\sim$} in postcondition field of \texttt{if} statement to the precondition as shown above. In this stage, the preprocessor also adds missing \texttt{@deanc} to ensure \texttt{@anc} and \texttt{@deanc} statements appear in pairs and  expands \texttt{@routine} macro.
-\texttt{@routine r <stmt>} records a statement to symbol \texttt{r}. When \texttt{$\sim$@routine r} is called, the inverse statement is inserted to that position for uncomputing. We will use macro extensively in the example in \Sec{sec:example}.
+\texttt{@routine r <stmt>} records a statement to symbol \texttt{r}. When \texttt{$\sim$@routine r} is called, the inverse statement is inserted to that position for uncomputing. We will use macro extensively in the examples in \Sec{sec:example}.
 
 The second stage generates the reversed IR according to table \Tbl{tbl:revstatements}.
 
@@ -372,20 +372,17 @@ end
 \end{lstlisting}
 \end{minipage}
 
-The compiler adds \texttt{@assignback} before each instruction and function call statement. The macro \texttt{@assignback} assign the output of a function to the argument list of a function. We will explain this macro in detail in next subsection.
-It also adds statements to check the consistency between preconditions and postconditions to ensure reversibility.
-In the above example, \texttt{@invcheck post bat} will throw an error if the variable \texttt{bat} and \texttt{post} are not equivalent.
-Finally, at the end of a function body, it attaches a return statement that uses input variables as outputs.
+The compiler translates the instruction acording to \Tbl{tbl:interp} and adds \texttt{@assignback} before each instruction and function call statement. The macro \texttt{@assignback} assign the output of a function to the argument list of a function, which will be explained in detail in next subsection.
+It also adds \texttt{@invcheck post bat} statements to check the consistency between preconditions and postconditions to ensure reversibility. This statement will throw an error if target variables \texttt{bat} and \texttt{post} are ``equal'' to each other up to rounding error.
+Finally, at the end of a function body, we attach a return statement that returns variables in the argument list.
 Now the function is ready to execute on the host language.
 
 \subsection{Types and Dataviews}
-So far, the language design is not too different from a tranditional reversible language.
-Next, we introduce type and dataviews that are important to the implementation of adjoint mode AD.
-
+So far, the language design is not too different from a tranditional reversible language. To the implementation of adjoint mode AD, we introduce types and dataviews.
 The constructor of a type is a reversible function.
-Its inverse function is a ``destructor'', which does not deallocate memory directly but unpacks data.
+Its inverse is a ``destructor'' that does not deallocate memory directly but unpacks data.
 One can use \texttt{@iconstruct} to define a reversible constructor.
-For example, we can define a type that copies the input data to a new field.
+The following example defines a type that can be used in reversible context.
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
@@ -404,8 +401,10 @@ end
 \end{lstlisting}
 \end{minipage}
 
-Here, the \texttt{@iconstruct} generates a reversible constructor with single parameter \texttt{xx} as input. The statement \texttt{gg = zero(xx)} initializes a new memory to be used. The body of function is a reversible program that modifies \texttt{xx} and \texttt{gg} reversiblely. Finally it calls the default constructor \texttt{DVar(xx, gg)}. It is easy to define the inverse procedure that transform a \texttt{DVar\{T\}} instance to a \texttt{T} instance by reversing the statements. With the flexibility to use types, it is not necessary to use global stacks in our eDSL.
+The first parameter \texttt{xx} is the actual input of constructor, the assign statement in arguement list \texttt{gg = zero(xx)} initialize a new memory. The body of function is a reversible program that transforms \texttt{xx} and \texttt{gg} reversiblely. Finally, the compiler append a default constructor \texttt{DVar(xx, gg)} at the end to instanciate the new object.
+The destructor that coverts an object of type \texttt{DVar\{T\}} to type \texttt{T} can be defined by reversing the above statements.%With the flexibility to use types, it is not necessary to use global stacks in our eDSL.
 
+A dataview of a data can be the data itself, a field of its view, an array element of its view, or a bijective mapping of its view.
 Before introducing dataviews, let's first consider the following example
 
 \begin{minipage}{.44\textwidth}
@@ -430,7 +429,7 @@ julia> arr
 \end{minipage}
 
 In Julia, \texttt{-grad(arr[2]) += x * y} statement will raise a syntax error, because a function call \texttt{(-)} can not be assigned and \texttt{arr[3]} is a immutable type.
-In our eDSL, we wish it works because every memory cell should be modifiable ``inplace''.
+In our eDSL, we wish it works because every memory cell should be modifiable.
 \texttt{@instr} translate the above statement to
 
 \begin{minipage}{.44\textwidth}
@@ -444,10 +443,7 @@ y = res[3]
 \end{minipage}
 
 \texttt{PlusEq(*)(-arr[3].g, x, y)} computes the output, which is a tuple of length $3$.
-In line 2-3, the first dataview \texttt{-arr[3].g} is assigned.
-A dataview of a data can be the data itself, a field of its view, an array element of its view, or a bijective mapping of its view.
-\texttt{chfield(x, Val\{:g\}, val)} can modifies the \texttt{g} field of an instance given the default constructor of a type is not overwritten.
-Since \texttt{-} is a bijective function, to change \texttt{-x}, one simply overwrite the \texttt{chfield(x, -, res[1])} function.
+In line 2-3, \texttt{chfield(x, Val\{:g\}, val)} modifies the \texttt{g} field of \texttt{x} and \texttt{chfield(x, -, res[1])} returns \texttt{-res[1]}. Here, modifying a field requires the default constructor of a type is not overwritten.
 The assignments in line 4 and 5 are straight forward.
 
 \section{Automatic differentiation}\label{sec:bp}
@@ -1171,12 +1167,12 @@ The translation of instructions to Julia functions
 \begin{minipage}{\columnwidth}
 \ra{1.3}
     \scalebox{1.0}{
-        \begin{tabularx}{\textwidth}{X X X}\toprule
-            \textbf{instruction} & \textbf{translated} & \textbf{type}\\
+        \begin{tabularx}{\textwidth}{X X c}\toprule
+            \textbf{instruction} & \textbf{translated} & \textbf{symbol}\\
             \hline
-            $y \pluseq f(args...)$ & $\oplus(f)(args...)$ & \texttt{PlusEq}\\
-            $y \minuseq f(args...)$ & $\ominus(f)(args...)$ & \texttt{MinusEq}\\
-            $y \mathrel{\veebar}= f(args...)$ & $\odot(f)(args...)$ & \texttt{XorEq}\\
+            $y \pluseq f(args...)$ & \texttt{PlusEq(f)(args...)} & $\oplus$\\
+            $y \minuseq f(args...)$ & \texttt{MinusEq(f)(args...)} & $\ominus$\\
+            $y \mathrel{\veebar}= f(args...)$ & \texttt{XorEq(f)(args...)} & $\odot$\\
             \bottomrule
         \end{tabularx}
     }
