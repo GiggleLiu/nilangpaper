@@ -188,7 +188,7 @@
 \affiliation{Department of Computer Science, University of Tsukuba}
 
 \begin{abstract}
-    This paper considers the instruction-level adjoint mode automatic differentiation. Here, instruction-level means, given the backward rules of basic instructions like +, -, * and /, one can differentiate an arbitrary program efficiently. In this paper, we review why instruction-level automatic differentiation is hard for traditional machine learning frameworks and propose a solution to these problems by back-propagating a reversible Turing machine. It can generate the backward rules for functions from exp to unitary matrix multiplication and QR decomposition. Also, we discuss the challenges that we face towards rigorous reversible programming from the instruction and hardware perspective.
+    This paper considers the instruction-level adjoint mode automatic differentiation. Here, instruction-level means, given the backward rules of basic instructions like +, -, * and /, one can differentiate an arbitrary program efficiently. In this paper, we review why instruction-level automatic differentiation is hard for traditional machine learning frameworks and propose a solution to these problems by back-propagating a reversible Turing machine. It can generate the backward rules for functions from exp \red{\mathrm{exp}} to unitary matrix multiplication and QR decomposition. Also, we discuss the challenges that we face towards rigorous reversible programming from the instruction and hardware perspective. \red{better abstract which highlights key contributions (what is the killer app ?)}
 \end{abstract}
 
 
@@ -196,13 +196,13 @@
 
 %\begin{multicols}{2}
 \section{Introduction}\label{sec:intro}
-    There are two modes of automatic differentiation (AD)~\cite{Hascoet2013}, the tangent mode AD and the adjoint mode AD.
+    There are two modes \red{not only two, can be mixed. They are just to extremes.} of automatic differentiation (AD)~\cite{Hascoet2013}, the tangent mode AD and the adjoint mode AD.
     Consider a multi-in multi-out function $\vy = f(\vx)$, the tangent mode AD computes one column of its Jacobian $\frac{\partial \vy}{\partial x_i}$ efficiently, where $x_i$ is one of the input variables, whereas the adjoint mode AD computes one row of Jacobian $\frac{\partial y_i}{\partial \vec{x}}$ efficiently.
 Most popular automatic differentiation packages implement the adjoint mode AD because the adjoint mode is computational more efficient in variational applications, where the loss as output is always a scalar.
 However, implementing adjoint mode AD is harder than implementing its tangent mode counterpart. It requires a program's intermediate state for back-propagation, which includes
 \begin{enumerate}
     \item the computational graph,
-    \item and input variables of nodes in the computational graph.
+    \item and input variables \red{not only input} of nodes in the computational graph.
 \end{enumerate}
     A computational graph is a directed acyclic graph (DAG) that records the relationship between data (edges) and functions (nodes).
 In Pytorch~\cite{Paszke2017} and Flux~\cite{Innes2018}, every variable has a tracker field that stores its parent information, i.e., the input data and function that generate this variable. TensorFlow~\cite{Tensorflow2015} implements a static computational graph as a description of the program before actual computation happens.
@@ -220,7 +220,7 @@ In Pytorch~\cite{Paszke2017} and Flux~\cite{Innes2018}, every variable has a tra
 %We don't need extra effort to learn meta parameters.~\cite{} Neural ODE is much easier to design~\cite{Chen2018}.
 \blue{Grammarly here!}
 
-Our solution to these issues is making a program time reversible. It is not same as the work arounds in the machine learning field that use information buffer~\cite{Maclaurin2015} and reversible activation functions to reduce the memory allocations in recurrent neural network~\cite{MacKay2018} and residual neural networks~\cite{Behrmann2018}. Our approach is more general, we develop a embeded domain specific language (eDSL) in Julia language that implements reversible Turing machine (RTM).~\cite{Perumalla2013,Frank2017}.
+Our solution to these issues is making a program time \red{\sout{time}} reversible. It is not same as the work arounds in the machine learning field that use information buffer~\cite{Maclaurin2015} and reversible activation functions to reduce the memory allocations in recurrent neural network~\cite{MacKay2018} and residual neural networks~\cite{Behrmann2018}. Our approach is more general, we develop a embeded domain specific language (eDSL) in Julia language that implements reversible Turing machine (RTM).~\cite{Perumalla2013,Frank2017}.
 The gradient of any program written in this eDSL can be obtained in comparable time with the forward computation. The AD implementation is similar to \texttt{ForwardDiff}~\cite{Revels2016} but runs backward.
     In history, there has been some prototypes of reversible languages like Janus~\cite{Lutz1986}, R (not the popular one)~\cite{Frank1997}, Erlang~\cite{Lanese2018} and object oriented ROOPL~\cite{Haulund2017}. These languages have reversible control flow that allows user to input an additional postcondition in control flows to help programs run backward.
     In the past, the main motivation of making a program time reversible is to support reversible devices. Reversible devices do not have a lower bound of energy consumption by Landauer principle~\cite{Landauer1961}. However, people show less and less interest to reversible programming since 15 years ago since the energy efficiency of CMOS devices are still two orders~\cite{Frank2017} above this lower bound, this lower bound is not an urgent problem yet.
@@ -242,6 +242,7 @@ Potensial applications includes
     In \Sec{sec:discussion}, we discuss on several important issues, how time space tradeoff works, reversible instructions and hardwares and finally an outlook to some open problems to be solved.
 
 \section{Language design}\label{sec:lang}
+\red{you may separate general principle with specific implementation choices. First state clearly what are the key requirement, and difficulties. Then introduce the design which address them. }
     \green{This is an example of comment!}
 We instroduce NiLang, an eDSL in Julia that simulates RTM. Its grammar is shown in \App{app:grammar}.
 Its main feature is contained in a single macro \texttt{@i}. It interprets a NiLang function to a native Julia function.
