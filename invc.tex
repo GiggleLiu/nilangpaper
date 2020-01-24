@@ -189,7 +189,7 @@
 \affiliation{Department of Computer Science, University of Tsukuba}
 
 \begin{abstract}
-    This paper considers the instruction-level adjoint mode automatic differentiation. Here, instruction-level means, given the backward rules of basic instructions like +, -, * and /, one can differentiate an arbitrary program efficiently. In this paper, we review why instruction-level automatic differentiation is hard for traditional machine learning frameworks and propose a solution to these problems by back-propagating a reversible Turing machine. It can generate the backward rules for functions from exp \red{\mathrm{exp}} to unitary matrix multiplication and QR decomposition. Also, we discuss the challenges that we face towards rigorous reversible programming from the instruction and hardware perspective. \red{better abstract which highlights key contributions (what is the killer app ?)}
+    This paper considers the instruction-level adjoint mode automatic differentiation. Here, instruction-level means, given the backward rules of basic instructions like +, -, * and /, one can differentiate an arbitrary program efficiently. In this paper, we review why instruction-level automatic differentiation is hard for traditional machine learning frameworks and propose a solution to these problems by back-propagating a reversible Turing machine. It can generate the backward rules for functions from exp \red{$\mathrm{exp}$} to unitary matrix multiplication and QR decomposition. Also, we discuss the challenges that we face towards rigorous reversible programming from the instruction and hardware perspective. \red{better abstract which highlights key contributions (what is the killer app ?)}
 \end{abstract}
 
 
@@ -239,7 +239,7 @@ Potensial applications includes
     In this paper, we first introduce the design of our eDSL in \Sec{sec:lang}.
     In \Sec{sec:bp}, we show how to back-propagation Jacobians and Hessians in a reversible programming language.
     We propose a self consistent training strategy in \Sec{sec:train} that utilizes reversibility directly, which does require gradients.
-    In \Sec{sec:example}, we show several examples.
+    In \Sec{sec:example}, we show several examples. \red{stronger. Each example should show an aspect of Nilang or support the general discussion.}
     In \Sec{sec:discussion}, we discuss on several important issues, how time space tradeoff works, reversible instructions and hardwares and finally an outlook to some open problems to be solved.
 
 \section{Language design}\label{sec:lang}
@@ -1129,6 +1129,8 @@ By introducing qantum rotation gates $R_y(\theta)$ and $R_z(\theta)$ in the reve
 Reversible programming is known to have advantage in parallel computing in handle asynchronious computing~\cite{Jefferson1985} and debugging with bidirectional move~\cite{Boothe2000}.
 It is interesting to see how NiLang combines with other parts of Julia ecosystem like CUDAnative~\cite{Besard2018} and Debugger.
 %This could be used to reduce the momory cost in normalizing flow, time reversible integrator, recurrent neural network and residual neural network.
+
+\red{you need much better ending. Talk about broader perspective rather than technique details. }
 
 \section{acknowledgments}
 Jin-Guo Liu thank Lei Wang for motivating the project with possible applications reversible integrator, normalizing flow and neural ODE.
