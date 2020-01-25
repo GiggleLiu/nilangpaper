@@ -235,21 +235,52 @@ One can obtain the gradients of any program written in this eDSL at a comparable
     In \Sec{sec:discussion}, we discuss several important issues, how time-space tradeoff works, reversible instructions and hardware, and finally, an outlook to some open problems to be solved.
 
 \section{Language design}\label{sec:lang}
-\red{you may separate general principle with specific implementation choices. First state clearly what are the key requirement, and difficulties. Then introduce the design which address them. }
-We introduce NiLang, an eDSL in Julia that simulates RTM. Its grammar is shown in \App{app:grammar}.
-Its main feature is contained in a single macro \texttt{@i}. It interprets a NiLang function to a native Julia function.
-At the same time, it generates the inverse of this function. While the generated functions lower to reversible ``instructions'', these instructions are closed under the inverse operation ``$\sim$''. Hence all functions defined in NiLang are also closed under ``$\sim$'' operations.
 
-    In a modern programming language, functions are pushed to a global stack for scheduling. The memory layout of a function is consisted of input arguments, a function frame with information like the return address and saved memory segments, local variables, and working stack. After each call, the function clears the input arguments, function frame, local variables, and working stack, only stores the return value.
-    In the reversible programming style, this kind of design pattern is no longer the best practice. One can not discard input variables easily after a function call, since discarding information may ruin reversibility. Hence, a function or an instruction changes inputs "inplace" in NiLang.
-To design such an eDSL, we first introduce a reversible IR that plays a central role in NiLang.
+\subsection{Intruductions to reversible language design}
+    In a modern programming language, functions are pushed to a global stack for scheduling. The memory layout of a function is consisted of input arguments, a function frame with information like the return address and saved memory segments, local variables, and working stack. After the call, the function clears these runtime information, only stores the return value. In the reversible programming style, this kind of design pattern is no longer the best practice. One can not discard input variables and local variables easily after a function call, since discarding information may ruin reversibility. Hence reversible functions are very differential from irreversible ones from multiple perspectives.
 
-\subsection{Reversible IR}
+    First of all, the memory management in a reversible language is special.
+    A variable can not be assigned or discarded directly in a reversible language.
+    There are two basic types of memory management in traditional reversible languages, ancilla type and stack type.
+    In Janus, ancilla type memory management is handled by a statement pair of \texttt{local} and \texttt{delocal}.
+    \texttt{local} initializes a variable to a specific value, while \texttt{delocal} deallocates that variable with a preassumed value.
+    The key difference w.r.t. a irreversible deallocation is reversible program deallocates a variable only when its state is known.
+    Another type of memory management is stack operations, including \texttt{push} and \texttt{pop} statements, it is similar to a traditional stack except it zero-clears the variable after pushing and presupposes the variable being zero-cleared before poping.
 
 \begin{figure}
     \centerline{\includegraphics[width=0.8\columnwidth,trim={0 0cm 0 0cm},clip]{images/controlflow.pdf}}
-    \caption{Flow chart for reversible (a) \texttt{if} statement and (b) \texttt{while} statement. ``stmts'', ``stmts1'' and ``stmts2'' are statements, statements in true branch and statements in false branch respectively. ``pre'' and ``post'' are precondition and postconditions respectively. ``error'' refers to \texttt{InvertibilityError}.}\label{fig:controlflow}
+    \caption{Flow chart for reversible (a) \texttt{if} statement and (b) \texttt{while} statement. ``stmts'', ``stmts1'' and ``stmts2'' are statements, statements in true branch and statements in false branch respectively. ``pre'' and ``post'' are precondition and postconditions respectively.}\label{fig:controlflow}
 \end{figure}
+Secondly, the control flows are special.
+The \texttt{if} statement is shown in \Fig{fig:controlflow} (a), the program enters the branch specified by precondition. After executing this branch, the program checks the consistency of precondition and postcondition to make sure they are the same. In the reverse pass, the program enters the branch specified by the postcondition.
+For the \texttt{while} statement as shown in \Fig{fig:controlflow} (b), before entering, the program check the postcondition to make sure it is false.
+After each iteration, the program asserts the postcondition to be true. The inverse function exchanges the precondition and postcondition.
+The definition of reversible \texttt{for} statement is similar to irreversible ones.
+Before entering the loop, the program stores variables start, step, and stop locally. After executing the loop, the program checks the values of these variables to make sure they are not changed. The reverse program exchanges start and stop and inverse the sign of step.
+
+Lastly, the basic arithmetic and boolean instructions are special. Every instruction has a unique inverse instruction that can undo the changes.
+For example \texttt{z += x * y} is legal reversible instruction for integers, its inverse is \texttt{z -= x * y}, but \texttt{x *= y} is not.
+In the following discussion, we assume \texttt{x += y} is reversible for floating point numbers although it is not rigorous.
+A not well known fact is $+, -, *, /$ instructions can be implemented reversiblly for both integers and floating point numbers, but we chose not to.
+We will come to this point later in \Sec{sec:hardware}
+%While the generated functions lower to reversible ``instructions'', these instructions are closed under the inverse operation ``$\sim$''. Hence all functions defined in NiLang are also closed under ``$\sim$'' operations.
+
+In this paper, we wish to use a reversed program as the computational graph for adjoint mode AD, which requires inserting the code of obtaining gradients into the reversed program.
+The code of obtaining gradients ifself is a reversible program, it can be differentiated again to obtain higher order gradients.
+The reversible language design should have related abstraction power to provide polymorphism on the same instruction sequence.
+This motivates us to design a new reversible language that can fit this task.
+% is the primary innovation of our language design.
+
+We introduce NiLang, an eDSL in Julia that simulates RTM. Its grammar is shown in \App{app:grammar}.
+Julia language's meta programming and its package MLStyle~\cite{MLStyle} allow user to define an eDSL to explain the statements conveniently.
+The type inference and just in time compiling can remove most overheads introduced in our eDSL, providing a comparable performance with respect to its irreversible counterpart. Most importantly, the multiple dispatch in Julia provides the polymorphism to allow us obtaining gradients on the reversed program.
+The main feature of NiLang is contained in a single macro \texttt{@i}. It interprets a NiLang function to a native Julia function.
+At the same time, it generates the inverse of this function.
+
+\subsection{Reversible IR}
+To design such an eDSL, we first introduce a reversible IR that plays a central role in NiLang.
+In this IR, a statement can be an instruction, a function call, a control flow, a macro call, or the inverse statement $\sim$.
+With the reversible IR, one can define the inverse of a statement easily, as shown in \Tbl{tbl:revstatements}.
 
 \begin{table}[h!]\centering
 \begin{minipage}{\columnwidth}
@@ -286,25 +317,18 @@ To design such an eDSL, we first introduce a reversible IR that plays a central 
 \end{minipage}
 \end{table}
 
-In NiLang's IR, a statement can be an instruction, a function call, a control flow, a macro call, or the inverse statement $\sim$.
-With the reversible IR, one can define the inverse of a statement easily, as shown in \Tbl{tbl:revstatements}.
 %For example, an instruction \texttt{y! $\mathrel{+}=$ f(args...)} is interpreted as a Julia function call \texttt{PlusEq(f)(y!, args...)} or \texttt{$\oplus$(f)(y!, args...)} as a shorthand.
 %Here, the ``!'' after a variable is used as a convension to indicate that a variable is changed after the call of an instruction or function.
 %The detailed specification of instructions is listed in \App{app:instr}. The function call is same as the host language, except every function \texttt{f} has a \texttt{$\sim$f} that binded to an object of type \texttt{Inv\{typeof(f)\}}. \texttt{$\sim$f} invokes the compiled inverse functions of \texttt{f}.
 
-The reversible control flow is different from the irreversible one that a conditional expression in a \texttt{if} or a \texttt{while} statements is a two-element tuple that consists of a precondition and a postcondition. This design allows users putting additional postcondition in control flows to help reverse the program.
+The conditional expression in a \texttt{if} or a \texttt{while} statements is a two-element tuple that consists of a precondition and a postcondition. This design allows users putting additional postcondition in control flows to help reverse the program.
 %A postcondition is a boolean expression that being evaluated after the body expressions being executed.
-For the \texttt{if} statement as shown in \Fig{fig:controlflow} (a), the program enters the branch specified by precondition. After executing this branch, the program checks the consistency of precondition and postcondition to make sure they are the same. In the reverse pass, the program enters the branch specified by the postcondition.
-For the \texttt{while} statement as shown in \Fig{fig:controlflow} (b), before entering, the program check the postcondition to make sure it is false.
-After each iteration, the program asserts the postcondition to be true. The inverse function exchanges the precondition and postcondition.
-The definition of reversible \texttt{for} statement is similar to irreversible ones.
-Before entering the loop, the program stores variables start, step, and stop locally. After executing the loop, the program checks the values of these variables to make sure they are not changed. The reverse program exchanges start and stop and inverse the sign of step.
-
-    There are no assign statements in a reversible language. A reversible replacement is the macro \texttt{@anc}. \texttt{@anc a = <expr>} binds variable \texttt{a} to an initial value specified by \texttt{<expr>}. Its inverse \texttt{@deanc a = <expr>} deallocates the variable \texttt{a}. Before deallocating the variable, the program checks that the its value is the same as the value of \texttt{<expr>}, otherwise throws an \texttt{InvertibilityError}. \texttt{@anc} and \texttt{@deanc} must appear in pairs inside a function call, a \texttt{while} statement, or a \texttt{for} statement.
-    \texttt{@deanc} will be added automatically. Similar designs in Janus and R are \texttt{local/delocal} statement and \texttt{let} statement.
+Macro \texttt{@anc} and \texttt{@deanc} plays the same role as \texttt{local} and \texttt{delocal} in Janus. \texttt{@anc a = <expr>} binds variable \texttt{a} to an initial value specified by \texttt{<expr>}. Its inverse \texttt{@deanc a = <expr>} deallocates the variable \texttt{a}. Before deallocating the variable, the program checks that the its value is the same as the value of \texttt{<expr>}, otherwise throws an \texttt{InvertibilityError}. \texttt{@anc} and \texttt{@deanc} must appear in pairs inside a function call, a \texttt{while} statement, or a \texttt{for} statement.
+    \texttt{@deanc} will be added automatically.
     The additional check underlines the difference between the irreversible assign statement and reversible ancilla statement.
 The \texttt{@safe} macro allows users to use external statements that do not break reversibility.
 For example, one can use \texttt{@safe @show var} for debugging.
+There is not stack operations in our language design yet because we haven't find a use case that requires a stack.
 
 \subsection{Compiling}
 The interprecation of a reversible function consists three stages.
@@ -1106,31 +1130,31 @@ NiLang can be used in solving many existing problems.
 First of all, it can be used to generate AD rules for existing machine learning packages.
 For example, in Zygote, a user sometimes need to define new primitives.
 If this primitive is written in NiLang, then the backward rules can be generated automatically.
-Second, we can built reversible BLAS and LAPACK, from matrix multiplication, tensor contraction to singular value decomposition (SVD) and eigenvalue decomposition (ED).
-These operations are extensively used in physics~\cite{Xie2020,Liao2019}. However, for long time, many linear algebra AD rules suffer from the gradient exploding problem~\cite{Seeger2017,Wan2019,Hubig2019}.
-Thrid, control problem in robotics~\cite{Giftthaler2017} also needs gradients. The control parameters are often floating point numbers rather than tensors.
+We can built reversible BLAS and LAPACK on top of NiLang.
+These functions are extensively used in physics~\cite{Xie2020,Liao2019} and many other deciplines. However, manually derived backward rules for singular value decoposition and eigenvalue decomposition functions suffer from the gradient exploding problem~\cite{Seeger2017,Wan2019,Hubig2019}.
+
+Secondly, we can use it to break the memory wall problem in machine learning.
+NiLang provides a more systematic and elegant time-space tradeoff scheme through uncomputing.
+A successful related example is the memory efficient domain-specific AD engine in high performance quantum simulator Yao~\cite{Luo2019}.
+This domain-specific AD engine is written in a reversible style and solved the memory bottleneck in variational quantum simulations. It also gives the best performance in differentiating parameters in a quantum circuit.
+We can use similar idea to differentiate reversible integrators~\cite{Hut1995, Laikov2018} to enjoy AD without intermediate state caching.
+With reversible integrators, it should be possible to rewrite the control system in robotics~\cite{Giftthaler2017} in a reversible style. In robotics, the control parameters are often floating point numbers rather than tensors.
 Writting a control program reversiblly should boost the training performance a lot.
-Fourth, NiLang is a strong candidate towards breaking the memory wall problem in machine learning.
-Unlike the tradeoff schemes in traditional machine learning that use checkpointing and reversible primitives.
-NiLang provides a more systematic and elegant time-space tradeoff scheme. It prefers inplace and memory efficient implementations
-The implementation of unitary matrix costs zero extra memory,
-Differentiating over reversible integrators~\cite{Hut1995, Laikov2018} without intermediate state caching is also possible.
-In quantum simulator Yao~\cite{Luo2019}, all quantum gates are implemented as applying two level unitaries concequtively.
-They can be implemented reversiblly with little effort, then we don't need a builtin AD engine anymore.
-Besides, the time-space tradeoff can potentially be optimized at compiling stage as discussed above.
 
-To solve the above problems better, NiLang can be improved from multiple perspectives. We call for better compiling that decreases granularity and hence reduces overhead, rigorous reversible floating point arithematics to let the reversibility free from rounding error.
-Reversible programming is known to have advantage in parallel computing in handle asynchronious computing~\cite{Jefferson1985} and debugging with bidirectional move~\cite{Boothe2000}.
-It is interesting to see how NiLang combines with other parts of Julia ecosystem like CUDAnative~\cite{Besard2018} and Debugger.
+Latstly, the reversible IR is a good starting point to study quantum compiling. Most quantum programming language assumes a classical coprocessor and use classical control flows~\cite{Svore2018}.
+We believe reversible control flowa are also very important to a universal quantum computor.
 
-It is also interesting to see how it can be combined with the high performance quantum simulator Yao~\cite{Luo2019}. It can provide control flow to Yao's quantum block intermediate representation, while Yao can provide the quantum features for NiLang.
-Notice by introducing qantum rotation gates $R_y(\theta)$ and $R_z(\theta)$ in the reversible programming, we can make NiLang a path integral based universal quantum simulator. A wield fact is most quantum programming language assumes a classical coprocessor and use classical control flows~\cite{}.
-We believe reversible control flow is also very important to a universal quantum computor.
+To solve the above problems better, NiLang can be improved from multiple perspectives.
+\begin{itemize}
+    \item Create a better compiling tool that decreases granularity and hence reduces overhead.
+    \item Implement rigorous reversible floating point arithematics on hardwares to let the reversibility free from rounding error.
+    \item Show the advantage of NiLang in parallel computing in handle asynchronious computing~\cite{Jefferson1985} and debugging with bidirectional move~\cite{Boothe2000}. It is interesting to see how NiLang combines with other parts of Julia ecosystem like CUDAnative~\cite{Besard2018} and Debugger.
+\end{itemize}
+These improvements needs the paticipation from multiple fields.
+
 % By porting a quantum simulator. 
 %it is interesting to see how quantum simulator can improve the instruction design. Notice a quantum fourier transformation (QFT) based quantum adder and multiplier is sometimes more efficient than a classical adder~\cite{Haener2018} \blue{Is this true?}.
 %This could be used to reduce the momory cost in normalizing flow, time-reversible integrator, recurrent neural network and residual neural network.
-
-\red{you need much better ending. Talk about broader perspective rather than technique details. }
 
 \section{acknowledgments}
 Jin-Guo Liu thank Lei Wang for motivating the project with possible applications reversible integrator, normalizing flow and neural ODE.
