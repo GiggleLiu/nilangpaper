@@ -230,7 +230,6 @@ One can obtain the gradients of any program written in this eDSL at a comparable
 
     In this paper, we first introduce the design of our eDSL in \Sec{sec:lang}.
     In \Sec{sec:bp}, we show how to back-propagation Jacobians and Hessians in a reversible programming language.
-    We propose a self-consistent training strategy in \Sec{sec:train} that utilizes reversibility directly, which does require gradients.
     In \Sec{sec:example}, we show several examples. We use eDSL to generate backward rules for $\exp$ function, unitary matrix multiplication and even QR decomposition.
     In \Sec{sec:discussion}, we discuss several important issues, how time-space tradeoff works, reversible instructions and hardware, and finally, an outlook to some open problems to be solved.
 
@@ -656,105 +655,6 @@ where the second term with $\frac{\partial O}{\partial{b}}$ vanishes naturally. 
 This theorem is very important to the reversibility of gradient functions, without it, the recursive differentiation scheme to obtain second-order gradients can not work.
 On the other side, we emphasis that although the initial value of the gradient field of an ancilla can be randomly chosen, not having a gradient field at the begining is a different story.
 
-\section{Learn by consistency}\label{sec:train}
-Consider a training task that with input $\vx^*$ and output $\vy^*$,
-find a set of parameters $\vp_x$ that satisfy $\vy^* = f(\vx^*, \vp_x)$.
-In traditional machine learning, we define a loss $\mathcal{L} = {\rm dist}(\vy^*, f(\vx^*, \vp_x))$ and minimize it with gradient $\frac{\partial L}{\partial \vp_x}$. This works only when the target function is locally differentiable.
-
-Here we provide an alternative by making use of reversibility.
-We construct a reversible program $\vy, \vp_y =  f_r(\vx, \vp_x)$, where $\vp_x$ and $\vp_y$ are ``garbage'' spaces which include trainable parameters and auxiliary parameters.
-The algorithm can be summarized as
-
-\begin{algorithm}[H]
-    \KwResult{$\vp_x$}
-    Initialize $\vx$ to $\vx^*$, garbage space $\vp_x$ to random.\\
-    \eIf{$\vp_y$ is \texttt{null}}{
-        $\vx, \vp_x = f_r^{-1}(\vy^*)$\\
-    }{
-        $\vy, \vp_y= f_r(\vx, \vp_x)$\\
-        \While{$\vy \not\approx \vy^*$}{
-            $\vy = \vy^*$\\
-            $\vx, \vp_x = f_r^{-1}(\vy, \vp_y)$.\\
-            $\vx = \vx^*$\\
-            $\vy, \vp_y= f_r(\vx, \vp_x)$
-        }
-    }
-    \caption{Learn by consistency}\label{algo:train}
-\end{algorithm}
-
-Here, $\garbage(\cdot)$ is a function for taking the garbage space.
-This algorithm utilizes the self-consistency relation
-\begin{equation}\label{eq:selfconsistent}
-    \vp_x^* = \garbage(f_r^{-1}(\vy^*, \garbage(f_r(\vx^*, \vp^*_x)))),
-\end{equation}
-
-Similar idea of training by consistency is used in self-consistent meanfield theory~\cite{Michael2003} in physics.
-The difficult part of self-consistent training is to find a self-consistency relation, here the reversibility provides a natural self-consistency relation.
-Learn by consistency can be used to handle discrete optimization. However, it is not a silver bullet, and should be used with caution.
-Let's consider the following example
-
-\begin{minipage}{.44\textwidth}
-\begin{lstlisting}[basicstyle=\small\ttfamily,columns=fullflexible]
-@i function f1(y!, x, p!)
-    p! += identity(x)
-    y! -= exp(x)
-    y! += exp(p!)
-end
-
-@i function f2(y!, x!, p!)
-    p! += identity(x!)
-    y! -= exp(x!)
-    x! -= log(-y!)
-    y! += exp(p!)
-end
-
-function train(f)
-    loss = Float64[]
-    p = 1.6
-    for i=1:100
-        y!, x = 0.0, 0.3
-        @instr f(y!, x, p)
-        push!(loss, y!)
-        y! = 1.0
-        @instr (~f)(y!, x, p)
-    end
-    loss
-end
-\end{lstlisting}
-\end{minipage}
-
-Functions \texttt{f1} and \texttt{f2} computes $f(x, p) = e^{(p+x)} - e^x$ and stores the output in a new memory \texttt{y!}.
-The only difference is \texttt{f2} ``uncompute'' $x$ arithmetically.
-The task of training is to find a $p$ that make the output value equal to target value $1$.
-After $100$ steps, \texttt{f2} runs into the fixed point with $x$ equal to $1$ upto machine precision.
-However, \texttt{f1} does not do any training.
-The training of \texttt{f2} fails because this function actually computes $\texttt{f1}(y, x, p) = y + e^{(p+x)} - e^{x}, x, x+p$, where the training parameter $p$ is completely determined by the garbage space on the output side $x \cup x+p$. As a result, shifting $y$ directly is the only approach to satisfy the consistency relation. On the other side, $\texttt{f2}(y, x, p) = y + e^{(p+x)} - e^x, \tilde{0}, x+p$, the garbage space can not uniquely determine the input garbage space $p$ and $y$. Here we use $\tilde{0}$ to denote the zero with rounding error.
-
-\begin{figure}
-    \centerline{\includegraphics[width=0.9\columnwidth,trim={0 0.3cm 0 0},clip]{images/fig1.pdf}}
-    \caption{The value of $x$ as a function of self-consistent training step.}\label{fig:invtrain}
-\end{figure}
-
-By viewing $\vx$ and parameters in $\vp_x$ as variables, we can study the trainability from the information perspective.
-\begin{theorem}
-    Only if the the conditional entropy $S(\vy|\vp_y)$ is nonzero, algorithm \ref{algo:train} is trainable.
-\end{theorem}
-\begin{proof}
-The above example reveals a fact that the training can not work when the output $\vp_y$ completely determines $\vp_x$, that is
-\begin{align}
-    \begin{split}
-        S(\vp_x | \vp_y) &= S(\vp_x \cup \vp_y) - S(\vp_y)\\
-        &\leq S\left((\vp_x \cup \vx) \cup \vp_y \right) - S(\vp_y),\\
-        &\leq S\left((\vp_y \cup \vy) \cup \vp_y\right) - S(\vp_y),\\
-    &\leq S(\vy|\vp_y).
-    \end{split}
-\end{align}
-The third line uses the bijectivity $S(\vx \cup \vp_x) = S(\vy \cup \vp_y)$.
-\end{proof}
-This inequality shows that when the garbage space on the output side satisfies $S(\vy | \vp_y) = 0$, i.e. contains all information to determine the output field, the input parameters are also completely determined by this garbage space.
-In the above examples, it corresponds to the case $S\left(e^{(x+y)-e^x} | x \cup x + y\right) = 0$ in $f_1$.
-One should remove the redundancy of information by uncomputing to make training by consistency work properly.
-
 \section{Examples}\label{sec:example}
 
 \subsection{Computing Fibonacci Numbers}\label{sec:fib}
@@ -1052,7 +952,7 @@ end
 In this paper, we introduce a Julia eDSL NiLang that simulates a reversible Turing machine (RTM).
 We developed an instruction-level automatic differentiation tool on this eDSL for differential programming.
 It can differentiate over any program to any order reliably and efficiently without sophisticated designs to memorize computational graph and intermediate states.
-Also, we introduce a new training strategy that does not rely on gradients, learn by consistency.
+For those who are interested in gradient free trainings. In \App{sec:train}, we derive a self-consisency relation for reversible programa that can be used in training.
 
 In the following, we discussed some practical issues reversible programming, and several future directions to go.
 %Notablely, we introduce the concept of ``arithematic uncomputing'' to reduce the overhead of recursive reversible algorithms.
@@ -1172,7 +1072,20 @@ The authors are supported by the National Natural Science Foundation of China un
 
 \section{NiLang Grammar}\label{app:grammar}
 
-Terminologies
+To define a reversible function one can use ``@i'' plus a normal function definition like bellow
+
+\begin{minipage}{.44\textwidth}
+\begin{lstlisting}[basicstyle=\small\ttfamily,columns=fullflexible]
+"""
+docstring...
+"""
+@i function f(args..., kwargs...) where {...}
+    <stmts>
+end
+\end{lstlisting}
+\end{minipage}
+where the definition of ``<stmts>'' are shown in the grammar on the next page.
+The following is a list of terminologies used the definition
 \begin{itemize}
     \item $ident$, symbols
     \item $num$, numbers
@@ -1180,16 +1093,15 @@ Terminologies
     \item $JuliaExpr$, native Julia expression
     \item $[$ $]$,  zero or one repetitions.
 \end{itemize}
+Here, all $JuliaExpr$ should be pure, otherwise the reversibility is not guaranteed.
+Dataview is a view of a data, it can be a bijective mapping of an object, an item of an array or a field of an object.
+
+\newpage
 
 \begin{minipage}{0.3\textwidth}
     \small
 \input{bnf.tex}
 \end{minipage}
-
-One can use \texttt{@i function $\<Stmts\>$ end} to define a function and its inverse. All $JuliaExpr$ should be pure, otherwise the reversibility is not guaranteed.
-
-Dataview is a bijective mapping of an object or a field (or item) of an object.
-When modifying the dataview of an object, it changes the object directly with the \texttt{chfield} method.
 
 \section{Instruction Table}\label{app:instr}
 
@@ -1237,6 +1149,105 @@ The list of instructions implemented in NiLang
     \caption{A collection of reversible instructions, ``.'' is the broadcast operations in Julia.}\label{tbl:revinstructions}
 \end{minipage}
 \end{table}
+
+\section{Learn by consistency}\label{sec:train}
+Consider a training task that with input $\vx^*$ and output $\vy^*$,
+find a set of parameters $\vp_x$ that satisfy $\vy^* = f(\vx^*, \vp_x)$.
+In traditional machine learning, we define a loss $\mathcal{L} = {\rm dist}(\vy^*, f(\vx^*, \vp_x))$ and minimize it with gradient $\frac{\partial L}{\partial \vp_x}$. This works only when the target function is locally differentiable.
+
+Here we provide an alternative by making use of reversibility.
+We construct a reversible program $\vy, \vp_y =  f_r(\vx, \vp_x)$, where $\vp_x$ and $\vp_y$ are ``garbage'' spaces which include trainable parameters and auxiliary parameters.
+The algorithm can be summarized as
+
+\begin{algorithm}[H]
+    \KwResult{$\vp_x$}
+    Initialize $\vx$ to $\vx^*$, garbage space $\vp_x$ to random.\\
+    \eIf{$\vp_y$ is \texttt{null}}{
+        $\vx, \vp_x = f_r^{-1}(\vy^*)$\\
+    }{
+        $\vy, \vp_y= f_r(\vx, \vp_x)$\\
+        \While{$\vy \not\approx \vy^*$}{
+            $\vy = \vy^*$\\
+            $\vx, \vp_x = f_r^{-1}(\vy, \vp_y)$.\\
+            $\vx = \vx^*$\\
+            $\vy, \vp_y= f_r(\vx, \vp_x)$
+        }
+    }
+    \caption{Learn by consistency}\label{algo:train}
+\end{algorithm}
+
+Here, $\garbage(\cdot)$ is a function for taking the garbage space.
+This algorithm utilizes the self-consistency relation
+\begin{equation}\label{eq:selfconsistent}
+    \vp_x^* = \garbage(f_r^{-1}(\vy^*, \garbage(f_r(\vx^*, \vp^*_x)))),
+\end{equation}
+
+Similar idea of training by consistency is used in self-consistent meanfield theory~\cite{Michael2003} in physics.
+The difficult part of self-consistent training is to find a self-consistency relation, here the reversibility provides a natural self-consistency relation.
+Learn by consistency can be used to handle discrete optimization. However, it is not a silver bullet, and should be used with caution.
+Let's consider the following example
+
+\begin{minipage}{.44\textwidth}
+\begin{lstlisting}[basicstyle=\small\ttfamily,columns=fullflexible]
+@i function f1(y!, x, p!)
+    p! += identity(x)
+    y! -= exp(x)
+    y! += exp(p!)
+end
+
+@i function f2(y!, x!, p!)
+    p! += identity(x!)
+    y! -= exp(x!)
+    x! -= log(-y!)
+    y! += exp(p!)
+end
+
+function train(f)
+    loss = Float64[]
+    p = 1.6
+    for i=1:100
+        y!, x = 0.0, 0.3
+        @instr f(y!, x, p)
+        push!(loss, y!)
+        y! = 1.0
+        @instr (~f)(y!, x, p)
+    end
+    loss
+end
+\end{lstlisting}
+\end{minipage}
+
+Functions \texttt{f1} and \texttt{f2} computes $f(x, p) = e^{(p+x)} - e^x$ and stores the output in a new memory \texttt{y!}.
+The only difference is \texttt{f2} ``uncompute'' $x$ arithmetically.
+The task of training is to find a $p$ that make the output value equal to target value $1$.
+After $100$ steps, \texttt{f2} runs into the fixed point with $x$ equal to $1$ upto machine precision.
+However, \texttt{f1} does not do any training.
+The training of \texttt{f2} fails because this function actually computes $\texttt{f1}(y, x, p) = y + e^{(p+x)} - e^{x}, x, x+p$, where the training parameter $p$ is completely determined by the garbage space on the output side $x \cup x+p$. As a result, shifting $y$ directly is the only approach to satisfy the consistency relation. On the other side, $\texttt{f2}(y, x, p) = y + e^{(p+x)} - e^x, \tilde{0}, x+p$, the garbage space can not uniquely determine the input garbage space $p$ and $y$. Here we use $\tilde{0}$ to denote the zero with rounding error.
+
+\begin{figure}
+    \centerline{\includegraphics[width=0.9\columnwidth,trim={0 0.3cm 0 0},clip]{images/fig1.pdf}}
+    \caption{The value of $x$ as a function of self-consistent training step.}\label{fig:invtrain}
+\end{figure}
+
+By viewing $\vx$ and parameters in $\vp_x$ as variables, we can study the trainability from the information perspective.
+\begin{theorem}
+    Only if the the conditional entropy $S(\vy|\vp_y)$ is nonzero, algorithm \ref{algo:train} is trainable.
+\end{theorem}
+\begin{proof}
+The above example reveals a fact that the training can not work when the output $\vp_y$ completely determines $\vp_x$, that is
+\begin{align}
+    \begin{split}
+        S(\vp_x | \vp_y) &= S(\vp_x \cup \vp_y) - S(\vp_y)\\
+        &\leq S\left((\vp_x \cup \vx) \cup \vp_y \right) - S(\vp_y),\\
+        &\leq S\left((\vp_y \cup \vy) \cup \vp_y\right) - S(\vp_y),\\
+    &\leq S(\vy|\vp_y).
+    \end{split}
+\end{align}
+The third line uses the bijectivity $S(\vx \cup \vp_x) = S(\vy \cup \vp_y)$.
+\end{proof}
+This inequality shows that when the garbage space on the output side satisfies $S(\vy | \vp_y) = 0$, i.e. contains all information to determine the output field, the input parameters are also completely determined by this garbage space.
+In the above examples, it corresponds to the case $S\left(e^{(x+y)-e^x} | x \cup x + y\right) = 0$ in $f_1$.
+One should remove the redundancy of information by uncomputing to make training by consistency work properly.
 
 
 \end{document}
