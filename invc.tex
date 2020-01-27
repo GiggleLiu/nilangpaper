@@ -198,10 +198,9 @@
 
 %\begin{multicols}{2}
 \section{Introduction}\label{sec:intro}
-    There are two modes \red{not only two, can be mixed. They are just to extremes.} of automatic differentiation (AD)~\cite{Hascoet2013}, the tangent mode AD and the adjoint mode AD.
-    Consider a multi-in multi-out function $\vy = f(\vx)$, the tangent mode AD computes one column of its Jacobian $\frac{\partial \vy}{\partial x_i}$ efficiently, where $x_i$ is one of the input variables, whereas the adjoint mode AD computes one row of Jacobian $\frac{\partial y_i}{\partial \vec{x}}$ efficiently.
-Most popular automatic differentiation packages implement the adjoint mode AD because the adjoint mode is computational more efficient in variational applications, where the loss as output is always a scalar.
-However, implementing adjoint mode AD is harder than implementing its tangent mode counterpart. It requires a program's intermediate state for back-propagation, which includes
+    Computing the gradients of a numeric model $f : \mathbb{R}^m \rightarrow \mathbb{R}^n$ plays a crutial role in scientific computing. Automatic differentiation (AD) is the technique to obtain gradients automatically by propagating gradients with the chain rule. The propagation of gradients can happen in two directions. Consider a function $\vy = f(\vx)$, a tangent mode AD propagate the gradient forward and computes one column of its Jacobian $\frac{\partial \vy}{\partial x_i}$ efficiently, where $x_i$ is one of the input variables, whereas an adjoint mode AD propagates the gradients backward and computes one row of Jacobian $\frac{\partial y_i}{\partial \vec{x}}$ efficiently.~\cite{Hascoet2013}
+For this reason, the adjoint mode AD is perfered in variational applications, where the loss as output is always a scalar.
+However, implementing adjoint mode AD is harder than implementing its tangent mode counterpart, because it requires a program's intermediate information for back-propagation. These information includes
 \begin{enumerate}
     \item the computational graph,
     \item and variables used in back propagation.
@@ -493,7 +492,7 @@ In reversible programming with multiple-dispatch, we implement the adjoint mode 
     \caption{Reversible programming AD}\label{alg:ad}
 \end{algorithm}
 
-Here, \texttt{GVar} is a reversible type. The constructor attaches a zero gradient field to a variable, which is similar to the dual number in tangent mode automatic differentiation~\cite{Revels2016}. If the input is an array, \texttt{GVar} will be broadcasted to each array element. One can access the gradient field of a \texttt{GVar} instance through the \texttt{grad} dataview. Its inverse \texttt{$\sim$GVar} deallocates the gradient field safely and returns its value field. Here, "safely" means before deallocation, the program will check the gradient field to make sure its value is restored to $0$.
+Here, \texttt{GVar} is a reversible type. The constructor attaches a zero gradient field to a variable, which is similar to the dual number in tangent mode AD~\cite{Revels2016}. If the input is an array, \texttt{GVar} will be broadcasted to each array element. One can access the gradient field of a \texttt{GVar} instance through the \texttt{grad} dataview. Its inverse \texttt{$\sim$GVar} deallocates the gradient field safely and returns its value field. Here, "safely" means before deallocation, the program will check the gradient field to make sure its value is restored to $0$.
 When an instruction \texttt{instruct} meets a \texttt{GVar}, besides computing its value field $\vvalue(\vy) = \texttt{instruct}(\vvalue(\vx))$, it also updates the gradient field $\grad(\vy) = \left[J^{\vy}_{\vx}\right]^{-1} \grad(\vx)$, where $\left[J^{\vy}_{\vx}\right]^{-1}$ is the Jacobian of $\texttt{instruct}^{-1}$. One can define this gradient function on either \texttt{instruct} or \texttt{instruct${}^{-1}$}. If one defines the backward rule on \texttt{instruct}, the compiler will generate the backward rule for its inverse \texttt{instruct${}^{-1}$} as the inverse function. This is doable because the inverse and adjoint operation commutes~\cite{Mcinerney2015}. In the following example, We bind the adjoint function of \texttt{ROT} to its reverse \texttt{IROT} by defining a new function that dispatch to \texttt{GVar}
 
 \begin{minipage}{.44\textwidth}
@@ -662,50 +661,71 @@ An example that everyone likes
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
-@i function rfib(out, n::T) where T
+using NiLang
+
+@i function rfib(out!, n::T) where T
     @anc n1 = zero(T)
     @anc n2 = zero(T)
     @routine init begin
         n1 += identity(n)
-        n1 -= identity(1.0)
+        n1 -= identity(1)
         n2 += identity(n)
-        n2 -= identity(2.0)
+        n2 -= identity(2)
     end
     if (value(n) <= 2, ~)
-        out += identity(1.0)
+        out! += identity(1)
     else
-        rfib(out, n1)
-        rfib(out, n2)
+        rfib(out!, n1)
+        rfib(out!, n2)
     end
     ~@routine init
 end
 \end{lstlisting}
 \end{minipage}
 
-The following example shows how to construct a reversible \texttt{while} statement. It computes the first Fibonacci number that greater or equal to $x$
+The following example shows how to construct a reversible \texttt{while} statement. It computes the first Fibonacci number that greater or equal to the second argument $z$.
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
-@i function rfib100(n, x)
-    @safe @assert n == 0
-    while (fib(n) < x, n != 0)
-        n += identity(1)
+@i function rfibn(n!, z)
+    @safe @assert n! == 0
+    @anc out = 0
+    rfib(out, n!)
+    while (out < z, n! != 0)
+        ~rfib(out, n!)
+        n! += identity(1)
+        rfib(out, n!)
     end
+    ~rfib(out, n!)
 end
 \end{lstlisting}
 \end{minipage}
 
 In this example, the postcondition \texttt{n!=0} is false before entering the loop, and becomes true in later iterations. In the reverse program, the \texttt{while} statement stops at \texttt{n==0}.
+If executed correctly, a user will see the following result.
+
+\begin{minipage}{.44\textwidth}
+\begin{lstlisting}
+julia> rfib(0, 10)
+(55, 10)
+
+julia> rfibn(0, 100)
+(12, 100)
+
+julia> (~rfibn)(rfibn(0, 100)...)
+(0, 100)
+\end{lstlisting}
+\end{minipage}
 
 \subsection{exp function}\label{sec:exp}
 An $\exp$ function can be computed using Taylor expansion
 \begin{equation}
     {\rm y} += \sum\limits_n \frac{x^n}{{\rm factorial}(n)}
 \end{equation}
-There is a recursive algorithm to compute this expression.
-The recursion relation is written as $s_n = \frac{x s_{n-1}}{n}$, where $s_{n} \equiv \frac{x^n}{{\rm factorial}(n)}$ is the term to be accumulated to $y$.
-This algorithm mimics the famous pebble game~\cite{Perumalla2013}. However, there is no known constant memory and polynomial time solution to pebble game.
-Here the case is different. Notice $\mathrel{*}=$ and $\mathrel{/}=$ are arithmetically reversible to each other, we can ``uncompute'' previous state $s_{n-1}$ by $s_{n-1} = \frac{n s_n}{x}$ approximately to deallocate the memory.
+One can compute the accumulated item $s_{n} \equiv \frac{x^n}{{\rm factorial}(n)}$ iteratively as $s_n = \frac{x s_{n-1}}{n}$.
+Considering the fact that product and division are considered as irreversible in NiLang, one can not deallocate $s_{n-1}$ after computing $s_n$.
+This recursive computation mimics the famous pebble game~\cite{Perumalla2013}. However, there is no known constant memory and polynomial time solution to pebble game.
+Here the case is different. Notice $\mathrel{*}=$ and $\mathrel{/}=$ are arithmetically reversible to each other, we can ``uncompute'' previous state $s_{n-1}$ by $s_{n-1} = \frac{n s_n}{x}$ approximately, and use the dirty ancilla in next iteration.
 The implementation is
 
 \begin{minipage}{.44\textwidth}
@@ -916,27 +936,64 @@ One of the simplest way to parametrize a unitary matrix is representing a unitar
 where \texttt{$\theta$} is the rotation angle, \texttt{a!} and \texttt{b!} are target registers.
 
 \begin{minipage}{.44\textwidth}
-    \begin{lstlisting}[mathescape=true]
-@i function umm!(x, $\ctheta$)
+\begin{lstlisting}[mathescape=true]
+using NiLang, NiLang.AD
+
+@i function umm!(x!, θ)
+    @safe @assert length(θ) == 
+            length(x!)*(length(x!)-1)/2
     @anc k = 0
-    @anc Nin = size(x, 2)
-    @anc Nout = size(x, 1)
-    for j=1:Nout
-        for i=Nin-1:-1:j
+    for j=1:length(x!)
+        for i=length(x!)-1:-1:j
             k += identity(1)
-            ROT(x[i], x[i+1], $\ctheta$[k])
+            ROT(x![i], x![i+1], θ[k])
         end
     end
 
-    # uncompute k
-    for j=1:Nout
-        for i=Nin-1:-1:j
-            k -= identity(1)
-        end
-    end
+    @deanc k = length(θ)
 end
 \end{lstlisting}
 \end{minipage}
+
+Here, the ancilla \texttt{k} is deallocated manually by specifying its value, because we know the loop size is $N(N-1)/2$.
+We define the test functions in order to check gradients.
+
+\begin{minipage}{.44\textwidth}
+\begin{lstlisting}[mathescape=true]
+julia> @i function isum(out!, x::Vector)
+           for i=1:length(x)
+               out! += identity(x[i])
+           end
+       end
+
+julia> @i function test!(out!, x!::Vector, θ::Vector)
+           umm!(x!, θ)
+           isum(out!, x!)
+       end
+
+julia> out, x, θ = Loss(0.0), randn(4), randn(6);
+
+julia> @instr test!'(out, x, θ)
+
+julia> x
+4-element Array{GVar{Float64,Float64},1}:
+ GVar(1.220182125326287, 0.14540743042341095) 
+ GVar(2.1288634811475937, -1.3749962375499805)
+ GVar(1.2696579252569677, 1.42868739498625)   
+ GVar(0.1083891125379283, 0.2170123344615735) 
+
+julia> @instr (~test!')(out, x, θ)
+
+julia> x
+4-element Array{Float64,1}:
+ 1.220182125326287  
+ 2.1288634811475933 
+ 1.2696579252569677 
+ 0.10838911253792821
+\end{lstlisting}
+\end{minipage}
+
+In the above testing code, \texttt{test\textquotesingle} attaches a gradient field to each element of \texttt{x}. \texttt{$\sim$test\textquotesingle} is the inverse program that erase the gradient fields. \texttt{GVar} is broadcasted to arrays, thanks to Julia's just in time compiling, using an array of \texttt{GVar} does not have much overhead.
 
 %It implements the backward rule of a \texttt{ROT} instruction
 %\begin{align}

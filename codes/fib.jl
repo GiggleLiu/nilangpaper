@@ -1,5 +1,40 @@
 using NiLang
 
+@i function rfib(out!, n::T) where T
+    @anc n1 = zero(T)
+    @anc n2 = zero(T)
+    @routine init begin
+        n1 += identity(n)
+        n1 -= identity(1)
+        n2 += identity(n)
+        n2 -= identity(2)
+    end
+    if (value(n) <= 2, ~)
+        out! += identity(1)
+    else
+        rfib(out!, n1)
+        rfib(out!, n2)
+    end
+    ~@routine init
+end
+
+@i function rfibn(n!, z)
+    @safe @assert n! == 0
+    @anc out = 0
+    rfib(out, n!)
+    while (out < z, n! != 0)
+        ~rfib(out, n!)
+        n! += identity(1)
+        rfib(out, n!)
+    end
+    ~rfib(out, n!)
+end
+
+rfib(0, 10)
+
+rfibn(0, 100)
+
+# irreversible approach
 function fib(n)
     if n > 2
         fib(n-1) + fib(n-2)
@@ -8,46 +43,14 @@ function fib(n)
     end
 end
 
-@i function rfib(out, n::T) where T
-    @anc n1 = zero(T)
-    @anc n2 = zero(T)
-    n1 ⊕ n
-    n1 ⊖ 1.0
-    n2 ⊕ n
-    n2 ⊖ 2.0
-    if (value(n) <= 2, ~)
-        out ⊕ 1.0
-    else
-        rfib(out, n1)
-        rfib(out, n2)
-    end
-    n1 ⊖ n
-    n1 ⊕ 1.0
-    n2 ⊖ n
-    n2 ⊕ 2.0
-end
+using Test
+@test fib(10) == rfib(0, 10)[1]
 
-rfib(0.0, 10.0)
-fib(10.0)
-
-using NiLang.AD
-GVar{T,T2}(x::T) where {T, T2} = GVar(x, zero(T2))
-rfib'(Loss(0.0), 10.0)
-
-"""find the minimum n that fib(n) > 100"""
-function fib100()
-    n = 0.0
-    while fib(n) < 100
-        n += 1.0
+function fibn(z)
+    n = 0
+    while fib(n) < z
+        n += 1
     end
     return n
 end
-fib100()
-
-@i function rfib100(n)
-    @safe @assert n == 0
-    while (fib(n) < 100, n != 0)
-        n ⊕ 1.0
-    end
-end
-rfib100(0.0)
+fibn(100)
