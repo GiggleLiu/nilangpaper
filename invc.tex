@@ -100,7 +100,7 @@
 \newcommand{\vy}{{\vec y}}
 \newcommand{\vvalue}{{\texttt{value}}}
 \newcommand{\grad}{{\texttt{grad}}}
-\newcommand{\garbage}{{\texttt{garbage}}}
+\newcommand{\parameter}{{\texttt{parameter}}}
 %%%%%% Convention related
 \newcommand{\SWAP}{{\rm SWAP}}
 \newcommand{\CNOT}{{\rm CNOT}}
@@ -1208,8 +1208,8 @@ docstring...
 end
 \end{lstlisting}
 \end{minipage}
-where the definition of ``<stmts>'' are shown in the grammar on the next page.
-The following is a list of terminologies used the definition
+where the definition of ``<stmts>'' are shown in the grammar on the next column.
+The following is a list of terminologies used in the definition of grammar
 \begin{itemize}
     \item $ident$, symbols
     \item $num$, numbers
@@ -1270,22 +1270,22 @@ The list of instructions implemented in NiLang
             \bottomrule
         \end{tabularx}
     }
-    \caption{A collection of reversible instructions, ``.'' is the broadcast operations in Julia.}\label{tbl:revinstructions}
+    \caption{A collection of reversible instructions, ``.'' is the broadcasting operations in Julia.}\label{tbl:revinstructions}
 \end{minipage}
 \end{table}
 
 \section{Learn by consistency}\label{sec:train}
-Consider a training task that with input $\vx^*$ and output $\vy^*$,
+Consider a training that with input $\vx^*$ and output $\vy^*$,
 find a set of parameters $\vp_x$ that satisfy $\vy^* = f(\vx^*, \vp_x)$.
 In traditional machine learning, we define a loss $\mathcal{L} = {\rm dist}(\vy^*, f(\vx^*, \vp_x))$ and minimize it with gradient $\frac{\partial L}{\partial \vp_x}$. This works only when the target function is locally differentiable.
 
 Here we provide an alternative by making use of reversibility.
-We construct a reversible program $\vy, \vp_y =  f_r(\vx, \vp_x)$, where $\vp_x$ and $\vp_y$ are ``garbage'' spaces which include trainable parameters and auxiliary parameters.
+We construct a reversible program $\vy, \vp_y =  f_r(\vx, \vp_x)$, where $\vp_x$ and $\vp_y$ are ``parameter'' spaces on the input side and output side.
 The algorithm can be summarized as
 
 \begin{algorithm}[H]
     \KwResult{$\vp_x$}
-    Initialize $\vx$ to $\vx^*$, garbage space $\vp_x$ to random.\\
+    Initialize $\vx$ to $\vx^*$, parameter space $\vp_x$ to random.\\
     \eIf{$\vp_y$ is \texttt{null}}{
         $\vx, \vp_x = f_r^{-1}(\vy^*)$\\
     }{
@@ -1300,16 +1300,15 @@ The algorithm can be summarized as
     \caption{Learn by consistency}\label{algo:train}
 \end{algorithm}
 
-Here, $\garbage(\cdot)$ is a function for taking the garbage space.
+Here, $\parameter(\cdot)$ is a function for taking the parameter space.
 This algorithm utilizes the self-consistency relation
 \begin{equation}\label{eq:selfconsistent}
-    \vp_x^* = \garbage(f_r^{-1}(\vy^*, \garbage(f_r(\vx^*, \vp^*_x)))),
+    \vp_x^* = \parameter(f_r^{-1}(\vy^*, \parameter(f_r(\vx^*, \vp^*_x)))),
 \end{equation}
 
 Similar idea of training by consistency is used in self-consistent meanfield theory~\cite{Michael2003} in physics.
-The difficult part of self-consistent training is to find a self-consistency relation, here the reversibility provides a natural self-consistency relation.
-Learn by consistency can be used to handle discrete optimization. However, it is not a silver bullet, and should be used with caution.
-Let's consider the following example
+Finding the self-consistent relation is crucial to a self-consistency based training. Here, the reversibility provides a natural self-consistency relation.
+However, it is not a silver bullet, let's consider the following example
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}[basicstyle=\small\ttfamily,columns=fullflexible]
@@ -1342,15 +1341,15 @@ end
 \end{minipage}
 
 Functions \texttt{f1} and \texttt{f2} computes $f(x, p) = e^{(p+x)} - e^x$ and stores the output in a new memory \texttt{y!}.
-The only difference is \texttt{f2} ``uncompute'' $x$ arithmetically.
+The only difference is \texttt{f2} uncomputes $x$ arithmetically.
 The task of training is to find a $p$ that make the output value equal to target value $1$.
 After $100$ steps, \texttt{f2} runs into the fixed point with $x$ equal to $1$ upto machine precision.
-However, \texttt{f1} does not do any training.
-The training of \texttt{f2} fails because this function actually computes $\texttt{f1}(y, x, p) = y + e^{(p+x)} - e^{x}, x, x+p$, where the training parameter $p$ is completely determined by the garbage space on the output side $x \cup x+p$. As a result, shifting $y$ directly is the only approach to satisfy the consistency relation. On the other side, $\texttt{f2}(y, x, p) = y + e^{(p+x)} - e^x, \tilde{0}, x+p$, the garbage space can not uniquely determine the input garbage space $p$ and $y$. Here we use $\tilde{0}$ to denote the zero with rounding error.
+However, parameters in \texttt{f1} does change at all.
+The training of \texttt{f1} fails because this function actually computes $\texttt{f1}(y, x, p) = y + e^{(p+x)} - e^{x}, x, x+p$, where the training parameter $p$ is completely determined by the parameter space on the output side $x \cup x+p$. As a result, shifting $y$ directly is the only approach to satisfy the consistency relation. On the other side, $\texttt{f2}(y, x, p) = y + e^{(p+x)} - e^x, \tilde{0}, x+p$, the output parameters $\tilde{0} \cup x+p$ can not uniquely determine input parameters $p$ and $x$. Here, we use $\tilde{0}$ to denote the zero with rounding error.
 
 \begin{figure}
     \centerline{\includegraphics[width=0.9\columnwidth,trim={0 0.3cm 0 0},clip]{images/fig1.pdf}}
-    \caption{The value of $x$ as a function of self-consistent training step.}\label{fig:invtrain}
+    \caption{The output value \texttt{y!} as a function of self-consistent training step.}\label{fig:invtrain}
 \end{figure}
 
 By viewing $\vx$ and parameters in $\vp_x$ as variables, we can study the trainability from the information perspective.
@@ -1358,7 +1357,8 @@ By viewing $\vx$ and parameters in $\vp_x$ as variables, we can study the traina
     Only if the the conditional entropy $S(\vy|\vp_y)$ is nonzero, algorithm \ref{algo:train} is trainable.
 \end{theorem}
 \begin{proof}
-The above example reveals a fact that the training can not work when the output $\vp_y$ completely determines $\vp_x$, that is
+The above example reveals a fact that the training can not work when output parameters completely determines input parameters.
+In other words, if $S(\vp_x | \vp_y) = 0$, the traning can not work.
 \begin{align}
     \begin{split}
         S(\vp_x | \vp_y) &= S(\vp_x \cup \vp_y) - S(\vp_y)\\
@@ -1368,10 +1368,9 @@ The above example reveals a fact that the training can not work when the output 
     \end{split}
 \end{align}
 The third line uses the bijectivity $S(\vx \cup \vp_x) = S(\vy \cup \vp_y)$.
+This inequality shows that when the parameter space on the output side satisfies $S(\vy | \vp_y) = 0$, i.e. contains all information to determine the output field, the input parameters are also completely determined by this parameter space, hence traning can not work.
 \end{proof}
-This inequality shows that when the garbage space on the output side satisfies $S(\vy | \vp_y) = 0$, i.e. contains all information to determine the output field, the input parameters are also completely determined by this garbage space.
-In the above examples, it corresponds to the case $S\left(e^{(x+y)-e^x} | x \cup x + y\right) = 0$ in $f_1$.
-One should remove the redundancy of information by uncomputing to make training by consistency work properly.
-
+In the above example, it corresponds to the case $S\left(e^{(x+y)-e^x} | x \cup x + y\right) = 0$ in $f1$.
+The solution is to remove the information redundancy in output parameter space through uncomputing as shown in $f2$.
 
 \end{document}
