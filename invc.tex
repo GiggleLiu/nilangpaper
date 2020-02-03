@@ -336,7 +336,7 @@ Any statement is this IR has a unique inverse as shown in \Tbl{tbl:revstatements
             \hline
             \texttt{<y!> .$\veebar$= <f>(<args>...)} & \texttt{<y!> .$\veebar$= <f>(<args>...)}\\
             \hline
-            \texttt{@anc <a> = <expr>} & \texttt{@deanc <a> = <expr>}\\
+            \texttt{<a> $\leftarrow$ <expr>} & \texttt{<a> $\rightarrow$ <expr>}\\
             \hline
             \texttt{begin}\newline \texttt{$\cquad$<stmts>}\newline \texttt{end} & \texttt{begin}\newline \texttt{$\cquad$ $\sim$(<stmts>)}\newline \texttt{end}\\
             \hline
@@ -361,9 +361,10 @@ Any statement is this IR has a unique inverse as shown in \Tbl{tbl:revstatements
 The conditional expression in a \texttt{if} or a \texttt{while} statements is a two-element tuple that consists of a precondition and a postcondition.
 %This design allows users putting additional postcondition in control flows to help reverse the program.
 %A postcondition is a boolean expression that being evaluated after the body expressions being executed.
-Macro \texttt{@anc} and \texttt{@deanc} plays the same role as \texttt{local} and \texttt{delocal} in Janus. \texttt{@anc a = <expr>} binds variable \texttt{a} to an initial value specified by \texttt{<expr>}. Its inverse \texttt{@deanc a = <expr>} deallocates the variable \texttt{a}. Before deallocating the variable, the program checks that the its value is the same as the value of \texttt{<expr>}, otherwise throws an \texttt{InvertibilityError}. \texttt{@anc} and \texttt{@deanc} must appear in pairs inside a function call, a \texttt{while} statement, or a \texttt{for} statement.
+\texttt{$\leftarrow$} and \texttt{$\rightarrow$} plays the same role as \texttt{local} and \texttt{delocal} in Janus, they can be input by typing ``$\backslash$leftarrow'' followed by a Tab key in a Julia editor or REPL.
+\texttt{a $\leftarrow$ <expr>} binds variable \texttt{a} to an initial value specified by \texttt{<expr>}. Its inverse \texttt{a $\rightarrow$ <expr>} deallocates the variable \texttt{a}. Before deallocating the variable, the program checks that the its value is the same as the value of \texttt{<expr>}, otherwise throws an \texttt{InvertibilityError}. \texttt{$\leftarrow$} and \texttt{$\rightarrow$} must appear in pairs inside a function call, a \texttt{while} statement, or a \texttt{for} statement.
 A function call in NiLang supports Julia's broadcasting magic, a function defined on scalars can be broadcasted to vectors by adding a ``.'' after the function call.
-    %\texttt{@deanc} will be added automatically.
+%\texttt{$\rightarrow$} will be added automatically.
     %The additional check underlines the difference between the irreversible assign statement and reversible ancilla statement.
 The \texttt{@safe} macro allows users to use external statements that do not break reversibility.
 For example, one can use \texttt{@safe @show var} for debugging.
@@ -373,8 +374,8 @@ There is not stack operations in our language design because we haven't find a u
 The interpretation of a reversible function consists three stages.
 
 The first stage preprocess human inputs to a reversible IR.
-The preprocessor expands the symbol \texttt{$\sim$} in the postcondition field of \texttt{if} statement to the precondition, adds missing \texttt{@deanc} to ensure \texttt{@anc} and \texttt{@deanc} statements appear in pairs and  expands \texttt{@routine} macro.
-Here, \texttt{@routine r <stmt>} records a statement to symbol \texttt{r}. In preprocessing stage, \texttt{$\sim$@routine r} will be replaced to \texttt{$\sim$<stmt>} for uncomputing. We will use macro extensively in the examples in \Sec{sec:example}.
+The preprocessor expands the symbol \texttt{$\sim$} in the postcondition field of \texttt{if} statement to the precondition, adds missing ancilla deallocation operations to ensure \texttt{$\leftarrow$} and \texttt{$\rightarrow$} statements appear in pairs and  expands \texttt{@routine} macro.
+Here, \texttt{@routine <stmt>} records a statement. In preprocessing stage, \texttt{$\sim$@routine} will be replaced to \texttt{$\sim$<stmt>} for uncomputing. We will use macro extensively in the "compmute-copy-uncompute" design pattern of reversible programming.
 The following example preprocess an \texttt{if} statement to the reversible version.
 
 \begin{minipage}{.44\textwidth}
@@ -388,6 +389,8 @@ julia> prettify(@code_preprocess if (pre, ~)
   end)
 \end{lstlisting}
 \end{minipage}
+
+Here, the symbol $\sim$ means \textit{same as precondition}, it will be expanded at this stage.
 
 The second stage generates the reversed IR according to table \Tbl{tbl:revstatements}.
 
@@ -435,10 +438,9 @@ At the end of the code \texttt{@invcheck post bat} is added to check the consist
 \subsection{Types and Dataviews}
 So far, the language design is not too different from a traditional reversible language. To implement the adjoint mode AD, we introduce types and dataviews.
 
-The type that can be used in the reversible context is just a normal Julia type with extra requirements that its default constructor is not overwritten.
-The constructor of a reversible type should be a reversible function.
-Its inverse ``destructor'' unpacks data and deallocates derived fields.
-One can use \texttt{@iconstruct} to define such a reversible constructor.
+The type that used in the reversible context is just a normal Julia type with extra requirements that it has a reversible constructor.
+One can use \texttt{@iconstruct} to automatically generate a reversible constructor as a special reversible function.
+The inverse of a constructor is called ``destructor'', which unpacks data and deallocates derived fields.
 The following example defines a reversible generator that copies the input as a drived field.
 
 \begin{minipage}{.44\textwidth}
@@ -450,16 +452,19 @@ struct DVar{T}
     g::T
 end
 
-@iconstruct function DVar(xx, gg=zero(xx))
-    gg += identity(xx)
+@iconstruct function DVar(x, g ← zero(x))
+    g += identity(xx)
 end
 
 @test (~DVar)(DVar(0.5)) == 0.5
 \end{lstlisting}
 \end{minipage}
 
-The first parameter \texttt{xx} is the actual input of constructor. The assign statement in argument list \texttt{gg = zero(xx)} initializes a new memory as a derived field. The function body is a reversible program that transforms \texttt{xx} and \texttt{gg} reversibly. Finally, the compiler appends a default constructor \texttt{DVar(xx, gg)} at the end to instantiate a new object as the return value.
-The destructor that coverts an object of type \texttt{DVar\{T\}} to type \texttt{T} can be defined by reversing the above statements.%With the flexibility to use types, it is not necessary to use global stacks in our eDSL.
+The first parameter \texttt{xx} is the primary field of a constructor.
+A constructor should contain exact one primary field, the rest are called derived fields.
+The statement in argument list \texttt{gg ← zero(xx)} initializes a new memory as a derived field. The function body is a reversible program that transforms \texttt{xx} and \texttt{gg} reversibly. Finally, the compiler appends a default constructor \texttt{DVar(xx, gg)} at the end to instantiate a new object as the return value. \texttt{@iconstruct} works only if the default constructor of a type is not forbidden by a user.
+The destructor that coverts an object of type \texttt{DVar\{T\}} to type \texttt{T} can be defined by reversing the above statements.
+%With the flexibility to use types, it is not necessary to use global stacks in our eDSL.
 
 A dataview of variable can be the variable itself, a field of its view, an array element of its view, or a bijective mapping of its view.
 Let us first consider the following example.
@@ -586,8 +591,8 @@ The implementation of Algorithm \ref{alg:ad} is so short that we present the fun
 \begin{lstlisting}
 @i function (g::Grad)(args...; kwargs...)
     @safe @assert count(x -> x isa Loss, args) == 1
-    @anc iloss = 0
-    @routine getiloss begin
+    iloss ← 0
+    @routine begin
         for i=1:length(args)
             if (tget(args,i) isa Loss, iloss==i)
                 iloss += identity(i)
@@ -601,14 +606,14 @@ The implementation of Algorithm \ref{alg:ad} is so short that we present the fun
     grad(tget(args,iloss)) += identity(1.0)
     (~g.f)(args...; kwargs...)
 
-    ~@routine getiloss
+    ~@routine
 end
 \end{lstlisting}
 \end{minipage}
 
 Here, we use \texttt{Loss} type to mark the loss variable. Input variables must contain exactly one \texttt{Loss}.
 This program first checks the input parameters and locates the loss variable as \texttt{iloss}. Then \texttt{~Loss} unwraps the loss variable.
-After computing the forward pass and backward pass, \texttt{~@routine getiloss} uncomputes the ancilla \texttt{iloss} and returns the location information to the loss variable.
+After computing the forward pass and backward pass, \texttt{~@routine} uncomputes the ancilla \texttt{iloss} and returns the location information to the loss variable.
 \texttt{tget(args, i)} returns the $i$-th element of a tuple.
 Here, in order to avoid possible ambiguity in supporting array indexing, we forbid tuple indexing deliberately.
 
@@ -710,9 +715,9 @@ The following is an example that everyone likes, computing Fibonacci number recu
 using NiLang
 
 @i function rfib(out!, n::T) where T
-    @anc n1 = zero(T)
-    @anc n2 = zero(T)
-    @routine init begin
+    n1 ← zero(T)
+    n2 ← zero(T)
+    @routine begin
         n1 += identity(n)
         n1 -= identity(1)
         n2 += identity(n)
@@ -724,7 +729,7 @@ using NiLang
         rfib(out!, n1)
         rfib(out!, n2)
     end
-    ~@routine init
+    ~@routine
 end
 \end{lstlisting}
 \end{minipage}
@@ -738,7 +743,7 @@ A slightly non-trivial task is computing the first Fibonacci number that greater
 \begin{lstlisting}
 @i function rfibn(n!, z)
     @safe @assert n! == 0
-    @anc out = 0
+    out ← 0
     rfib(out, n!)
     while (out < z, n! != 0)
         ~rfib(out, n!)
@@ -783,14 +788,14 @@ using NiLang, NiLang.AD
 
 @i function iexp(y!, x::T; atol::Float64=1e-14)
         where T
-    @anc anc1 = zero(T)
-    @anc anc2 = zero(T)
-    @anc anc3 = zero(T)
-    @anc iplus = 0
-    @anc expout = zero(T)
+    anc1 ← zero(T)
+    anc2 ← zero(T)
+    anc3 ← zero(T)
+    iplus ← 0
+    expout ← zero(T)
 
     y! += identity(1.0)
-    @routine r1 begin
+    @routine begin
         anc1 += identity(1.0)
         while (value(anc1) > atol, iplus != 0)
             iplus += identity(1)
@@ -806,7 +811,7 @@ using NiLang, NiLang.AD
 
     y! += identity(expout)
 
-    ~@routine r1
+    ~@routine
 end
 \end{lstlisting}
 \end{minipage}
@@ -875,9 +880,9 @@ Let's consider a linear algebra function, the QR decomposition
 using NiLang, NiLang.AD
 
 @i function qr(Q, R, A::AbstractMatrix{T}) where T
-    @anc anc_norm = zero(T)
-    @anc anc_dot = zeros(T, size(A,2))
-    @anc ri = zeros(T, size(A,1))
+    anc_norm ← zero(T)
+    anc_dot ← zeros(T, size(A,2))
+    ri ← zeros(T, size(A,1))
     for col = 1:size(A, 1)
         ri .+= identity.(A[:,col])
         for precol = 1:col-1
@@ -920,7 +925,7 @@ They are implemented as
 \begin{lstlisting}
 @i function idot(out, v1::AbstractVector{T},
         v2) where T
-    @anc anc1 = zero(T)
+    anc1 ← zero(T)
     for i = 1:length(v1)
         anc1 += identity(v1[i])
         CONJ(anc1)
@@ -932,7 +937,7 @@ end
 
 @i function inorm2(out, vec::AbstractVector{T}
         ) where T
-    @anc anc1 = zero(T)
+    anc1 ← zero(T)
     for i = 1:length(vec)
         anc1 += identity(vec[i])
         CONJ(anc1)
@@ -997,7 +1002,7 @@ using NiLang, NiLang.AD
 @i function umm!(x!, θ)
     @safe @assert length(θ) == 
             length(x!)*(length(x!)-1)/2
-    @anc k = 0
+    k ← 0
     for j=1:length(x!)
         for i=length(x!)-1:-1:j
             k += identity(1)
@@ -1005,7 +1010,7 @@ using NiLang, NiLang.AD
         end
     end
 
-    @deanc k = length(θ)
+    k → length(θ)
 end
 \end{lstlisting}
 \end{minipage}
@@ -1120,11 +1125,13 @@ the target instruction can be a \texttt{comefrom} instruction that specifing the
 
 Arithmetic instructions should be redesigned to support better reversible programs.
 The major obstacle to exact reversibility programming is current floating point adders and multipliers used in our computing devices are not exactly reversible.
-There are proposals of reversible floating point adders and multipliers~\cite{Nachtigal2010,Nachtigal2011,Nguyen2013,Hner2018} that introduces garbage bits to ensure reversibility.
+There are proposals of reversible floating point adders and multipliers~\cite{Nachtigal2010,Nachtigal2011,Nguyen2013,Hner2018} that introduces garbage bits to ensure reversibility, however this design with garbage qubits allocates new bits in each operaton, which is not too different from the information buffer approach~\cite{Maclaurin2015}.
 %In other words, to represent a 64 bit floating point number requires more than 64 bits in storage. Reversible multiplier is also possible in similar approach.~\cite{Nachtigal2010} 
-With these infrastructures, a reversible program can be executed without suffering from rounding error. Meanwhile, they can reduce the time and space overheads significantly.
+With floating point numbers, rigorious reversible arithematic designs without using information buffer or garbage qubits is nearly impossible.
+Alternatives include fixed point numbers~\cite{FixedPointNumbers} and logarithmic numbers~\cite{Taylor1988,LogarithmicNumbers}, where logarithmic number system is reversible under $*=$ and $/=$.
+With these infrastructures, a reversible program can be executed without suffering from the rounding error.
 
-Reversible programming is not nessesarily related to reversible hardwares. Reversible programs are a subset of irreversible programs, hence can be simulated efficiently on CMOS devices~\cite{Vieri1999}. Reversible programming just provides an alternative to execute on an energy efficient reversible hardwares~\cite{Frank1999, Frank2017}.
+Reversible programming is not nessesarily related to reversible hardwares. Reversible programs is a subset of irreversible programs, hence can be simulated efficiently on CMOS devices~\cite{Vieri1999}. Reversible programming just provides an alternative to execute on an energy efficient reversible hardwares~\cite{Frank1999, Frank2017}.
 Reversible hardwares are not necessarily related to reversible gates such as the Toffoli gate and the Fredkin gate.
 Devices with the ability to recover signal energy can also be used to run reversible programs energy efficiently, which is known as the generalized reversible computing.~\cite{Frank2005,Frank2017b}
 In the following, we comment briefly on a special type of reversible device Quantum computer.
@@ -1186,6 +1193,9 @@ Xiu-Zhe Luo for discussion on the implementation details of source to source aut
 Shuo-Hui Li for helpful discussion on differential geometry.
 Damian Steiger for telling me the \texttt{comefrom} joke.
 Tong Liu and An-Qi Chen for helpful discussion on quantum adders and multipliers.
+Chris Rackauckas for helpful discussion on reversible integrators.
+Mike Innes for reviewing the comments about Zygote.
+Simon Byrne and Chen Zhao for helpful discussion on floating point and logarithmic numbers.
 The authors are supported by the National Natural Science Foundation of China under the Grant No.~11774398, the Strategic Priority Research Program of Chinese Academy of Sciences Grant No.~XDB28000000.
 
 \bibliographystyle{apsrev4-1}
