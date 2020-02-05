@@ -111,8 +111,6 @@
 \newcommand{\dataset}{{\mathcal{D}}}
 \newcommand{\wfunc}{{\psi}}
 \newcommand{\SU}{{\rm SU}}
-\newcommand{\ctheta}{{\color{jlbase}{\rm \theta}}}
-\newcommand{\cpi}{{\color{jlbase}{\rm \pi}}}
 \newcommand{\UU}{{\rm U}}
 \newcommand{\thetav}{{\boldsymbol{\theta}}}
 \newcommand{\gammav}{{\boldsymbol{\gamma}}}
@@ -227,7 +225,7 @@ In Pytorch~\cite{Paszke2017} and Flux~\cite{Innes2018a}, every variable has a tr
 %One can obtain the gradients of any program written in this eDSL in a comparable time with the forward computation.
 
     NiLang is not the first implementation of RTM. In history, there have been some prototypes of reversible languages like Janus~\cite{Lutz1986}, R (not the popular one)~\cite{Frank1997}, Erlang~\cite{Lanese2018} and object-oriented ROOPL~\cite{Haulund2017}. These languages have reversible control flow that allows user to input an additional postcondition in control flows to help programs run backward.
-    In the past, the primary motivation for making a program time-reversible is to support reversible devices. Reversible devices do not erase information hence do not have a lower bound of energy consumption by Landauer principle~\cite{Landauer1961}. However, people show less and less interest to reversible programming since 15 years ago, because the energy efficiency of CMOS devices are still two orders~\cite{Frank2017} above this lower bound, removing this lower bound is not an urgent problem yet.
+    In the past, the primary motivation for making a program time-reversible is to support reversible devices. Reversible devices do not erase information hence do not have a lower bound of energy consumption by Landauer principle~\cite{Landauer1961}. However, people show less and less interest to reversible programming since 15 years ago, because the energy efficiency of complementary metal–oxide–semiconductor (CMOS) devices are still two orders~\cite{Frank2017} above this lower bound, removing this lower bound is not an urgent problem yet.
     Our work breaks the information barrier between the machine learning community and the reversible programming community, and provides yet another strong motivation to develop reversible programming.
 
     In this paper, we first introduce the language design of NiLang in \Sec{sec:lang}.
@@ -337,6 +335,7 @@ Any statement is this IR has a unique inverse as shown in \Tbl{tbl:revstatements
             \texttt{<y!> .$\veebar$= <f>(<args>...)} & \texttt{<y!> .$\veebar$= <f>(<args>...)}\\
             \hline
             \texttt{<a> $\leftarrow$ <expr>} & \texttt{<a> $\rightarrow$ <expr>}\\
+            \texttt{(<T1> => <T2>)(<x>)} & \texttt{(<T2> => <T1>)(<x>)}\\
             \hline
             \texttt{begin}\newline \texttt{$\cquad$<stmts>}\newline \texttt{end} & \texttt{begin}\newline \texttt{$\cquad$ $\sim$(<stmts>)}\newline \texttt{end}\\
             \hline
@@ -437,36 +436,82 @@ At the end of the code \texttt{@invcheck post bat} is added to check the consist
 
 \subsection{Types and Dataviews}
 So far, the language design is not too different from a traditional reversible language. To implement the adjoint mode AD, we introduce types and dataviews.
-
-The type that used in the reversible context is just a normal Julia type with extra requirements that it has a reversible constructor.
-One can use \texttt{@iconstruct} to automatically generate a reversible constructor as a special reversible function.
-The inverse of a constructor is called ``destructor'', which unpacks data and deallocates derived fields.
-The following example defines a reversible generator that copies the input as a drived field.
+The type that used in the reversible context is just a normal Julia type with extra requirements that its constructor is reversible.
+The inverse of a constructor is called a ``destructor'', which unpacks data and deallocates derived fields.
+Data packing and unpacking are implemented in following ancilla statements.
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
-using NiLangCore, Test
-
-struct DVar{T}
-    x::T
-    g::T
-end
-
-@iconstruct function DVar(x, g ← zero(x))
-    g += identity(xx)
-end
-
-@test (~DVar)(DVar(0.5)) == 0.5
+    x ← new{TX, TG}(x, g)
+    x → new{TX, TG}(x, g)
 \end{lstlisting}
 \end{minipage}
 
-The first parameter \texttt{xx} is the primary field of a constructor.
-A constructor should contain exact one primary field, the rest are called derived fields.
-The statement in argument list \texttt{gg ← zero(xx)} initializes a new memory as a derived field. The function body is a reversible program that transforms \texttt{xx} and \texttt{gg} reversibly. Finally, the compiler appends a default constructor \texttt{DVar(xx, gg)} at the end to instantiate a new object as the return value. \texttt{@iconstruct} works only if the default constructor of a type is not forbidden by a user.
-The destructor that coverts an object of type \texttt{DVar\{T\}} to type \texttt{T} can be defined by reversing the above statements.
+Ancilla operations with \texttt{new} function is treated specially, because \texttt{new} keeps all information in input argument list.
+The first statement is equivalent to says, do \texttt{x = new{TX, TG}(x, g)} just like a normal ancilla allocation, but do not deallocate \texttt{g} because the information of \texttt{g} is transfered to \texttt{x}.
+Its inverse the second statement allocates a new ancilla \texttt{g}.
+The following example shows how to define as reversible type.
+
+\begin{minipage}{.44\textwidth}
+\begin{lstlisting}
+julia> using NiLangCore
+
+julia> @i struct B{T}
+           g::T
+           x::T
+           function B{T}(x::T, g::T) where T
+               new{T}(x, g)
+           end
+           function B(x::T, g::T) where T
+               new{T}(x, g)
+           end
+           # currently variable types can not be infered
+           # TODO: fix the type inference!
+           @i function B(xx::T) where T
+               gg ← zero(xx)
+               gg += identity(1)
+               xx ← new{T}(gg, xx)
+           end
+       end
+
+julia> B(0.5)
+B{Float64}(1.0, 0.5)
+
+julia> (~B)(B(0.5))
+0.5
+\end{lstlisting}
+\end{minipage}
+
+Here, only the constructors marked with \texttt{@i} are reversible. The \texttt{@i} before \texttt{struct} keyword moves the definitions of \texttt{~B} functions to the outside of this type definition.
+
+The type cast between two types can be defined convieniently with the macro \texttt{@icast}.
+
+\begin{minipage}{.44\textwidth}
+\begin{lstlisting}
+julia> @pure_wrapper A
+
+julia> @icast A(x) => B(x, g) begin
+           g ← zero(x)
+           g += identity(1)
+       end
+
+julia> x = A(0.5)
+A(0.5)
+
+julia> @instr (A=>B)(x)
+B(0.5, 1.0)
+
+julia> @instr (B=>A)(x)
+A(0.5)
+\end{lstlisting}
+\end{minipage}
+
+Here, we first define a simple reversible wrapper type \texttt{A} with macro \texttt{@pure\_wrapper}, then define the cast rule between \texttt{A} type and \texttt{B} type.
+The function body is a reversible program that transforms \texttt{x} to \texttt{(x, g)}. The compiler appends a default constructor \texttt{DVar(xx, gg)} at the end of program to instantiate a new object as the return value.
+The inverse case that coverts an object of type \texttt{B} to type \texttt{A} is defined by reversing the above statements automatically.
 %With the flexibility to use types, it is not necessary to use global stacks in our eDSL.
 
-A dataview of variable can be the variable itself, a field of its view, an array element of its view, or a bijective mapping of its view.
+To access and manipuate the ``field''s of a data type, we introduce dataview. A dataview of variable can be the variable itself, a field of its view, an array element of its view, or a bijective mapping of its view.
 Let us first consider the following example.
 
 \begin{minipage}{.44\textwidth}
@@ -548,16 +593,16 @@ In the following example, We bind the adjoint function of \texttt{ROT} to its re
 
 \begin{minipage}{.44\textwidth}
     \begin{lstlisting}[mathescape=true]
-@i function IROT(a!::GVar, b!::GVar, $\ctheta$::GVar)
-    IROT(value(a!), value(b!), value($\ctheta$))
-    NEG(value($\ctheta$))
-    value($\ctheta$) -= identity($\cpi$/2)
-    ROT(grad(a!), grad(b!), value($\ctheta$))
-    grad($\ctheta$) += value(a!) * grad(a!)
-    grad($\ctheta$) += value(b!) * grad(b!)
-    value($\ctheta$) += identity($\cpi$/2)
-    NEG(value($\ctheta$))
-    ROT(grad(a!), grad(b!), $\cpi$/2)
+@i function IROT(a!::GVar, b!::GVar, θ::GVar)
+    IROT(value(a!), value(b!), value(θ))
+    NEG(value(θ))
+    value(θ) -= identity(π/2)
+    ROT(grad(a!), grad(b!), value(θ))
+    grad(θ) += value(a!) * grad(a!)
+    grad(θ) += value(b!) * grad(b!)
+    value(θ) += identity(π/2)
+    NEG(value(θ))
+    ROT(grad(a!), grad(b!), π/2)
 end
 \end{lstlisting}
 \end{minipage}
@@ -570,14 +615,14 @@ The definition of \texttt{ROT} instruction could be found in \Sec{app:instr}. Th
     \begin{lstlisting}[mathescape=true]
 julia> using NiLang, NiLang.AD
 
-julia> x, y, $\ctheta$ = GVar(0.5), GVar(0.6), GVar(0.9)
+julia> x, y, θ = GVar(0.5), GVar(0.6), GVar(0.9)
 (GVar(0.5, 0.0), GVar(0.6, 0.0)), GVar(0.9, 0.0)
 
 julia> @instr grad(x) += identity(1.0)
 
-julia> @instr ROT(x, y, $\ctheta$)
+julia> @instr ROT(x, y, θ)
 
-julia> x, y, $\ctheta$
+julia> x, y, θ
 (GVar(-0.1591911616411577, 0.6216099682706646),
  GVar(0.7646294357761403, 0.7833269096274833),
  GVar(0.8999999999999999, 0.6))
@@ -592,12 +637,10 @@ The implementation of Algorithm \ref{alg:ad} is so short that we present the fun
 @i function (g::Grad)(args...; kwargs...)
     @safe @assert count(x -> x isa Loss, args) == 1
     iloss ← 0
-    @routine begin
-        for i=1:length(args)
-            if (tget(args,i) isa Loss, iloss==i)
-                iloss += identity(i)
-                (~Loss)(tget(args,i))
-            end
+    @routine for i=1:length(args)
+        if (tget(args,i) isa Loss, iloss==i)
+            iloss += identity(i)
+            (~Loss)(tget(args,i))
         end
     end
 
@@ -1131,7 +1174,7 @@ With floating point numbers, rigorious reversible arithematic designs without us
 Alternatives include fixed point numbers~\cite{FixedPointNumbers} and logarithmic numbers~\cite{Taylor1988,LogarithmicNumbers}, where logarithmic number system is reversible under $*=$ and $/=$.
 With these infrastructures, a reversible program can be executed without suffering from the rounding error.
 
-Reversible programming is not nessesarily related to reversible hardwares. Reversible programs is a subset of irreversible programs, hence can be simulated efficiently on CMOS devices~\cite{Vieri1999}. Reversible programming just provides an alternative to execute on an energy efficient reversible hardwares~\cite{Frank1999, Frank2017}.
+Reversible programming is not nessesarily related to reversible hardwares. Reversible programs is a subset of irreversible programs, hence can be simulated efficiently on traditional CMOS devices~\cite{Vieri1999}. Reversible programming just provides an alternative to execute on an energy efficient reversible hardwares~\cite{Frank1999} like adiabatic CMOS~\cite{Koller1992}, molecular mechanical computing system~\cite{Merkle2018} and superconducting system~\cite{Likharev1977,Semenov2003}.
 Reversible hardwares are not necessarily related to reversible gates such as the Toffoli gate and the Fredkin gate.
 Devices with the ability to recover signal energy can also be used to run reversible programs energy efficiently, which is known as the generalized reversible computing.~\cite{Frank2005,Frank2017b}
 In the following, we comment briefly on a special type of reversible device Quantum computer.

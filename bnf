@@ -13,7 +13,8 @@ Stmt : BlockStmt
      | ForStmt
      | InstrStmt
      | RevStmt
-     | @anc Stmt
+     | AncillaStmt
+     | TypecastStmt 
      | @routine Stmt
      | @safe <$JuliaExpr$>
      | CallStmt
@@ -48,19 +49,18 @@ InstrStmt : DataView InstrBinOp <ident> [InstrTrailer];
 
 RevStmt : '$\\sim$' Stmt;
 
+AncillaStmt : <ident> '$\\leftarrow$' <$JuliaExpr$>;
+
+TypecastStmt : '(' <$JuliaExpr$> '=>' <$JuliaExpr$> ')' '(' <ident> ')';
+
 @routine : '@routine' <ident> Stmt;
-
-AncArg : <ident> '=' <$JuliaExpr$>;
-
-@anc : '@anc' AncArg
-     | '@deanc' AncArg
-     ;
 
 @safe : '@safe' <$JuliaExpr$>;
 
 DataViews : 0
           | DataView
           | DataViews ',' DataView
+          | DataViews ',' DataView '...'
           ;
 
 DataView : DataView '[' <$JuliaExpr$> ']'
@@ -70,5 +70,4 @@ DataView : DataView '[' <$JuliaExpr$> ']'
          | '-' DataView
          | Constant
          | <ident>
-         | <ident> '...'
          ;

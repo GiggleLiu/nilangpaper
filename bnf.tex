@@ -8,7 +8,8 @@
     \bnfmore{\bnfor \bnfpn{ForStmt}}\\
     \bnfmore{\bnfor \bnfpn{InstrStmt}}\\
     \bnfmore{\bnfor \bnfpn{RevStmt}}\\
-    \bnfmore{\bnfor \bnfpn{@anc} \bnfsp \bnfpn{Stmt}}\\
+    \bnfmore{\bnfor \bnfpn{AncillaStmt}}\\
+    \bnfmore{\bnfor \bnfpn{TypecastStmt}}\\
     \bnfmore{\bnfor \bnfpn{@routine} \bnfsp \bnfpn{Stmt}}\\
     \bnfmore{\bnfor \bnfpn{@safe} \bnfsp \bnftd{$JuliaExpr$}}\\
     \bnfmore{\bnfor \bnfpn{CallStmt}}\\
@@ -26,14 +27,14 @@
     \bnfprod{InstrTrailer}{\bnfts{[} \bnftd{.}\bnfts{]} \bnfsp \bnftd{(} \bnfsp \bnfts{[} \bnfpn{DataViews}\bnfts{]} \bnfsp \bnftd{)}}\\
     \bnfprod{InstrStmt}{\bnfpn{DataView} \bnfsp \bnfpn{InstrBinOp} \bnfsp \bnftd{ident} \bnfsp \bnfts{[} \bnfpn{InstrTrailer}\bnfts{]}}\\
     \bnfprod{RevStmt}{\bnftd{$\sim$} \bnfsp \bnfpn{Stmt}}\\
+    \bnfprod{AncillaStmt}{\bnftd{ident} \bnfsp \bnftd{$\leftarrow$} \bnfsp \bnftd{$JuliaExpr$}}\\
+    \bnfprod{TypecastStmt}{\bnftd{(} \bnfsp \bnftd{$JuliaExpr$} \bnfsp \bnftd{=>} \bnfsp \bnftd{$JuliaExpr$} \bnfsp \bnftd{)} \bnfsp \bnftd{(} \bnfsp \bnftd{ident} \bnfsp \bnftd{)}}\\
     \bnfprod{@routine}{\bnftd{@routine} \bnfsp \bnftd{ident} \bnfsp \bnfpn{Stmt}}\\
-    \bnfprod{AncArg}{\bnftd{ident} \bnfsp \bnftd{=} \bnfsp \bnftd{$JuliaExpr$}}\\
-    \bnfprod{@anc}{\bnftd{@anc} \bnfsp \bnfpn{AncArg}}\\
-    \bnfmore{\bnfor \bnftd{@deanc} \bnfsp \bnfpn{AncArg}}\\
     \bnfprod{@safe}{\bnftd{@safe} \bnfsp \bnftd{$JuliaExpr$}}\\
     \bnfprod{DataViews}{\bnfsp \bnfes}\\
     \bnfmore{\bnfor \bnfpn{DataView}}\\
     \bnfmore{\bnfor \bnfpn{DataViews} \bnfsp \bnftd{,} \bnfsp \bnfpn{DataView}}\\
+    \bnfmore{\bnfor \bnfpn{DataViews} \bnfsp \bnftd{,} \bnfsp \bnfpn{DataView} \bnfsp \bnftd{...}}\\
     \bnfprod{DataView}{\bnfpn{DataView} \bnfsp \bnftd{[} \bnfsp \bnftd{$JuliaExpr$} \bnfsp \bnftd{]}}\\
     \bnfmore{\bnfor \bnfpn{DataView} \bnfsp \bnftd{.} \bnfsp \bnftd{ident}}\\
     \bnfmore{\bnfor \bnftd{$JuliaExpr$} \bnfsp \bnftd{(} \bnfsp \bnfpn{DataView} \bnfsp \bnftd{)}}\\
@@ -41,5 +42,4 @@
     \bnfmore{\bnfor \bnftd{-} \bnfsp \bnfpn{DataView}}\\
     \bnfmore{\bnfor \bnfpn{Constant}}\\
     \bnfmore{\bnfor \bnftd{ident}}\\
-    \bnfmore{\bnfor \bnftd{ident} \bnfsp \bnftd{...}}\\
 \end{bnf*}
