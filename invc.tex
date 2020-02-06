@@ -232,7 +232,7 @@ In Pytorch~\cite{Paszke2017} and Flux~\cite{Innes2018a}, every variable has a tr
     In \Sec{sec:bp}, we explain the algorithm to back-propagation Jacobians and Hessians in this eDSL.
     In \Sec{sec:example}, we show several examples including Fobonacci number, \texttt{exp} function, unitary matrix multiplication and QR decomposition~\cite{Golub2012}. We show how to generate first order and second order backward rules for these functions.
     In \Sec{sec:discussion}, we discuss several important issues, how time-space tradeoff works, reversible instructions and hardware, and finally, an outlook to some open problems to be solved.
-    In the appendix, we show the grammar of NiLang and a gradient free self-consistent traning strategy.
+    In the appendix, we show the grammar of NiLang and a gradient free self-consistent training strategy.
 
 \section{Language design}\label{sec:lang}
 
@@ -260,7 +260,7 @@ Before entering the loop, the program stores variables start, step, and stop loc
 
 Lastly, the basic arithmetic and boolean instructions are also different. Every instruction has a unique inverse that can undo the changes.
 For example \texttt{z += x * y} is legal reversible instruction for integers, with its inverse \texttt{z -= x * y}, while \texttt{x *= y} is not.
-In the following discussion, we assume \texttt{x += y} is reversible for floating point numbers although it is not true considering rouding error.
+In the following discussion, we assume \texttt{x += y} is reversible for floating point numbers although it is not true considering rounding error.
 A not very well known fact is $+, -, *, /$ instructions can be implemented reversibly for both integers and floating point numbers, it is only a matter of decision.
 We will come to this point later in \Sec{sec:hardware}
 
@@ -308,7 +308,7 @@ end
 
 Macro \texttt{@i} generates two functions \texttt{f} and \texttt{$\sim$f}, where \texttt{$\sim$f} is an callable of type \texttt{Inv\{typeof(f)\}}.
 \texttt{NiLangCore.wrap\_tuple} is used to unify output data types, it will wrap any non-tuple variable to a tuple.
-The output of an instruction or a function call will be assigned back to input varibles, this requires the length output variables same as input variables.
+The output of an instruction or a function call will be assigned back to input variables, this requires the length output variables same as input variables.
 In NiLang, this is always true because input variables of a function will be returned automatically, i.e. a reversible function defined by NiLang is a mapping between the same set of variables.
 At last, \texttt{isreversible} is binded to \texttt{f} to mark it as reversible.
 %The generated functions will be compiled to reversible ``instructions'', these instructions are closed under the inverse operation ``$\sim$''. Hence all functions defined in NiLang are also closed under ``$\sim$'' operations.
@@ -375,7 +375,7 @@ The interpretation of a reversible function consists three stages.
 The first stage preprocess human inputs to a reversible IR.
 The preprocessor expands the symbol \texttt{$\sim$} in the postcondition field of \texttt{if} statement to the precondition, adds missing ancilla deallocation operations to ensure \texttt{$\leftarrow$} and \texttt{$\rightarrow$} statements appear in pairs and  expands \texttt{@routine} macro.
 Here, \texttt{@routine <stmt>} records a statement. In preprocessing stage, \texttt{$\sim$@routine} will be replaced to \texttt{$\sim$<stmt>} for uncomputing. We will use macro extensively in the "compmute-copy-uncompute" design pattern of reversible programming.
-The following example preprocess an \texttt{if} statement to the reversible version.
+The following example preprocesses an \texttt{if} statement to the reversible version.
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
@@ -448,7 +448,7 @@ Data packing and unpacking are implemented in following ancilla statements.
 \end{minipage}
 
 Ancilla operations with \texttt{new} function is treated specially, because \texttt{new} keeps all information in input argument list.
-The first statement is equivalent to says, do \texttt{x = new{TX, TG}(x, g)} just like a normal ancilla allocation, but do not deallocate \texttt{g} because the information of \texttt{g} is transfered to \texttt{x}.
+The first statement is equivalent to says, do \texttt{x = new{TX, TG}(x, g)} just like a normal ancilla allocation, but do not deallocate \texttt{g} because the information of \texttt{g} is transferred to \texttt{x}.
 Its inverse the second statement allocates a new ancilla \texttt{g}.
 The following example shows how to define as reversible type \texttt{GVar}.
 
@@ -491,7 +491,7 @@ julia> (~GVar)(GVar([0.5, 0.6]))
 Here, we only pick two of its constructors.
 We put \texttt{@i} macro before both \texttt{struct} and \texttt{function} statements. The ones before functions mark reversible functions, while the one before \texttt{struct} keyword moves the definitions of \texttt{~GVar} functions to the outside of this type definition.
 
-The cast between two types can be defined convieniently with the macro \texttt{@icast}.
+The cast between two types can be defined conveniently with the macro \texttt{@icast}.
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
@@ -518,7 +518,7 @@ The function body is a reversible program that transforms \texttt{x} to \texttt{
 Its inverse that coverts an object of type \texttt{GVar} to type \texttt{A} is automatically generated by reversing the above statements.
 %With the flexibility to use types, it is not necessary to use global stacks in our eDSL.
 
-To access and manipuate the fields of a data type, especially an immutable type, we introduce the dataview. A dataview of variable can be the variable itself, a field of its view, an array element of its view, or a bijective mapping of its view.
+To access and manipulate the fields of a data type, especially an immutable type, we introduce the dataview. A dataview of variable can be the variable itself, a field of its view, an array element of its view, or a bijective mapping of its view.
 Let us first consider the following example.
 
 \begin{minipage}{.44\textwidth}
@@ -709,7 +709,7 @@ Second-order gradients can be obtained in two different approaches.
 Back propagating the first-order gradients is the most widely used approach to obtain the second-order gradients. Suppose the function space is closed under gradient operation, one can obtain higher-order gradients by recursively differentiating lower order gradient functions without defining new backward rules.
 \begin{figure}[h]
     \centerline{\includegraphics[width=\columnwidth,trim={0 6.5cm 1cm 2cm},clip]{images/simplehessian.pdf}}
-    \caption{Obtaining the second-order gradient with the reversive differentiation approach. Black lines are computing gradients, red lines are back-propagating the process of obtaining the first-order gradients. Annotations on lines are data types used in the computation.}\label{fig:simplehessian}
+    \caption{Obtaining the second-order gradient with the recursive differentiation approach. Black lines are computing gradients, red lines are back-propagating the process of obtaining the first-order gradients. Annotations on lines are data types used in the computation.}\label{fig:simplehessian}
 \end{figure}
 
 \Fig{fig:simplehessian} shows the four passes in computing Hessian in this way. The first two passes (black lines) obtains the gradients. Before entering the third pass, the program wraps each field in \texttt{GVar} with another layer of \texttt{GVar}. Then we pick a variable $x_i$ and add $1$ to \texttt{grad(grad($x_i$))} to compute the $i$-th row of Hessian. Before entering the final pass, the \texttt{$\sim$GVar} is called. It does not unwrap \texttt{GVar} directly because the second-order gradient fields may be nonzero in this case. Instead, we use \texttt{Partial\{:x\}($\cdot$)} to take the \texttt{x} field of an instance without deallocating memory. By repeating the above process for different $x_i$, one can obtains the Hessian matrix.
@@ -784,7 +784,7 @@ end
 \end{minipage}
 
 Here, we use \texttt{x += identity(y)} to represent \texttt{x += y}.
-The later is forbidden delibrately to avoid possible ambiguity between a function and a dataview. The time complexity of this recursive algorithm is exponential to input \texttt{n}. It is also possible to write a reversible linear time for loop algorithm.
+The later is forbidden deliberately to avoid possible ambiguity between a function and a dataview. The time complexity of this recursive algorithm is exponential to input \texttt{n}. It is also possible to write a reversible linear time for loop algorithm.
 
 A slightly non-trivial task is computing the first Fibonacci number that greater or equal to the second argument $z$, where a \texttt{while} statement is required.
 
@@ -1139,12 +1139,12 @@ First, let $\epsilon \rightarrow 0$, there is not overhead in time. The space us
 For deep neural networks, people used checkpointing trick to trade time with space~\cite{Chen2016}. This trick is also widely used in reversible programming~\cite{Perumalla2013}. Reversible programming just provides more alternatives to trade time and space.
 
 %For inplace functions, especially those reversible functions. Reversible programming AD is sometimes more memory efficient. Comparing with logging computational graph.
-Second, many computational overheads come from of the irreversibility of \texttt{/=} and \texttt{*=} operations. This part is not fundamental because reversible floating point instructions have already been designed~\cite{Nachtigal2010,Nachtigal2011}. Using reversible floating point instructions may significant decrease the computation time and memory usage of a RTM. Even in current stage, the overhead can be mitigated by "arithematic uncomputing" without sacrifising reversibility as shown in the \texttt{iexp} example. We will review this point in \Sec{sec:hardware}.
+Second, many computational overheads come from of the irreversibility of \texttt{/=} and \texttt{*=} operations. This part is not fundamental because reversible floating point instructions have already been designed~\cite{Nachtigal2010,Nachtigal2011}. Using reversible floating point instructions may significant decrease the computation time and memory usage of a RTM. Even in current stage, the overhead can be mitigated by "arithematic uncomputing" without sacrificing reversibility as shown in the \texttt{iexp} example. We will review this point in \Sec{sec:hardware}.
 
 Thrid, clever compiling can remove most overheads.
-Often, when we define a new reversible function, we allocate some ancillas at the begining of the function and deallocate them through uncomputing at the end.
+Often, when we define a new reversible function, we allocate some ancillas at the beginning of the function and deallocate them through uncomputing at the end.
 The overhead comes from the uncomputing, in the worst case, the time used for uncomputing can be the same as the forward pass.
-In a hierarchical design, uncomputing can happend in every layer. To quantify the overhead of uncomputing, we introducing the concept
+In a hierarchical design, uncomputing can appear in every layer. To quantify the overhead of uncomputing, we introducing the concept
 \begin{definition}[program granularity]
     The logarithm of the ratio between the execution time of a reversible program and its irreversible counter part
     \begin{equation}
@@ -1176,7 +1176,7 @@ Arithmetic instructions should be redesigned to support better reversible progra
 The major obstacle to exact reversibility programming is current floating point adders and multipliers used in our computing devices are not exactly reversible.
 There are proposals of reversible floating point adders and multipliers~\cite{Nachtigal2010,Nachtigal2011,Nguyen2013,Hner2018} that introduces garbage bits to ensure reversibility, however this design with garbage qubits allocates new bits in each operaton, which is not too different from the information buffer approach~\cite{Maclaurin2015}.
 %In other words, to represent a 64 bit floating point number requires more than 64 bits in storage. Reversible multiplier is also possible in similar approach.~\cite{Nachtigal2010} 
-With floating point numbers, rigorious reversible arithematic designs without using information buffer or garbage qubits is nearly impossible.
+With floating point numbers, rigorous reversible arithematic designs without using information buffer or garbage qubits is nearly impossible.
 Alternatives include fixed point numbers~\cite{FixedPointNumbers} and logarithmic numbers~\cite{Taylor1988,LogarithmicNumbers}, where logarithmic number system is reversible under $*=$ and $/=$.
 With these infrastructures, a reversible program can be executed without suffering from the rounding error.
 
@@ -1198,7 +1198,7 @@ The reversibility of quantum computing comes from the fact that microscopic proc
 Given the fundamental limitations of quantum decoherence and non-cloning and the reversible nature of microscopic world.
 It is reasonable to have a reversible computing device to bridge the gap between classical devices and universal quantum computing devices.
 By introducing entanglement little by little, we can accelerate some basic components in reversible computing. For example, quantum Fourier transformation provides an interesting alternative to the reversible adders and multipliers by introducing one additional CPHASE gate, even though adders and multipliers are classical functions.~\cite{RuizPerez2017}
-The development of reversible compiling theory will also have profounding effect to quantum compiling.
+The development of reversible compiling theory will also have significant effect to quantum compiling.
 
 \subsection{Outlook}\label{sec:outlook}
 The reversible eDSL NiLang can be used to solve many existing scientific computing problems.
@@ -1218,8 +1218,8 @@ We can use similar idea to differentiate reversible integrators~\cite{Hut1995, L
 With reversible integrators, it should be possible to rewrite the control system in robotics~\cite{Giftthaler2017} in a reversible style. In robotics, the control parameters are often floating point numbers rather than tensors.
 Writing a control program reversibly should boost the training performance a lot.
 
-Thridly, reversibility is a resource for traning.
-For those who are interested in non-gradient based training. In \App{sec:train}, we privide a self-consisency training strategy for reversible programs.
+Thirdly, reversibility is a resource for training.
+For those who are interested in non-gradient based training. In \App{sec:train}, we provide a self-consistency training strategy for reversible programs.
 
 Latstly, the reversible IR is a good starting point to study quantum compiling. Most quantum programming language preassumes a classical coprocessor and use classical control flows~\cite{Svore2018} in universal quantum computing.
 However, we believe reversible control flows are also very important to a universal quantum computer.
@@ -1232,7 +1232,7 @@ To solve the above problems better, NiLang can be improved from multiple perspec
     \item Implement rigorous reversible floating point arithematics on hardwares to let the reversibility free from rounding error.
     \item Show the advantage of NiLang in parallel computing in handle asynchronious computing~\cite{Jefferson1985} and debugging with bidirectional move~\cite{Boothe2000}. It is interesting to see how NiLang combines with other parts of Julia ecosystem like CUDAnative~\cite{Besard2018} and Debugger.
 \end{itemize}
-These improvements needs participations of people from multiple fields.
+These improvements needs participation of people from multiple fields.
 
 % By porting a quantum simulator. 
 %it is interesting to see how quantum simulator can improve the instruction design. Notice a quantum fourier transformation (QFT) based quantum adder and multiplier is sometimes more efficient than a classical adder~\cite{Haener2018} \blue{Is this true?}.
