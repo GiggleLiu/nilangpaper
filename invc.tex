@@ -94,10 +94,10 @@
 \newcommand{\cquad}{{{ }_{\quad}}}
 \newcommand{\pluseq}{\mathrel{+}=}
 \newcommand{\minuseq}{\mathrel{-}=}
-\newcommand{\vx}{{\vec x}}
-\newcommand{\vg}{{\vec g}}
-\newcommand{\vp}{{\vec p}}
-\newcommand{\vy}{{\vec y}}
+\newcommand{\vx}{{\mathbf{x}}}
+\newcommand{\vg}{{\mathbf{g}}}
+\newcommand{\vp}{{\mathbf{p}}}
+\newcommand{\vy}{{\mathbf{y}}}
 \newcommand{\vvalue}{{\texttt{value}}}
 \newcommand{\grad}{{\texttt{grad}}}
 \newcommand{\parameter}{{\texttt{parameter}}}
@@ -187,8 +187,7 @@
 \affiliation{Department of Computer Science, University of Tsukuba}
 
 \begin{abstract}
-    This paper considers the instruction-level adjoint mode automatic differentiation (AD). Here, instruction-level means, given the backward rules of basic instructions like +, -, * and /, one can differentiate an arbitrary program efficiently. In this paper, we review why instruction-level AD is hard for traditional machine learning frameworks and propose a solution to these problems by back-propagating a reversible Turing machine.
-    Instruction level AD is a powerful tool to generate backward rules. We demonstrate its power by differentiating over the reversible implementations of $\mathrm{exp}$ function, and linear algebra functions unitary matrix multiplication and QR decomposition. It is also a promising direction towards solving the notorious memory wall problem in machine learning. Also, we discuss the challenges that we face towards rigorous reversible programming from the instruction and hardware perspective.
+    This paper considers differentiating a general program. We review why instruction-level AD is hard for traditional machine learning frameworks and propose a solution to these problems by writing a program reversiblly. We developed an reversible eDSL NiLang in Julia that can be used to generate backward rules. We demonstrate its power by differentiating over the reversible implementations of $\mathrm{exp}$ function, and linear algebra functions unitary matrix multiplication and QR decomposition. It is also a promising direction towards solving the notorious memory wall problem in machine learning. We also discuss the challenges that we face towards rigorous reversible programming from the instruction and hardware perspective.
 \end{abstract}
 
 
@@ -196,40 +195,44 @@
 
 %\begin{multicols}{2}
 \section{Introduction}\label{sec:intro}
-    Computing the gradients of a numeric model $f : \mathbb{R}^m \rightarrow \mathbb{R}^n$ plays a crutial role in scientific computing. Automatic differentiation (AD) is the key technique to obtain gradients automatically by propagating gradients with the chain rule. The propagation of gradients can happen in two directions. Consider a program $\vy = f(\vx)$, a tangent mode AD propagate the gradient forward and computes one column of its Jacobian $\frac{\partial \vy}{\partial x_i}$ efficiently, where $x_i$ is one of the input variables, whereas an adjoint mode AD propagates the gradients backward and computes one row of Jacobian $\frac{\partial y_i}{\partial \vec{x}}$ efficiently.~\cite{Hascoet2013}
-For this reason, the adjoint mode AD is perfered in variational applications, where the loss as output is always a scalar.
-However, implementing adjoint mode AD is harder than implementing its tangent mode counterpart, because it requires a program's intermediate information for back-propagation. These information includes
+    Computing the gradients of a numeric model $f : \mathbb{R}^m \rightarrow \mathbb{R}^n$ plays a crutial role in scientific computing. Consider a computing process
+\begin{align*}
+    &\vx^1 = f_1(\vx^0)\\
+    &\vx^2 = f_2(\vx^1)\\
+    &\ldots\\
+    &\vx^L = f_L(\vx^{L-1})
+\end{align*}
+where $x^0\in R^m$, $x^L\in R^n$, $L$ is the depth of computing.
+The Jacobian of this program is a $n\times m$ matrix $J_{ij} \equiv \frac{\partial x^L_i}{\partial x_j^0}$, where $x_j^0$ and $x_i^L$ are single elements of inputs and outputs.
+Computing part of the Jacobian automatically is what we called automatic differentiation (AD). It can be classified into three classes, the tangent mode AD, the adjoint mode AD and the mixed mode AD.~\cite{Hascoet2013}
+The tangent mode AD computes the Jacobian matrix elements that related to a single input using the chain rule $\frac{\partial \vx^k}{\partial x^0_j} = \frac{\partial \vx^k}{\partial \vx^{k-1}}\frac{\partial \vx^{k-1}}{\partial x^0_j}$, while a tangent mode AD computes Jacobian matrix elements that related to a single output using $\frac{\partial \vx^k}{\partial x^0_j} = \frac{\partial \vx^k}{\partial \vx^{k-1}}\frac{\partial \vx^{k-1}}{\partial x^0_j}$. Mixed mode AD is a mixture of both.
+    In variational applications where the loss function always outputs a scalar, the adjoint mode AD is perfered,.
+However, implementing adjoint mode AD is harder than implementing its tangent mode counterpart, because it requires propagating the gradients in the inverse direction of computing the loss. The back propagation of gradients requires intermediate information of a program that includes
 \begin{enumerate}
-    \item the computational graph,
-    \item and variables used in back propagation.
+    \item the computational process,
+    \item and variables used in computing gradients.
 \end{enumerate}
-    A computational graph is a directed acyclic graph (DAG) that records the relationship between data (edges) and functions (nodes).
-In Pytorch~\cite{Paszke2017} and Flux~\cite{Innes2018a}, every variable has a tracker field that stores its parent information, i.e., the input data and function that generate this variable. TensorFlow~\cite{Tensorflow2015} implements a static computational graph as a description of the program before actual computation happens.
-    Source to source AD package Zygote~\cite{Innes2018, Innes2019} uses an intermediate representation (IR) of a program, the static single assignment (SSA) form, as the computational graph. To cache intermediate states, it has to access the global storage.
+    The computational process is often stored in a computational graph, a directed acyclic graph (DAG) that represents the relationship between data and functions. In Pytorch~\cite{Paszke2017} and Flux~\cite{Innes2018a}, every variable has a tracker field that stores its parent information, i.e., the input data and function generating this variable. TensorFlow~\cite{Tensorflow2015} implements a static computational graph as a description of the program before actual computation happens. The required variables are also recorded in this graph.
+    For source to source AD package, Tapenade~\cite{Hascoet2013} uses source code as the computational graph and Zygote~\cite{Innes2018, Innes2019} uses an intermediate representation (IR) of a program, the static single assignment (SSA) form, as the computational graph. To cache intermediate states, they use a global stack.
 
-    Several limitations are observed in these AD implementations due to the recording and caching. First of all, these packages require a lot of primitive functions with programmer-defined backward rules. These backward rules are not necessary given the fact that, at the lowest level, these primitive functions are compiled to a finite set of instructions including `+', `-', `*', `/', and conditional jump. By defining backward rules for these basic instructions, AD should works without extra effort. These machine learning packages do not use instructions as the computational graph, because the overhead of memorizing the computational graph and caching intermediate states is significant. % It can decrease the performance for more than two orders when a program contains loops (as we will show later).
-    The memory overhead for caching inputs of every instruction is a linear to the computing time. In many deep learning models like recurrent neural network~\cite{Lipton2015} and residual neural networks~\cite{He2016}, the depth can reach several thousand. The memory is often the bottleneck of these programs, which is known as the memory wall problem.~\cite{memorywall} %Caching inputs of every instructions requires extra memory cost that propotional to the computational time, which is not acceptable.
-    Secondly, inplace functions are not supported in these packages. This limitation comes the requirement of caching intermediate states.
-    If a data is allowed to change inplace, then the cached data would not be safe anymore.
- Even if Zygote uses SSA as the computational graph, it is not trivial to handle inplace functions properly.
-    On the other side, most functions in BLAS and LAPACK are implemented as inplace functions.
-    As a result, all AD packages that use BLAS and LAPACK functions have to define their own backward rules for their non-inplace wrappers due to the lack of AD support to inplace functions.
-    Thirdly, obtaining higher-order gradients are not efficient in these packages. For example, in most machine learning packages, people back-propagate the whole program of obtaining first-order gradients to obtain second-order gradients. The repeated use of back-propagation algorithm causes an exponential overhead concerning the order of gradients. A better approach is using Taylor propagation like in JAX~\cite{Bettencourt2019}. However, Taylor propagation requires tedious work of implementing higher order backward rules for all primitives. %Besides the exponential overhead, the sorce to source AD engine Zygote suffers from the significant overhead of just in time compiling in Julia language~\cite{Bezanson2017}.
+    Several limitations are observed in these AD implementations due to the recording and caching. First of all, most packages require a lot of primitive functions with programmer-defined backward rules. For example, the backward rule of \texttt{exp} should be provided although it is composed of basic instructions `+', `-', `*', `/', and conditional jumps. Defining backward rules for these basic instructions in the computational graph scheme suffers from the overhead of memorizing the computational graph and caching intermediate states. Even in Tapenade, the program has to remember the control at each place where the flow merges in the forward sweep. % It can decrease the performance for more than two orders when a program contains loops (as we will show later).
+    Secondly, the memory consumption is significant, also known as the memory wall problem.~\cite{memorywall}. The overhead of naive caching every input of instructions is linear to the computing time. In many deep learning models like recurrent neural network~\cite{Lipton2015} and residual neural networks~\cite{He2016}, the depth can reach several thousand, where the memory is often the bottleneck of these programs. Another important source of memory overhead is from the fact that inplace functions are forbidden delibrately in a computational graph based AD scheme in order to protect the cached data.
+    Thirdly, obtaining higher-order gradients are not efficient in these packages. For example, in most machine learning packages, people back-propagate the whole program of obtaining first-order gradients to obtain second-order gradients. The repeated use of back-propagation algorithm causes an exponential overhead concerning the order of gradients. A better approach is using Taylor propagation like in JAX~\cite{Bettencourt2019} and beautiful differentiation~\cite{Elliott2009}. However, Taylor propagation in the adjoint mode AD requires tedious implemention of higher order backward rules for primitives.
 
 % where the manually derived backwards rule still faces the degenerate spectrum problem (gradients explodes), instruction-level AD will return reasonable gradients. With instruction-level AD, people don't worry about inplace functions, which may be a huge problem in traditional approaches. We can back-propagate over a quantum simulator, where all instructions are reversible two level unitaries (i.e. Jacobian rotation).
 
 %We don't need extra effort to learn meta parameters.~\cite{} Neural ODE is much easier to design~\cite{Chen2018}.
 
-    Our solution to these issues is making a program reversible. It is not the same as the workarounds in the machine learning field that use information buffer~\cite{Maclaurin2015} and reversible activation functions~\cite{Gomez2017,Jacobsen2018} to reduce the memory allocations in recurrent neural networks~\cite{MacKay2018} and residual neural networks~\cite{Behrmann2018}. Our approach is general purposed. We develop NiLang, an embedded domain-specific language (eDSL) in Julia language~\cite{Bezanson2012,Bezanson2017} that implements a reversible Turing machine (RTM).~\cite{Perumalla2013,Frank2017}.
-    This eDSL contains a macro that generates reversible functions, which is completely compatible with Julia ecosystem. It provides reversible control flows, instructions and memory managements, meanwhile provides multiple-dispatch based abstraction. With these features and less than 100 lines of code, we implemented the AD engine that can differentiate any thing, including linear algebra functions.
-%One can obtain the gradients of any program written in this eDSL in a comparable time with the forward computation.
+    We tackle these issues by making a program reversible. In the machine learning field, reversibility has been used in reduce the memory allocations in recurrent neural networks~\cite{MacKay2018} and residual neural networks~\cite{Behrmann2018}. These techinics include information buffer~\cite{Maclaurin2015} and reversible activation functions~\cite{Gomez2017,Jacobsen2018}. Our approach is general purposed. We develop an embedded domain-specific language (eDSL) NiLang in Julia language~\cite{Bezanson2012,Bezanson2017} that implements reversible programming.~\cite{Perumalla2013,Frank2017}.
+    This eDSL provides a macro to generate reversible functions, and is completely compatible with Julia ecosystem. One can write reversible control flows, instructions and memory managements in this macro. Combining it with Julia's type system, we implement the AD engine within 100 lines that differentiate any program written in this eDSL, including linear algebra functions.
 
-    NiLang is not the first implementation of RTM. In history, there have been some prototypes of reversible languages like Janus~\cite{Lutz1986}, R (not the popular one)~\cite{Frank1997}, Erlang~\cite{Lanese2018} and object-oriented ROOPL~\cite{Haulund2017}. These languages have reversible control flow that allows user to input an additional postcondition in control flows to help programs run backward.
-    In the past, the primary motivation for making a program time-reversible is to support reversible devices. Reversible devices do not erase information hence do not have a lower bound of energy consumption by Landauer principle~\cite{Landauer1961}. However, people show less and less interest to reversible programming since 15 years ago, because the energy efficiency of complementary metal–oxide–semiconductor (CMOS) devices are still two orders~\cite{Frank2017} above this lower bound, removing this lower bound is not an urgent problem yet.
-    Our work breaks the information barrier between the machine learning community and the reversible programming community, and provides yet another strong motivation to develop reversible programming.
+    In history, there have been some prototypes of reversible languages like Janus~\cite{Lutz1986}, R (not the popular one)~\cite{Frank1997}, Erlang~\cite{Lanese2018} and object-oriented ROOPL~\cite{Haulund2017}. % These languages have reversible control flow that allows user to input an additional postcondition in control flows to help programs run backward.
+    In the past, the primary motivation of making a program reversible is to support reversible computing devices ~\cite{Frank1999} like adiabatic energy efficiency of complementary metal–oxide–semiconductor (CMOS)~\cite{Koller1992}, molecular mechanical computing system~\cite{Merkle2018} and superconducting system~\cite{Likharev1977,Semenov2003}.
+These devices either implements reversible logical gates or being able to recover signal energy. They do not erase information hence do not have a lower bound of energy consumption by Landauer principle~\cite{Landauer1961}. However, investigators show less interest to reversible programming since 15 years ago, because the energy efficiency of traditional CMOS devices is still several orders~\cite{Debenedictis2017,Frank2017} above this lower bound, removing this lower bound is not an urgent problem yet.
+    Our work aims to breaks the information barrier between the machine learning community and the reversible programming community, and provides yet another strong motivation to develop reversible programming.
 
     In this paper, we first introduce the language design of NiLang in \Sec{sec:lang}.
-    In \Sec{sec:bp}, we explain the algorithm to back-propagation Jacobians and Hessians in this eDSL.
+    In \Sec{sec:bp}, we explain the back-propagation algorithm of Jacobians and Hessians in this eDSL.
     In \Sec{sec:example}, we show several examples including Fobonacci number, \texttt{exp} function, unitary matrix multiplication and QR decomposition~\cite{Golub2012}. We show how to generate first order and second order backward rules for these functions.
     In \Sec{sec:discussion}, we discuss several important issues, how time-space tradeoff works, reversible instructions and hardware, and finally, an outlook to some open problems to be solved.
     In the appendix, we show the grammar of NiLang and a gradient free self-consistent training strategy.
@@ -237,42 +240,37 @@ In Pytorch~\cite{Paszke2017} and Flux~\cite{Innes2018a}, every variable has a tr
 \section{Language design}\label{sec:lang}
 
 \subsection{Intruductions to reversible language design}
-    In a modern programming language, functions are pushed to a global stack for scheduling. The memory layout of a function is consisted of input arguments, a function frame with information like the return address and saved memory segments, local variables, and working stack. After the call, the function clears these runtime information, only stores the return value. In the reversible programming style, this kind of design pattern is no longer the best practice. One can not discard input variables and local variables easily after a function call, since discarding information may ruin reversibility. Hence reversible functions are very differential from irreversible ones from multiple perspectives.
+    In a modern programming language, functions are pushed to a global stack for scheduling. The memory layout of a function consists of input arguments, a function frame with information like the return address and saved memory segments, local variables, and working stack. After the call, the function clears these runtime information, only stores the return value. In the reversible programming style, this kind of design pattern is no longer the best practice. One can not discard input variables and local variables easily after a function call, since discarding information may ruin reversibility. For this reason, reversible functions are very different from irreversible ones from multiple perspectives.
 
-    First of all, the memory management in a reversible language is special.
-    A variable can not be assigned or discarded directly in a reversible language.
-    There are two basic types of memory management in traditional reversible languages, the ancilla and the stack.
-    In Janus, ancillas are handled by a statement pair of \texttt{local} and \texttt{delocal}.
-    \texttt{local} initializes a variable to a specific value, while \texttt{delocal} deallocates that variable with a preassumed value.
-    Stack operations includes \texttt{push} and \texttt{pop} statements, it is similar to a traditional stack except it zero-clears the variable after pushing and presupposes the variable being zero-cleared before poping.
-    To summarize, reversible program deallocates a variable only when its state is known.
+    First of all, the memory management in a reversible language is different.
+    The key difference is when a variable in a reversible program is discarded, its contents should be known.
+    We denote the allocation of a zero emptied memory to variable \texttt{x} as \texttt{x $\leftarrow$ 0}, and deallocate a zero emptied variable \texttt{x} as \texttt{x $\rightarrow$ 0}.
+    A variable allocated and deallocated in a local scope is called an ancilla, it does not occupy the memory for long period.
+    A variable can also be pushed to a stack and used later with a pop statement. This is similar to a traditional stack operation except it zero-clears the variable after pushing and presupposes the variable being zero-cleared before poping.
 
 \begin{figure}
     \centerline{\includegraphics[width=0.8\columnwidth,trim={0 0cm 0 0cm},clip]{images/controlflow.pdf}}
     \caption{Flow chart for reversible (a) \texttt{if} statement and (b) \texttt{while} statement. ``stmts'', ``stmts1'' and ``stmts2'' are statements, statements in true branch and statements in false branch respectively. ``pre'' and ``post'' are precondition and postconditions respectively.}\label{fig:controlflow}
 \end{figure}
-Secondly, the control flows are special.
-The \texttt{if} statement is shown in \Fig{fig:controlflow} (a), the program enters the branch specified by precondition. After executing this branch, the program checks the consistency of precondition and postcondition to make sure they are the same. In the reverse pass, the program enters the branch specified by the postcondition.
-For the \texttt{while} statement shown in \Fig{fig:controlflow} (b), before entering, the program preassumes the postcondition is false.
-After each iteration, the program asserts the postcondition to be true. The inverse function exchanges the precondition and postcondition.
-The definition of reversible \texttt{for} statement is similar to irreversible ones.
-Before entering the loop, the program stores variables start, step, and stop locally. After executing the loop, the program checks the values of these variables to make sure they are not changed. The reverse program exchanges start and stop and inverse the sign of step.
+Secondly, a reversible control flow is sepcially designed.
+The reversible \texttt{if} statement is shown in \Fig{fig:controlflow} (a), the program enters the branch specified by precondition. After executing that branch, the program checks the consistency of precondition and postcondition to make sure they are the same. In the reverse pass, the program enters the branch specified by the postcondition.
+For the reversible \texttt{while} statement shown in \Fig{fig:controlflow} (b), before executing the condition expressions, the program preassumes the postcondition is false.
+After each iteration, the program asserts the postcondition to be true. In the reverse pass, we exchange the precondition and postcondition.
+The reversible \texttt{for} statement is similar to irreversible ones except after executing the loop, the program checks the values of these variables to make sure they are not changed. In the reverse pass, we exchange start and stop and inverse the sign of step.
 
-Lastly, the basic arithmetic and boolean instructions are also different. Every instruction has a unique inverse that can undo the changes.
-For example \texttt{z += x * y} is legal reversible instruction for integers, with its inverse \texttt{z -= x * y}, while \texttt{x *= y} is not.
-In the following discussion, we assume \texttt{x += y} is reversible for floating point numbers although it is not true considering rounding error.
-A not very well known fact is $+, -, *, /$ instructions can be implemented reversibly for both integers and floating point numbers, it is only a matter of decision.
-We will come to this point later in \Sec{sec:hardware}
+Lastly, the reversible arithmetic and boolean instructions are also different. Every instruction has a unique inverse that can undo the changes.
+For logical expressions, we have \texttt{y $\veebar$= f(args...)} self reversible.
+In the following discussion, we assume \texttt{y += f(args...)} and \texttt{y -= f(args...)} reverse to each other although it is not true for floating point numbers considering rounding error. Here \texttt{f} can be \texttt{identity}, \texttt{*}, \texttt{/} and \texttt{\^} et. al.
+We will discuss the number system in detail later in \Sec{sec:hardware}
 
 \subsection{NiLang's Reversible IR}
-In our paper, we want use a reversible program as the computational graph. To obtain the gradient, we need to insert the code of obtaining gradients into the reversed program. The reversible language design should have related abstraction power to provide polymorphism on the same instruction sequence. This motivates us to design a new reversible language that can fit this task.
-% is the primary innovation of our language design.
+In the last subsection, we have reviewed basic building blocks of a typical reversible language. In order to insert the code of obtaining gradients into the reversed program, the reversible language design should have related abstraction power.
+This motivates us to design a new reversible language NiLang to fit this task.
+NiLang is an eDSL in Julia. We choose Julia as the host language for multipile purposes. Julia's meta programming and its package for pattern matching MLStyle.jl~\cite{MLStyle} allow us to define an eDSL conveniently. Meanwhile, the type inference and just in time compiling can remove most overheads introduced in our eDSL, providing a reasonable performance. Most importantly, the multiple dispatch provides the polymorphism that will be used in our autodiff engine.
 
-The grammar of NiLang is shown in \App{app:grammar}.
-Julia language's meta programming and its package MLStyle~\cite{MLStyle} allow user to define an eDSL to explain the reversible statements conveniently.
-The type inference and just in time compiling can remove most overheads in our eDSL, providing a comparable performance with respect to its irreversible counterpart. Most importantly, the multiple dispatch in Julia provides the polymorphism that allowing us to obtain the gradients on the reversed program.
-The main feature of NiLang is contained in a single macro \texttt{@i}.
-The following example shows a minimal working example of compiling a NiLang function to native julia function.
+The main feature of NiLang is contained in a single macro \texttt{@i} that compiles a reversible function.
+The allowed statements in this eDSL are shown in \App{app:grammar}.
+The following is a minimal example of compiling a NiLang function to native julia function.
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
@@ -280,7 +278,7 @@ julia> using NiLangCore, MacroTools
 
 julia> macroexpand(Main, :(@i function f(x, y)
            SWAP(x, y)
-       end)) |> prettify
+       end)) |> MacroTools.prettify
 quote
     $(Expr(:meta, :doc))
     function $(Expr(:where, :(f(x, y))))
@@ -306,15 +304,15 @@ end
 \end{lstlisting}
 \end{minipage}
 
-Macro \texttt{@i} generates two functions \texttt{f} and \texttt{$\sim$f}, where \texttt{$\sim$f} is an callable of type \texttt{Inv\{typeof(f)\}}.
-\texttt{NiLangCore.wrap\_tuple} is used to unify output data types, it will wrap any non-tuple variable to a tuple.
-The output of an instruction or a function call will be assigned back to input variables, this requires the length output variables same as input variables.
-In NiLang, this is always true because input variables of a function will be returned automatically, i.e. a reversible function defined by NiLang is a mapping between the same set of variables.
-At last, \texttt{isreversible} is binded to \texttt{f} to mark it as reversible.
+Macro \texttt{@i} generates three functions \texttt{f}, \texttt{$\sim$f} and \texttt{NiLangCore.isreversible}. \texttt{f} and \texttt{$\sim$f} are a pair of functions that reverse to each other, where \texttt{$\sim$f} is an callable of type \texttt{Inv\{typeof(f)\}}.
+In the body of \texttt{f}, \texttt{NiLangCore.wrap\_tuple} is used to unify output data types, it will wrap any non-tuple variable to a tuple.
+The outputs of \texttt{SWAP} are assigned back to its input variables, in other words, a function modifies inputs inplace.
+At the end this function, this macro attaches a return statement that returns all input variables.
+\texttt{NiLangCore.isreversible} is a function to mark the reversibility trait of \texttt{f}.
 %The generated functions will be compiled to reversible ``instructions'', these instructions are closed under the inverse operation ``$\sim$''. Hence all functions defined in NiLang are also closed under ``$\sim$'' operations.
 
-To design such an eDSL, we first introduce a reversible IR that plays a central role in NiLang.
-In this IR, a statement can be an instruction, a function call, a control flow, a macro call, or the inverse statement $\sim$.
+To understand the design of reversibility, we first introduce a reversible IR that plays a central role in NiLang.
+In this IR, a statement can be an instruction, a function call, a control flow, a memory allocation/deallocation, or the inverse statement ``$\sim$''.
 Any statement is this IR has a unique inverse as shown in \Tbl{tbl:revstatements}.
 
 \begin{table}[h!]\centering
@@ -326,15 +324,16 @@ Any statement is this IR has a unique inverse as shown in \Tbl{tbl:revstatements
             \hline
             \texttt{<f>(<args>...)} & \texttt{($\sim$<f>)(<args>...)}\\
             \hline
-            \texttt{<y!> += <f>(<args>...)} & \texttt{<y!> -= <f>(<args>...)}\\
+            \texttt{<y> += <f>(<args>...)} & \texttt{<y> -= <f>(<args>...)}\\
             \hline
-            \texttt{<y!> .+= <f>.(<args>...)} & \texttt{<y!> .-= <f>.(<args>...)}\\
+            \texttt{<y> .+= <f>.(<args>...)} & \texttt{<y> .-= <f>.(<args>...)}\\
             \hline
-            \texttt{<y!> $\veebar$= <f>(<args>...)} & \texttt{<y!> $\veebar$= <f>(<args>...)}\\
+            \texttt{<y> $\veebar$= <f>(<args>...)} & \texttt{<y> $\veebar$= <f>(<args>...)}\\
             \hline
-            \texttt{<y!> .$\veebar$= <f>(<args>...)} & \texttt{<y!> .$\veebar$= <f>(<args>...)}\\
+            \texttt{<y> .$\veebar$= <f>(<args>...)} & \texttt{<y> .$\veebar$= <f>(<args>...)}\\
             \hline
             \texttt{<a> $\leftarrow$ <expr>} & \texttt{<a> $\rightarrow$ <expr>}\\
+            \hline
             \texttt{(<T1> => <T2>)(<x>)} & \texttt{(<T2> => <T1>)(<x>)}\\
             \hline
             \texttt{begin}\newline \texttt{$\cquad$<stmts>}\newline \texttt{end} & \texttt{begin}\newline \texttt{$\cquad$ $\sim$(<stmts>)}\newline \texttt{end}\\
@@ -345,29 +344,40 @@ Any statement is this IR has a unique inverse as shown in \Tbl{tbl:revstatements
             \hline
             \texttt{for <i>=<m>:<s>:<n>}\newline $\cquad$\texttt{<stmts>}\newline \texttt{end} & \texttt{for <i>=<m>:-<s>:<n>}\newline $\cquad$ \texttt{$\sim$(<stmts>)}\newline \texttt{end}\\
             \hline
-            \texttt{@safe <expr>} x & \texttt{@safe <expr>}\\
+            \texttt{@safe <expr>} & \texttt{@safe <expr>}\\
             \bottomrule
         \end{tabularx}
     }
-    \caption{A collection of reversible statements.}\label{tbl:revstatements}
+    \caption{A collection of reversible statements.
+    ``.'' is the symbol for broadcasting magic in Julia,
+    ``$\sim$'' is the symbol for reversing a statement or a function.
+    \texttt{<...>} represents a non-keyword, 
+    where \texttt{<pre>} stands for precondition, 
+    \texttt{<post>} stands for postcondition,
+    \texttt{<args>...} stands for the argument list of a function,
+    \texttt{<stmts>} stands for statement,
+    \texttt{<exprs>} stands for expression,
+    \texttt{<T1>} and \texttt{<T2>} stand for types and the reset are variables.
+}\label{tbl:revstatements},
 \end{minipage}
 \end{table}
 
-%For example, an instruction \texttt{y! $\mathrel{+}=$ f(args...)} is interpreted as a Julia function call \texttt{PlusEq(f)(y!, args...)} or \texttt{$\oplus$(f)(y!, args...)} as a shorthand.
+%For example, an instruction \texttt{y $\mathrel{+}=$ f(args...)} is interpreted as a Julia function call \texttt{PlusEq(f)(y, args...)} or \texttt{$\oplus$(f)(y, args...)} as a shorthand.
 %Here, the ``!'' after a variable is used as a convension to indicate that a variable is changed after the call of an instruction or function.
 %The detailed specification of instructions is listed in \App{app:instr}. The function call is same as the host language, except every function \texttt{f} has a \texttt{$\sim$f} that binded to an object of type \texttt{Inv\{typeof(f)\}}. \texttt{$\sim$f} invokes the compiled inverse functions of \texttt{f}.
 
-The conditional expression in a \texttt{if} or a \texttt{while} statements is a two-element tuple that consists of a precondition and a postcondition.
 %This design allows users putting additional postcondition in control flows to help reverse the program.
 %A postcondition is a boolean expression that being evaluated after the body expressions being executed.
-\texttt{$\leftarrow$} and \texttt{$\rightarrow$} plays the same role as \texttt{local} and \texttt{delocal} in Janus, they can be input by typing ``$\backslash$leftarrow'' followed by a Tab key in a Julia editor or REPL.
-\texttt{a $\leftarrow$ <expr>} binds variable \texttt{a} to an initial value specified by \texttt{<expr>}. Its inverse \texttt{a $\rightarrow$ <expr>} deallocates the variable \texttt{a}. Before deallocating the variable, the program checks that the its value is the same as the value of \texttt{<expr>}, otherwise throws an \texttt{InvertibilityError}. \texttt{$\leftarrow$} and \texttt{$\rightarrow$} must appear in pairs inside a function call, a \texttt{while} statement, or a \texttt{for} statement.
-A function call in NiLang supports Julia's broadcasting magic, a function defined on scalars can be broadcasted to vectors by adding a ``.'' after the function call.
+``\texttt{$\leftarrow$}'' and ``\texttt{$\rightarrow$}'' are symbols for memory allocation and deallocation, one can input them by typing ``$\backslash$leftarrow'' and ``$\backslash$rightarrow'' respectively followed by a Tab key in a Julia editor or REPL.
+``\texttt{begin <stmts> end}'' is the block statement in Julia, it represents a code block.
+It can be inverted by reversing the order of \texttt{<stmts>} as well as each element in it.
+The conditional expression in \texttt{if} or \texttt{while} statements is a tuple of precondition and postcondition.
+%\texttt{<a> $\leftarrow$ <expr>} binds variable \texttt{<a>} to an initial value specified by \texttt{<expr>}. Its inverse \texttt{<a> $\rightarrow$ <expr>} deallocates the variable \texttt{<a>}. Before deallocating the variable, the program checks that the its value is the same as the value of \texttt{<expr>}, otherwise throws an \texttt{InvertibilityError}.
+%A function call in NiLang supports Julia's broadcasting magic, a function defined on scalars can be broadcasted to vectors by adding a ``.'' after the function call.
 %\texttt{$\rightarrow$} will be added automatically.
     %The additional check underlines the difference between the irreversible assign statement and reversible ancilla statement.
-The \texttt{@safe} macro allows users to use external statements that do not break reversibility.
-For example, one can use \texttt{@safe @show var} for debugging.
-There is not stack operations in our language design because we haven't find a use case that requires a stack yet.
+Finally, the special macro \texttt{@safe} allows users to use external statements that do not break reversibility.
+For example, one can use \texttt{@safe @show <var>} for debugging.
 
 \subsection{Compiling}
 The interpretation of a reversible function consists three stages.
@@ -379,7 +389,7 @@ The following example preprocesses an \texttt{if} statement to the reversible ve
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
-julia> prettify(@code_preprocess if (pre, ~)
+julia> MacroTools.prettify(@code_preprocess if (pre, ~)
            z += x * y
        end)
 :(if (pre, pre)
@@ -395,7 +405,7 @@ The second stage generates the reversed IR according to table \Tbl{tbl:revstatem
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
-julia> prettify(@code_reverse if (pre, post)
+julia> MacroTools.prettify(@code_reverse if (pre, post)
            z += x * y
        else
            z += x / y
@@ -414,7 +424,7 @@ The following example shows how to compile an \texttt{if} statement.
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
-julia> prettify(@code_interpret if (pre, post)
+julia> MacroTools.prettify(@code_interpret if (pre, post)
            z += x * y
        else
            z += x / y
@@ -573,10 +583,10 @@ the adjoint mode AD propagates the Jacobians in the reversed direction like
 where $\out$ represents the outputs of the program, $J^{\out}_{x/y}$ is the gradient to be propagated, and $J^{y}_x$ is the local Jacobian matrix. The Einstein's notation is used here so that duplicated indices are summed over.
 %Tagent mode instruction-level automatic differentiation can be implemented easily in a irreversible language with dual numbers~\cite{Revels2016}.
 %Here we focus on the adjoint mode.
-This back-propagation rule can be rewritten in the language of tensor networks~\cite{Orus2014}, as shown in \Fig{fig:ad}, where a circle is a tensor, dangling edges are unpaired labels and connected edges are paired labels.
+This back-propagation rule can be rewritten in the diagram of tensor networks~\cite{Orus2014}, as shown in \Fig{fig:ad}, where a circle is a tensor, dangling edges are unpaired labels and connected edges are paired labels.
 \begin{figure}
     \centerline{\includegraphics[width=0.9\columnwidth,trim={0.5cm 1cm 0 1cm},clip]{images/ad.pdf}}
-    \caption{Adjoint rules for Jacobians and Hessians in tensor network language.}\label{fig:ad}
+    \caption{Computional processes in the tensor network diagram. From left to right, the diagrams represent computing, uncomputing, back propagating Jacobians and back propagating Hessians.}\label{fig:ad}
 \end{figure}
 
 In reversible programming with multiple-dispatch, we implement the adjoint mode AD as
@@ -723,7 +733,7 @@ A probably more efficient approach is back-propagating Hessians directly~\cite{M
     \end{split}
 \end{align}
 Here, the Hessian tensor $H^O_{x,x'}$ is rank three, where the top index is often taken as a scalar and omitted.
-In tensor network language, the above equation can be represented as the right panel of \Fig{fig:ad}.
+In tensor network diagram, the above equation can be represented as the right panel of \Fig{fig:ad}.
 Hessian propagation is a special case of Taylor propagation.
 With respect to the order of gradients, Taylor propagation is exponentially more efficient in obtaining higher-order gradients than differentiating lower order gradients recursively. %The later requires traversing the computational graph repeatedly.
 %In JAX~\cite{Bettencourt2019}, in order to support Taylor propagation, the propagation rules for part of primitives should be manually defined.
@@ -1180,7 +1190,7 @@ With floating point numbers, rigorous reversible arithematic designs without usi
 Alternatives include fixed point numbers~\cite{FixedPointNumbers} and logarithmic numbers~\cite{Taylor1988,LogarithmicNumbers}, where logarithmic number system is reversible under $*=$ and $/=$.
 With these infrastructures, a reversible program can be executed without suffering from the rounding error.
 
-Reversible programming is not nessesarily related to reversible hardwares. Reversible programs is a subset of irreversible programs, hence can be simulated efficiently on traditional CMOS devices~\cite{Vieri1999}. Reversible programming just provides an alternative to execute on an energy efficient reversible hardwares~\cite{Frank1999} like adiabatic CMOS~\cite{Koller1992}, molecular mechanical computing system~\cite{Merkle2018} and superconducting system~\cite{Likharev1977,Semenov2003}.
+Reversible programming is not nessesarily related to reversible hardwares. Reversible programs is a subset of irreversible programs, hence can be simulated efficiently on traditional CMOS devices~\cite{Vieri1999}. Reversible programming just provides an alternative to execute on an energy efficient reversible hardwares.
 Reversible hardwares are not necessarily related to reversible gates such as the Toffoli gate and the Fredkin gate.
 Devices with the ability to recover signal energy can also be used to run reversible programs energy efficiently, which is known as the generalized reversible computing.~\cite{Frank2005,Frank2017b}
 In the following, we comment briefly on a special type of reversible device Quantum computer.
