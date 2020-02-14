@@ -82,14 +82,14 @@ class Plt():
             e = edge1 >> (n1, n2)
             e.text("$\mathbf{x}^i$", "right", fontsize=FSIZE)
             e = edge1 >> (n1, n3)
-            e.text("$\mathbf{x}^{i\prime}$", "right", fontsize=FSIZE)
+            e.text("$\mathbf{x}^{i'}$", "right", fontsize=FSIZE)
             n4 = pin >> (x-0.5,1.5)
             n5 = pin >> (x+0.5,1.5)
 
             e = edge1 >> (n2, n4)
             e.text("$\mathbf{x}^{i-1}$", "right", fontsize=FSIZE)
             e = edge1 >> (n3, n5)
-            e.text(r"$\mathbf{x}^{i-1\prime}$", "right", fontsize=FSIZE)
+            e.text(r"$\mathbf{x}^{i-1'}$", "right", fontsize=FSIZE)
 
             x += 0.85
             plt.text(x, 0.0, r"$+$", fontsize=16)
@@ -114,6 +114,6 @@ class Plt():
             e = edge1 >> (n2, n4)
             e.text("$\mathbf{x}^{i-1}$", "right", fontsize=FSIZE)
             e = edge1 >> (n2, n5)
-            e.text("$\mathbf{x}^{i-1\prime}$", "right", fontsize=FSIZE)
+            e.text("$\mathbf{x}^{i-1'}$", "right", fontsize=FSIZE)
        
 fire.Fire(Plt)
