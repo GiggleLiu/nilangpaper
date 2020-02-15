@@ -217,7 +217,7 @@ However, implementing adjoint mode AD is harder than implementing its tangent mo
 
     Several limitations are observed in these AD implementations due to the recording and caching. First of all, most packages require a lot of primitive functions with programmer-defined backward rules. For example, the backward rule of \texttt{exp} should be provided although it is composed of basic instructions `+', `-', `*', `/', and conditional jumps. Defining backward rules for these basic instructions in the computational graph scheme suffers from the overhead of memorizing the computational graph and caching intermediate states. Even in Tapenade, the program has to remember the control at each place where the flow merges in the forward sweep. % It can decrease the performance for more than two orders when a program contains loops (as we will show later).
     Secondly, the memory consumption is significant, also known as the memory wall problem.~\cite{memorywall}. The overhead of naive caching every input of instructions is linear to the computing time. In many deep learning models like recurrent neural network~\cite{Lipton2015} and residual neural networks~\cite{He2016}, the depth can reach several thousand, where the memory is often the bottleneck of these programs. Another important source of memory overhead is from the fact that inplace functions are forbidden delibrately in a computational graph based AD scheme in order to protect the cached data.
-    Thirdly, obtaining higher-order gradients are not efficient in these packages. For example, in most machine learning packages, people back-propagate the whole program of obtaining first-order gradients to obtain second-order gradients. The repeated use of back-propagation algorithm causes an exponential overhead concerning the order of gradients. A better approach is using Taylor propagation like in JAX~\cite{Bettencourt2019} and beautiful differentiation~\cite{Elliott2009}. However, Taylor propagation in the adjoint mode AD requires tedious implemention of higher order backward rules for primitives.
+    Thirdly, obtaining higher-order gradients are not efficient in most of these packages. For example, in most machine learning packages, people back-propagate the whole program of obtaining first-order gradients to obtain second-order gradients. The repeated use of back-propagation algorithm causes an exponential overhead concerning the order of gradients. A better approach is using Taylor propagation like in JAX~\cite{Bettencourt2019} and beautiful differentiation~\cite{Elliott2009}. However, Taylor propagation in the adjoint mode AD requires tedious implemention of higher order backward rules for primitives.
 
 % where the manually derived backwards rule still faces the degenerate spectrum problem (gradients explodes), instruction-level AD will return reasonable gradients. With instruction-level AD, people don't worry about inplace functions, which may be a huge problem in traditional approaches. We can back-propagate over a quantum simulator, where all instructions are reversible two level unitaries (i.e. Jacobian rotation).
 
@@ -633,6 +633,7 @@ end
 \end{lstlisting}
 \end{minipage}
 
+Here, we adopt a convension that only variables ended with \texttt{!} will be changed after the function call.
 %This backward rule has been included in NiLang, one can check the gradients by typing in a Julia REPL
 %If one defines the backward rule on \texttt{instruct}, the compiler will generate the backward rule for its inverse \texttt{instruct${}^{-1}$} as the inverse function. This is doable 
 Although the backward rule is defined on $\ominus(*)$, the compiler generates the backward rules on $\oplus(*)$ too.
@@ -686,7 +687,7 @@ The implementation of Algorithm \ref{alg:ad} is so short that we present the fun
 
     ~@routine
 end
-\end{lstlisting}
+\end{lstlisting}\label{lst:ad}
 \end{minipage}
 
 The program first checks variables contain exactly one \texttt{Loss}, where \texttt{Loss} is a reversible wrapper used to mark the loss variable. 
@@ -766,16 +767,16 @@ In the following, we justify our approach by proving the following theorem
     Deallocating an ancilla with emptied value field and nonzero gradient field does not harm the reversibility of a function.
 \end{theorem}
 \begin{proof}
-Consider a reversible function $\vy, b = f(\vx, a)$, where $a$ and $b$ are the input and output values of an ancilla. Since the ancilla is emptied for any input $\vx$, we have
+    Consider a reversible function $\vx^i, b = f_i(\vx^{i-1}, a)$, where $a$ and $b$ are the input and output values of an ancilla. Since the ancilla is emptied for any input $\vx^{i-1}$, we have
 \begin{align}
-    \frac{\partial b}{\partial \vx} = \mathbf{0}.
+    \frac{\partial b}{\partial \vx^{i-1}} = \mathbf{0}.
 \end{align}
 %Suppose in the backward pass, we discard the gradient field of $b$.
 %So the question becomes does \texttt{grad(b)} have effect on the $\vx$?
 Since the gradient fields are derived from the value fields of variables, discarding gradients should not have any effect to the \texttt{value} fields.
-    The rest is to show $\texttt{grad(b)} \equiv \frac{\partial \vx^L}{\partial{b}}$ does not have effect in computing the gradients of function arguments. It can be seen from the back-propagation rule 
+    The rest is to show $\texttt{grad(b)} \equiv \frac{\partial \vx^L}{\partial{b}}$ does appear in the backward rule of this function. It can be seen from the back-propagation rule 
 \begin{equation}
-    \frac{\partial \vx^L}{\partial \vx} = \frac{\partial \vx^L}{\partial \vy}\frac{\partial \vy}{\partial \vx} + \frac{\partial \vx^L}{\partial b}\frac{\partial b}{\partial \vx},
+    \frac{\partial \vx^L}{\partial \vx^{i-1}} = \frac{\partial \vx^L}{\partial \vx^i}\frac{\partial \vx^i}{\partial \vx^{i-1}} + \frac{\partial \vx^L}{\partial b}\frac{\partial b}{\partial \vx^{i-1}},
 \end{equation}
 where the second term with $\frac{\partial \vx^L}{\partial{b}}$ vanishes naturally.
 \end{proof}
@@ -809,10 +810,8 @@ end
 \end{lstlisting}
 \end{minipage}
 
-Here, we use \texttt{x += identity(y)} to represent \texttt{x += y}.
-The later is forbidden deliberately to avoid possible ambiguity between a function and a dataview. The time complexity of this recursive algorithm is exponential to input \texttt{n}. It is also possible to write a reversible linear time for loop algorithm.
-
-A slightly non-trivial task is computing the first Fibonacci number that greater or equal to the second argument $z$, where a \texttt{while} statement is required.
+The time complexity of this recursive algorithm is exponential to input \texttt{n}. It is also possible to write a reversible linear time for loop algorithm.
+A slightly non-trivial task is computing the first Fibonacci number that greater or equal to a certain number $z$, where a \texttt{while} statement is required.
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
@@ -846,15 +845,17 @@ julia> (~rfibn)(rfibn(0, 100)...)
 \end{lstlisting}
 \end{minipage}
 
+This examplifies how an addition postcondition provided by user can help reversing a control flow without caching controls.
+
 \subsection{exp function}\label{sec:exp}
 An $\exp$ function can be computed using Taylor expansion
 \begin{equation}
     {\rm y} += \sum\limits_n \frac{x^n}{{\rm factorial}(n)}
 \end{equation}
 One can compute the accumulated item $s_{n} \equiv \frac{x^n}{{\rm factorial}(n)}$ iteratively as $s_n = \frac{x s_{n-1}}{n}$.
-Considering the fact that product and division are considered as irreversible in NiLang, one can not deallocate $s_{n-1}$ after computing $s_n$.
-This recursive computation mimics the famous pebble game~\cite{Perumalla2013}. However, there is no known constant memory and polynomial time solution to pebble game.
-Here the case is different. Notice $\mathrel{*}=$ and $\mathrel{/}=$ are arithmetically reversible to each other, we can ``uncompute'' previous state $s_{n-1}$ by $s_{n-1} = \frac{n s_n}{x}$ approximately, and use the dirty ancilla in next iteration.
+Intuitively, this problem mimics the famous pebble game~\cite{Perumalla2013} considering the fact that product and division are considered as irreversible in NiLang, one can not deallocate $s_{n-1}$ after computing $s_n$.
+However, here the case is different because $\mathrel{*}=$ and $\mathrel{/}=$ are arithmetically reversible to each other at nonzero points.
+We can ``uncompute'' previous state $s_{n-1}$ by $s_{n-1} = \frac{n s_n}{x}$ approximately, and use the dirty ancilla in next iteration.
 The implementation is
 
 \begin{minipage}{.44\textwidth}
@@ -892,7 +893,11 @@ end
 \end{minipage}
 
 Here, the definition of SWAP instruction can be found in \App{app:instr}.
-The two lines bellow the comment ``\texttt{\# arithmetic uncompute}'' uncompute variables \texttt{anc1} and \texttt{anc2} approximately, which is only arithmetically true. As a result, the final output is not exact due to the rounding error. On the other side, the reversibility is not affected since the inverse call at the last line of function uncomputes all ancillas rigorously.
+The two lines bellow the comment ``\texttt{\# arithmetic uncompute}'' uncompute variables \texttt{anc1} and \texttt{anc2} approximately.
+The rounding errors are transfered to the output, while the reversibility is not affected since the inverse call at the last line of function uncomputes all ancillas rigorously.
+This ``arithmetic uncomputing'' trick can be used extensively in many other application.
+The reason why this trick works here is because from the mathematic perspective the state in $n$th step $\{\frac{x^n}{{\rm factorial}(n)}, x\}$ contains the same amount of information as the state in the $n-1$th step $\{\frac{x^{n-1}}{{\rm factorial}(n-1)}, x\}$, it is highly possible to find a route to compute the previous state from the current state.
+This fact is not even related to the number system that we adopt.
 %The \texttt{while} statement takes two conditions, the precondition and postcondition. Precondition \texttt{val(anc1) > atol} indicates when to break the forward pass and postcondition \texttt{iplus != 0} indicates when to break the backward pass.
 
 To obtain gradients, one can wrap the variable \texttt{y!} with \texttt{Loss} type and feed it into \texttt{iexp\textquotesingle}
@@ -909,7 +914,7 @@ julia> grad(x)
 \end{lstlisting}
 \end{minipage}
 
-\texttt{iexp\textquotesingle} is a callable instance of type \texttt{Grad\{typeof(iexp)\}}. It wraps input variables with a gradient fields as outputs. This function itself is reversible and differentiable, one can back-propagate this function to obtain Hessians as introduced in \Sec{sec:simplehessian}. In NiLang, it is implemented as \texttt{simple\_hessian}.
+Here, \texttt{iexp\textquotesingle} is a callable instance of type \texttt{Grad\{typeof(iexp)\}}. Its implementation is shown in \Sec{sec:jacobian}. This function itself is reversible and differentiable, one can back-propagate this function to obtain Hessians as introduced in \Sec{sec:simplehessian}. In NiLang, it is implemented as \texttt{simple\_hessian}.
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
@@ -942,121 +947,12 @@ julia> collect_hessian()
 \end{lstlisting}
 \end{minipage}
 
-\texttt{iexp\textquotesingle\textquotesingle} computes the second-order gradients. It wraps variables with type \texttt{BeijingRing}~\footnote{When people ask for the location in Beijing, they will start by asking which ring. We use the similar approach to locate the elements of Hessian matrix.} in the backward pass. \texttt{BeijingRing} records Jacobians and Hessians for a variable, where Hessians are stored in a global storage.
-Whenever an $n$-th variable or ancilla is created, we push a ring of size $2n-1$ to a global tape. Whenever an ancilla is deallocated, we pop a ring from the top. The $n$-th ring stores $H_{i\leq n,n}$ and $H_{n,i<n}$. We didn't use the symmetry relation $H_{i,j} = H_{j,i}$ to save memory here in order to simplify the implementation of backward rules described in the right most panel of \Fig{fig:ad}.
-The final result can be collected by calling \texttt{collect\_hessian()}, it will read out the Hessian stored in the global storage.
-
-\subsection{QR decomposition}
-
-Let's consider a linear algebra function, the QR decomposition
-
-\begin{minipage}{.44\textwidth}
-\begin{lstlisting}
-using NiLang, NiLang.AD
-
-@i function qr(Q, R, A::AbstractMatrix{T}) where T
-    anc_norm ← zero(T)
-    anc_dot ← zeros(T, size(A,2))
-    ri ← zeros(T, size(A,1))
-    for col = 1:size(A, 1)
-        ri .+= identity.(A[:,col])
-        for precol = 1:col-1
-            dot(anc_dot[precol], Q[:,precol], ri)
-            R[precol,col] += identity(anc_dot[precol])
-            for row = 1:size(Q,1)
-                ri[row] -= anc_dot[precol] * Q[row, precol]
-            end
-        end
-        norm2(anc_norm, ri)
-
-        R[col, col] += anc_norm^0.5
-        for row = 1:size(Q,1)
-            Q[row,col] += ri[row] / R[col, col]
-        end
-
-        ~begin
-            ri .+= identity.(A[:,col])
-            for precol = 1:col-1
-                dot(anc_dot[precol], Q[:,precol], ri)
-                for row = 1:size(Q,1)
-                    ri[row] -= anc_dot[precol] * Q[row, precol]
-                end
-            end
-            norm2(anc_norm, ri)
-        end
-    end
-end
-\end{lstlisting}
-\end{minipage}
-
-Here, in order to avoid frequent uncomputing, we allocate ancillas \texttt{ri} and \texttt{anc\_dot} as vectors.
-the expression in $\sim$ is used to uncompute \texttt{ri}, \texttt{anc\_dot} and \texttt{anc\_norm}.
-\texttt{R[col, col] += anc\_norm${}^\wedge$0.5} is a ternary instruction, whose backward rule is defined in NiLang.
-The algorithm used to compute QR decomposition is very naive. It does not consider reorthogonalization.
-\texttt{idot} and \texttt{inorm2} are functions to compute dot product and vector norm.
-They are implemented as
-
-\begin{minipage}{.44\textwidth}
-\begin{lstlisting}
-@i function idot(out, v1::AbstractVector{T},
-        v2) where T
-    anc1 ← zero(T)
-    for i = 1:length(v1)
-        anc1 += identity(v1[i])
-        CONJ(anc1)
-        out += v1[i]*v2[i]
-        CONJ(anc1)
-        anc1 -= identity(v1[i])
-    end
-end
-
-@i function inorm2(out, vec::AbstractVector{T}
-        ) where T
-    anc1 ← zero(T)
-    for i = 1:length(vec)
-        anc1 += identity(vec[i])
-        CONJ(anc1)
-        out += anc1*vec[i]
-        CONJ(anc1)
-        anc1 -= identity(vec[i])
-    end
-end
-\end{lstlisting}
-\end{minipage}
-
-One can easily check the correctness of the gradient function
-
-\begin{minipage}{.44\textwidth}
-\begin{lstlisting}
-using Test
-A = randn(4,4)
-q = zero(A)
-r = zero(A)
-
-@i function test1(out, q, r, A)
-    iqr(q, r, A)
-    out += identity(q[1,2])
-end
-
-@i function test2(out, q, r, A)
-    iqr(q, r, A)
-    out += identity(r[1,2])
-end
-
-@test check_grad(test1, (Loss(0.0), q, r, A);
-        atol=0.05, verbose=true)
-@test check_grad(test2, (Loss(0.0), q, r, A);
-        atol=0.05, verbose=true)
-\end{lstlisting}
-\end{minipage}
-
-Here, the loss function \texttt{test1} and \texttt{test2} are defined as single elements in the output matrices. The \texttt{check\_grad} function is a gradient checker function defined in module NiLang.AD.
-In this example, \texttt{GVar} is broadcasted to arrays.
-Thanks to Julia's just in time compiling, using \texttt{GVar} in an array does not have much overhead.
-It should be possible to define other reversible linear algebra functions too. We leave this future projects.
+\texttt{iexp\textquotesingle\textquotesingle} computes the second-order gradients. It wraps variables with type \texttt{BeijingRing}~\footnote{When people ask for the location in Beijing, they will start by asking which ring it is? We use the similar approach to locate the elements of Hessian matrix.} in the backward pass. \texttt{BeijingRing} records Jacobians and Hessians for a variable, where Hessians are stored in a global storage.
+Whenever an $n$-th variable or ancilla is created, we push a ring of size $2n-1$ to a global tape. Whenever an ancilla is deallocated, we pop a ring from the top. The $n$-th ring stores Hessian elements $H_{i\leq n,n}$ and $H_{n,i<n}$.% We didn't use the symmetry relation $H_{i,j} = H_{j,i}$ to save memory here in order to simplify the implementation of backward rules described in the right most panel of \Fig{fig:ad}.
+The final result can be collected by calling \texttt{collect\_hessian()}, which will read out the Hessian matrix that stored in the global storage.
 
 \subsection{Unitary Matrices}\label{sec:umm}
-Unitary matrices features uniform eigenvalues and reversibility. It is widely used as an approach to ease the gradient exploding and vanishing problem~\cite{Arjovsky2015,Wisdom2016,Li2016} and the memory wall problem~\cite{Luo2019}.
+A unitary matrices features uniform eigenvalues and reversibility. It is widely used as an approach to ease the gradient exploding and vanishing problem~\cite{Arjovsky2015,Wisdom2016,Li2016} and the memory wall problem~\cite{Luo2019}.
 One of the simplest way to parametrize a unitary matrix is representing a unitary matrix as a product of two-level unitary operations~\cite{Li2016}. A real unitary matrix of size $N$ can be parametrized compactly by $N(N-1)/2$ rotation operations~\cite{Li2013}
 \begin{align}
     {\rm ROT}(a!, b!, \theta)  = \begin{bmatrix}
@@ -1129,7 +1025,7 @@ julia> x
 \end{minipage}
 
 In the above testing code, \texttt{test\textquotesingle} attaches a gradient field to each element of \texttt{x}. \texttt{$\sim$test\textquotesingle} is the inverse program that erase the gradient fields.
-Notablly, this reversible implementation is inplace with zero memory allocation. In traditional automatic differentiation framework, one needs to implement special designs~\cite{Gomez2017,Jacobsen2018} to describe this property.
+Notablly, this reversible implementation costs zero memory allocation although it changes the target variables inplace.
 
 %It implements the backward rule of a \texttt{ROT} instruction
 %\begin{align}
@@ -1140,10 +1036,122 @@ Notablly, this reversible implementation is inplace with zero memory allocation.
 %    \end{split}
 %\end{align}
 
+\subsection{QR decomposition}
+
+Let's consider a naive implementation of QR decomposition from scratch.
+We admit this implementation is just a proof of principle which does not even consider reorthogonalization.
+
+\begin{minipage}{.44\textwidth}
+\begin{lstlisting}
+using NiLang, NiLang.AD
+
+@i function qr(Q, R, A::AbstractMatrix{T}) where T
+    anc_norm ← zero(T)
+    anc_dot ← zeros(T, size(A,2))
+    ri ← zeros(T, size(A,1))
+    for col = 1:size(A, 1)
+        ri .+= identity.(A[:,col])
+        for precol = 1:col-1
+            dot(anc_dot[precol], Q[:,precol], ri)
+            R[precol,col] += 
+                identity(anc_dot[precol])
+            for row = 1:size(Q,1)
+                ri[row] -= 
+                    anc_dot[precol] * Q[row, precol]
+            end
+        end
+        norm2(anc_norm, ri)
+
+        R[col, col] += anc_norm^0.5
+        for row = 1:size(Q,1)
+            Q[row,col] += ri[row] / R[col, col]
+        end
+
+        ~begin
+            ri .+= identity.(A[:,col])
+            for precol = 1:col-1
+                dot(anc_dot[precol], Q[:,precol], ri)
+                for row = 1:size(Q,1)
+                    ri[row] -= anc_dot[precol] *
+                        Q[row, precol]
+                end
+            end
+            norm2(anc_norm, ri)
+        end
+    end
+end
+\end{lstlisting}
+\end{minipage}
+
+Here, in order to avoid frequent uncomputing, we allocate ancillas \texttt{ri} and \texttt{anc\_dot} as vectors.
+The expression in $\sim$ is used to uncompute \texttt{ri}, \texttt{anc\_dot} and \texttt{anc\_norm}.
+%\texttt{R[col, col] += anc\_norm${}^\wedge$0.5} is a ternary instruction, whose backward rule is defined in NiLang.
+\texttt{idot} and \texttt{inorm2} are functions to compute dot product and vector norm.
+They are implemented as
+
+\begin{minipage}{.44\textwidth}
+\begin{lstlisting}
+@i function idot(out, v1::AbstractVector{T},
+        v2) where T
+    anc1 ← zero(T)
+    for i = 1:length(v1)
+        anc1 += identity(v1[i])
+        CONJ(anc1)
+        out += v1[i]*v2[i]
+        CONJ(anc1)
+        anc1 -= identity(v1[i])
+    end
+end
+
+@i function inorm2(out, vec::AbstractVector{T}
+        ) where T
+    anc1 ← zero(T)
+    for i = 1:length(vec)
+        anc1 += identity(vec[i])
+        CONJ(anc1)
+        out += anc1*vec[i]
+        CONJ(anc1)
+        anc1 -= identity(vec[i])
+    end
+end
+\end{lstlisting}
+\end{minipage}
+
+One can easily check the correctness of the gradient function
+
+\begin{minipage}{.44\textwidth}
+\begin{lstlisting}
+using Test
+A = randn(4,4)
+q = zero(A)
+r = zero(A)
+
+@i function test1(out, q, r, A)
+    iqr(q, r, A)
+    out += identity(q[1,2])
+end
+
+@i function test2(out, q, r, A)
+    iqr(q, r, A)
+    out += identity(r[1,2])
+end
+
+@test check_grad(test1, (Loss(0.0), q, r, A);
+        atol=0.05, verbose=true)
+@test check_grad(test2, (Loss(0.0), q, r, A);
+        atol=0.05, verbose=true)
+\end{lstlisting}
+\end{minipage}
+
+Here, the loss function \texttt{test1} and \texttt{test2} are defined as single elements in the output matrices. The \texttt{check\_grad} function is a gradient checker function defined in module NiLang.AD.
+In this example, \texttt{GVar} is broadcasted to arrays.
+Thanks to Julia's just in time compiling, using \texttt{GVar} in an array does not have much overhead.
+It should be possible to define other reversible linear algebra functions too. We leave this future projects.
+
 
 \section{Discussion and outlook}\label{sec:discussion}
-In this paper, we introduce automatic differentiation on a reversible Turing machine (RTM) and a Julia eDSL NiLang that simulates an RTM.
-We show a program on an RTM can be differentiated to any order reliably and efficiently without sophisticated designs to memorize computational graph and intermediate states.
+In this paper, we introduce automatic differentiation on a reversible Turing machine (RTM) and a Julia eDSL implementation NiLang.
+We show a program on an RTM can be differentiated to any order reliably and efficiently without sophisticated designs to memorize computational graph and intermediate states. We also deviced a ``arithmetic uncomputing'' trick to avoid the overhead of a reversible program in many practical cases.
 
 In the following, we discussed some practical issues about reversible programming, and several future directions to go.
 %Notablely, we introduce the concept of ``arithematic uncomputing'' to reduce the overhead of recursive reversible algorithms.
