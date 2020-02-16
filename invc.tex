@@ -227,8 +227,11 @@ However, implementing adjoint mode AD is harder than implementing its tangent mo
     This eDSL provides a macro to generate reversible functions, and is completely compatible with Julia ecosystem. One can write reversible control flows, instructions and memory managements in this macro. Combining it with Julia's type system, we implement the AD engine within 100 lines that differentiate any program written in this eDSL, including linear algebra functions.
 
     In history, there have been some prototypes of reversible languages like Janus~\cite{Lutz1986}, R (not the popular one)~\cite{Frank1997}, Erlang~\cite{Lanese2018} and object-oriented ROOPL~\cite{Haulund2017}. % These languages have reversible control flow that allows user to input an additional postcondition in control flows to help programs run backward.
-    In the past, the primary motivation of making a program reversible is to support reversible computing devices ~\cite{Frank1999} like adiabatic energy efficiency of complementary metal–oxide–semiconductor (CMOS)~\cite{Koller1992}, molecular mechanical computing system~\cite{Merkle2018} and superconducting system~\cite{Likharev1977,Semenov2003}.
-These devices either implements reversible logical gates or being able to recover signal energy. They do not erase information hence do not have a lower bound of energy consumption by Landauer principle~\cite{Landauer1961}. However, investigators show less interest to reversible programming since 15 years ago, because the energy efficiency of traditional CMOS devices is still several orders~\cite{Debenedictis2017,Frank2017} above this lower bound, removing this lower bound is not an urgent problem yet.
+    In the past, the primary motivation of making a program reversible is to support energy efficient reversible computing devices~\cite{Frank1999} like adiabatic complementary metal–oxide–semiconductor (CMOS)~\cite{Koller1992}, molecular mechanical computing system~\cite{Merkle2018} and superconducting system~\cite{Likharev1977,Semenov2003}. These devices either implements reversible logical gates or is able to recover signal energy, where the latter is also called generalized reversible computing. Both schemes do not have a lower bound of energy consumption from information and entropy perspective, which is known as the Landauer's principle~\cite{Landauer1961}
+    %They do not erase information hence do not have a lower bound of energy consumption by Landauer principle~\cite{Landauer1961}. However, investigators show less interest to reversible programming since 15 years ago, because the energy efficiency of traditional CMOS devices is still several orders~\cite{Debenedictis2017,Frank2017} above this lower bound, removing this lower bound is not an urgent problem yet.
+    After decades of efforts, reversible computing devices are very close to providing productivity now. For exmaple, adiabatic CMOS is more energy efficient than a traiditonal CMOS and can be used in a spacecraft~\cite{Debenedictis2017}, where energy is more valuable than device itself.
+    From the software engineering perspective, reversible programming is a powerful tool to schedule asynchronious events~\cite{Jefferson1985} and debug a program bidirectionally~\cite{Boothe2000}.
+    These applications are interesting on them own, but not appealing enough to motivate the reversible software ecosystem.
     Our work aims to breaks the information barrier between the machine learning community and the reversible programming community, and provides yet another strong motivation to develop reversible programming.
 
     In this paper, we first introduce the language design of NiLang in \Sec{sec:lang}.
@@ -1203,7 +1206,6 @@ With these infrastructures, a reversible program can be executed without sufferi
 %Reversible programming just provides an alternative to execute on an energy efficient reversible hardwares.
 Reversible instructions can be executed on an energy efficient reversible hardware.
 In the introduction, we mensioned several reversible hardwares. A reversible hardware can be those supporting reversible gates such as the Toffoli gate and the Fredkin gate, or like an adiabatic CMOS with the ability to recover signal energy. The latter is known as the generalized reversible computing.~\cite{Frank2005,Frank2017b}
-Adiabatic CMOS is more energy efficient than a traiditonal CMOS and can be used in a spacecraft~\cite{Debenedictis2017}, where energy is more valuable than device itself.
 In the near future, there might be energy efficient artificial intellegence (AI) chips as coprocessors that our eDSL can compile to.
 Since reversible computing is mainly driven by quantum computing in recent years.
 In the following, we comment briefly on quntum devices.
@@ -1241,17 +1243,16 @@ Writing a control program reversibly should boost the training performance a lot
 Thirdly, reversibility is a resource for training.
 For those who are interested in non-gradient based training. In \App{sec:train}, we provide a self-consistency training strategy for reversible programs.
 
+%Fourth, it is interesting to see how NiLang combines with other parts of Julia ecosystem like CUDAnative~\cite{Besard2018} and Debugger.
 Latstly, the reversible IR is a good starting point to study quantum compiling. Most quantum programming language preassumes a classical coprocessor and use classical control flows~\cite{Svore2018} in universal quantum computing.
 However, we believe reversible control flows are also very important to a universal quantum computer.
 
 To solve the above problems better, NiLang can be improved from multiple perspectives.
-\begin{itemize}
-    \item Add a compiling stage that decreases granularity and reduces uncomputing overheads.
-    \item Better type inference. Current type inference assumes the variable types not changed by a function, which is not true.
-        The type cast rule of a reversible function should be recorded somewhere to help type inference.
-    \item Implement rigorous reversible floating point arithematics on hardwares to let the reversibility free from rounding error.
-    \item Show the advantage of NiLang in parallel computing in handle asynchronious computing~\cite{Jefferson1985} and debugging with bidirectional move~\cite{Boothe2000}. It is interesting to see how NiLang combines with other parts of Julia ecosystem like CUDAnative~\cite{Besard2018} and Debugger.
-\end{itemize}
+Like we need a more efficient fixed point or log number system to avoid rounding errors. Currently we simulate reversible arithematics with the julia fixed point numebr package.~\cite{FixedPointNumbers}
+Then we should optimize the compiling to decreases granularity of a program and reduces uncomputing overheads.
+There are also some known issues to be solved like the type inference problem, we have listed some of them on Github.
+%NiLang also need better type inference support. Current type inference assumes the variable types not changed by a function, which is not true.
+%The type cast rule of a reversible function should be recorded somewhere to help type inference.
 These improvements needs participation of people from multiple fields.
 
 % By porting a quantum simulator. 
