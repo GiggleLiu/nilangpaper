@@ -856,7 +856,7 @@ An Bessel function of the first kind of order $\nu$ can be computed using Taylor
     J_\nu(z) = \sum\limits_{n=0}^{\infty} \frac{(z/2)^\nu}{\Gamma(k+1)\Gamma(k+\nu+1)} (-z^2/4)^{n}
 \end{equation}
 where $\Gamma(n) = (n-1)!$ is the Gamma function. One can compute the accumulated item iteratively as $s_n = -\frac{z^2}{4} s_{n-1}$.
-Intuitively, this problem mimics the famous pebble game~\cite{Perumalla2013}, since one can not uncompute state $s_{n-1}$ after computing $s_n$.
+Intuitively, this problem mimics the famous pebble game~\cite{Perumalla2013}, since one can not release state $s_{n-1}$ directly after computing $s_n$.
 One would need an increasing size of tape to cache the intermediate state.
 To circumvent this problem. We introduce the following reversible approximate multiplier
 
@@ -871,11 +871,11 @@ end
 \end{minipage}
 
 Here, the definition of SWAP can be found in \App{app:instr}, $\texttt{anc!} \approx 0$ is a \textit{dirty ancilla}.
-Line 2 stores the result to the dirty ancilla, we get an approximately correct output.
-Line 3``uncompute'' \texttt{out!} approximately with the contents in \texttt{anc!}, leaving a dirty zero state in register \texttt{out!}.
+Line 2 computes the result and accumulates it to the dirty ancilla, we get an approximately correct output in \texttt{anc!}.
+Line 3``uncomputes'' \texttt{out!} approximately by using the information stored in \texttt{anc!}, leaving a dirty zero state in register \texttt{out!}.
 Line 4 swaps the contents in \texttt{out!} and \texttt{anc!}.
 Finally, we have an approximately correct output and a dirtier ancilla.
-With this method, the implementation of $J_\nu$ is
+With this multiplier, we implementation $J_\nu$ as follows.
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
@@ -932,10 +932,10 @@ end
 \end{lstlisting}
 \end{minipage}
 
-Here, only a constant number of ancillas are used in this implementation, while the algorithm complexity does not increase.
+Here, only a constant number of ancillas are used in this implementation, while the algorithm complexity does not increase comparing to its irreversible counterpart.
 ancilla \texttt{anc4} plays the role of \textit{dirty ancilla} in multiplication, it is uncomputed rigoriously in the uncomputing stage.
 The reason why the ``approximate uncomputing'' trick works here lies in the fact that from the mathematic perspective the state in $n$th step $\{s_n, z\}$ contains the same amount of information as the state in the $n-1$th step $\{s_{n-1}, z\}$ except some special points, it is highly possible to find an equation to uncompute the previous state from the current state.
-This trick can be used extensively in many other application. It mitigated the artifitial irreversibility brought by the number system that we adopt at the cost of precision.
+This trick can be used extensively in many other application. It mitigated the artifitial irreversibility brought by the number system that we have adopt at the cost of precision.
 %The \texttt{while} statement takes two conditions, the precondition and postcondition. Precondition \texttt{val(anc1) > atol} indicates when to break the forward pass and postcondition \texttt{iplus != 0} indicates when to break the backward pass.
 
 To obtain gradients, one can wrap the variable \texttt{y!} with \texttt{Loss} type and feed it into \texttt{ibessel\textquotesingle}
@@ -1078,7 +1078,7 @@ We admit this implementation is just a proof of principle which does not even co
 \begin{lstlisting}
 using NiLang, NiLang.AD
 
-@i function qr(Q, R, A::AbstractMatrix{T}) where T
+@i function qr(Q, R, A::Matrix{T}) where T
     anc_norm ← zero(T)
     anc_dot ← zeros(T, size(A,2))
     ri ← zeros(T, size(A,1))
@@ -1124,13 +1124,13 @@ They are implemented as follows.
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
-@i function dot(out!, v1::AbstractVector{T}, v2) where T
+@i function dot(out!, v1::Vector{T}, v2) where T
     for i = 1:length(v1)
         out! += v1[i]'*v2[i]
     end
 end
 
-@i function norm2(out!, vec::AbstractVector{T}) where T
+@i function norm2(out!, vec::Vector{T}) where T
     anc1 ← zero(T)
     for i = 1:length(vec)
         anc1 += identity(vec[i]')
