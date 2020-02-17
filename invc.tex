@@ -187,7 +187,7 @@
 \affiliation{Department of Computer Science, University of Tsukuba}
 
 \begin{abstract}
-    This paper considers source to source automatic differentiation (AD) on a reversible Turing machine. We start by reviewing why adjoint mode AD is hard for traditional machine learning frameworks and propose a solution to existing issues by writing a program reversiblly. We developed an reversible eDSL NiLang in Julia that can be used to generate backward rules. We demonstrate its power by differentiating over the reversible implementations of exp function, and linear algebra functions unitary matrix multiplication and QR decomposition. It is also a promising direction towards solving the notorious memory wall problem in machine learning. We also discuss the challenges that we face towards rigorous reversible programming from the instruction and hardware perspective.
+    This paper considers source to source automatic differentiation (AD) on a reversible Turing machine. We start by reviewing why adjoint mode AD is hard for traditional machine learning frameworks and propose a solution to existing issues by writing a program reversiblly. We developed an reversible eDSL NiLang in Julia that can be used to generate backward rules. We demonstrate its power by differentiating over the reversible implementations of Bessel function, and linear algebra functions unitary matrix multiplication and QR decomposition. It is also a promising direction towards solving the notorious memory wall problem in machine learning. We also discuss the challenges that we face towards rigorous reversible programming from the instruction and hardware perspective.
 \end{abstract}
 
 
@@ -215,7 +215,7 @@ However, implementing adjoint mode AD is harder than implementing its tangent mo
     The computational process is often stored in a computational graph, a directed acyclic graph (DAG) that represents the relationship between data and functions. In Pytorch~\cite{Paszke2017} and Flux~\cite{Innes2018a}, every variable has a tracker field that stores its parent information, i.e., the input data and function generating this variable. TensorFlow~\cite{Tensorflow2015} implements a static computational graph as a description of the program before actual computation happens. The required variables are also recorded in this graph.
     For source to source AD package, Tapenade~\cite{Hascoet2013} uses source code as the computational graph and Zygote~\cite{Innes2018, Innes2019} uses an intermediate representation (IR) of a program, the static single assignment (SSA) form, as the computational graph. To cache intermediate states, they use a global stack.
 
-    Several limitations are observed in these AD implementations due to the recording and caching. First of all, most packages require a lot of primitive functions with programmer-defined backward rules. For example, the backward rule of \texttt{exp} should be provided although it is composed of basic instructions `+', `-', `*', `/', and conditional jumps. Defining backward rules for these basic instructions in the computational graph scheme suffers from the overhead of memorizing the computational graph and caching intermediate states. Even in Tapenade, the program has to remember the control at each place where the flow merges in the forward sweep. % It can decrease the performance for more than two orders when a program contains loops (as we will show later).
+    Several limitations are observed in these AD implementations due to the recording and caching. First of all, most packages require a lot of primitive functions with programmer-defined backward rules. For example, the backward rule of Bessel functions must be provided although it is composed of basic instructions `+', `-', `*', `/', and conditional jumps. Defining backward rules for these basic instructions in the computational graph scheme suffers from the overhead of memorizing the computational graph and caching intermediate states. Even in Tapenade, the program has to remember the control at each place where the flow merges in the forward sweep. % It can decrease the performance for more than two orders when a program contains loops (as we will show later).
     Secondly, the memory consumption is significant, also known as the memory wall problem.~\cite{memorywall}. The overhead of naive caching every input of instructions is linear to the computing time. In many deep learning models like recurrent neural network~\cite{Lipton2015} and residual neural networks~\cite{He2016}, the depth can reach several thousand, where the memory is often the bottleneck of these programs. Another important source of memory overhead is from the fact that inplace functions are forbidden delibrately in a computational graph based AD scheme in order to protect the cached data.
     Thirdly, obtaining higher-order gradients are not efficient in most of these packages. For example, in most machine learning packages, people back-propagate the whole program of obtaining first-order gradients to obtain second-order gradients. The repeated use of back-propagation algorithm causes an exponential overhead concerning the order of gradients. A better approach is using Taylor propagation like in JAX~\cite{Bettencourt2019} and beautiful differentiation~\cite{Elliott2009}. However, Taylor propagation in the adjoint mode AD requires tedious implemention of higher order backward rules for primitives.
 
@@ -236,7 +236,7 @@ However, implementing adjoint mode AD is harder than implementing its tangent mo
 
     In this paper, we first introduce the language design of NiLang in \Sec{sec:lang}.
     In \Sec{sec:bp}, we explain the back-propagation algorithm of Jacobians and Hessians in this eDSL.
-    In \Sec{sec:example}, we show several examples including Fobonacci number, \texttt{exp} function, unitary matrix multiplication and QR decomposition~\cite{Golub2012}. We show how to generate first order and second order backward rules for these functions.
+    In \Sec{sec:example}, we show several examples including Fobonacci number, Bessel function, unitary matrix multiplication and QR decomposition~\cite{Golub2012}. We show how to generate first order and second order backward rules for these functions.
     In \Sec{sec:discussion}, we discuss several important issues, how time-space tradeoff works, reversible instructions and hardware, and finally, an outlook to some open problems to be solved.
     In the appendix, we show the grammar of NiLang and a gradient free self-consistent training strategy.
 
@@ -759,7 +759,7 @@ Hessian propagation is a special case of Taylor propagation.
 With respect to the order of gradients, Taylor propagation is exponentially more efficient in obtaining higher-order gradients than differentiating lower order gradients recursively. %The later requires traversing the computational graph repeatedly.
 %In JAX~\cite{Bettencourt2019}, in order to support Taylor propagation, the propagation rules for part of primitives should be manually defined.
 Comparing with operator overloading, source to source automatic differentiation has the advantage of having very limited primitives, exhausted implementation of Hessian propagation is possible.
-An example to obtain Hessians is provided in \Sec{sec:exp}.
+An example to obtain Hessians is provided in \Sec{sec:bessel}.
 
 \subsection{Gradient on ancilla problem}
 In this section, we introduced an easily overlooked problem in our reversible AD framework.
@@ -850,84 +850,115 @@ julia> (~rfibn)(rfibn(0, 100)...)
 
 This examplifies how an addition postcondition provided by user can help reversing a control flow without caching controls.
 
-\subsection{exp function}\label{sec:exp}
-An $\exp$ function can be computed using Taylor expansion
+\subsection{Bessel function}\label{sec:bessel}
+An Bessel function of the first kind of order $\nu$ can be computed using Taylor expansion
 \begin{equation}
-    {\rm y} += \sum\limits_n \frac{x^n}{{\rm factorial}(n)}
+    J_\nu(z) = \sum\limits_{n=0}^{\infty} \frac{(z/2)^\nu}{\Gamma(k+1)\Gamma(k+\nu+1)} (-z^2/4)^{n}
 \end{equation}
-One can compute the accumulated item $s_{n} \equiv \frac{x^n}{{\rm factorial}(n)}$ iteratively as $s_n = \frac{x s_{n-1}}{n}$.
-Intuitively, this problem mimics the famous pebble game~\cite{Perumalla2013} considering the fact that product and division are considered as irreversible in NiLang, one can not deallocate $s_{n-1}$ after computing $s_n$.
-However, here the case is different because $\mathrel{*}=$ and $\mathrel{/}=$ are arithmetically reversible to each other at nonzero points.
-We can ``uncompute'' previous state $s_{n-1}$ by $s_{n-1} = \frac{n s_n}{x}$ approximately, and use the dirty ancilla in next iteration.
-The implementation is
+where $\Gamma(n) = (n-1)!$ is the Gamma function. One can compute the accumulated item iteratively as $s_n = -\frac{z^2}{4} s_{n-1}$.
+Intuitively, this problem mimics the famous pebble game~\cite{Perumalla2013}, since one can not uncompute state $s_{n-1}$ after computing $s_n$.
+One would need an increasing size of tape to cache the intermediate state.
+To circumvent this problem. We introduce the following reversible approximate multiplier
+
+\begin{minipage}{.44\textwidth}
+    \begin{lstlisting}[numberstyle=\scriptsize\color{gray},numbers=left,numbersep=8pt]
+@i @inline function imul(out!, x, anc!)
+    anc! += out! * x
+    out! -= anc! / x
+    SWAP(out!, anc!)
+end
+\end{lstlisting}
+\end{minipage}
+
+Here, the definition of SWAP can be found in \App{app:instr}, $\texttt{anc!} \approx 0$ is a \textit{dirty ancilla}.
+Line 2 stores the result to the dirty ancilla, we get an approximately correct output.
+Line 3``uncompute'' \texttt{out!} approximately with the contents in \texttt{anc!}, leaving a dirty zero state in register \texttt{out!}.
+Line 4 swaps the contents in \texttt{out!} and \texttt{anc!}.
+Finally, we have an approximately correct output and a dirtier ancilla.
+With this method, the implementation of $J_\nu$ is
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
 using NiLang, NiLang.AD
 
-@i function iexp(y!, x::T; atol::Float64=1e-14)
-        where T
-    anc1 ← zero(T)
-    anc2 ← zero(T)
-    anc3 ← zero(T)
-    iplus ← 0
-    expout ← zero(T)
+@i function ibessel(out!, ν, z; atol=1e-8)
+    k ← 0
+    fact_nu ← zero(ν)
+    halfz ← zero(z)
+    halfz_power_nu ← zero(z)
+    halfz_power_2 ← zero(z)
+    out_anc ← zero(z)
+    anc1 ← zero(z)
+    anc2 ← zero(z)
+    anc3 ← zero(z)
+    anc4 ← zero(z)
+    anc5 ← zero(z)
 
-    y! += identity(1.0)
     @routine begin
-        anc1 += identity(1.0)
-        while (value(anc1) > atol, iplus != 0)
-            iplus += identity(1)
-            anc2 += anc1 * x
-            anc3 += anc2 / iplus
-            expout += identity(anc3)
-            # arithmetic uncompute
-            anc1 -= anc2 / x
-            anc2 -= anc3 * iplus
-            SWAP(anc1, anc3)
+        halfz += z / 2
+        halfz_power_nu += halfz ^ ν
+        halfz_power_2 += halfz ^ 2
+        ifactorial(fact_nu, ν)
+
+        anc1 += halfz_power_nu/fact_nu
+        out_anc += identity(anc1)
+        while (abs(unwrap(anc1)) > atol &&
+                abs(unwrap(anc4)) < atol, k!=0)
+            k += identity(1)
+            @routine begin
+                anc5 += identity(k)
+                anc5 += identity(ν)
+                anc2 -= k * anc5
+                anc3 += halfz_power_2 / anc2
+            end
+            imul(anc1, anc3, anc4)
+            out_anc += identity(anc1)
+            ~@routine
         end
     end
+    out! += identity(out_anc)
+    ~@routine
+end
 
-    y! += identity(expout)
-
+@i function ifactorial(out!, n)
+    anc1 ← 1
+    anc2 ← 0
+    @routine for i=1:n
+        imul(anc1, i, anc2)
+    end
+    out! += identity(anc1)
     ~@routine
 end
 \end{lstlisting}
 \end{minipage}
 
-Here, the definition of SWAP instruction can be found in \App{app:instr}.
-The two lines bellow the comment ``\texttt{\# arithmetic uncompute}'' uncompute variables \texttt{anc1} and \texttt{anc2} approximately.
-The rounding errors are transfered to the output, while the reversibility is not affected since the inverse call at the last line of function uncomputes all ancillas rigorously.
-This ``arithmetic uncomputing'' trick can be used extensively in many other application.
-The reason why this trick works here is because from the mathematic perspective the state in $n$th step $\{\frac{x^n}{{\rm factorial}(n)}, x\}$ contains the same amount of information as the state in the $n-1$th step $\{\frac{x^{n-1}}{{\rm factorial}(n-1)}, x\}$, it is highly possible to find a route to compute the previous state from the current state.
-This fact is not even related to the number system that we adopt.
+Here, only a constant number of ancillas are used in this implementation, while the algorithm complexity does not increase.
+ancilla \texttt{anc4} plays the role of \textit{dirty ancilla} in multiplication, it is uncomputed rigoriously in the uncomputing stage.
+The reason why the ``approximate uncomputing'' trick works here lies in the fact that from the mathematic perspective the state in $n$th step $\{s_n, z\}$ contains the same amount of information as the state in the $n-1$th step $\{s_{n-1}, z\}$ except some special points, it is highly possible to find an equation to uncompute the previous state from the current state.
+This trick can be used extensively in many other application. It mitigated the artifitial irreversibility brought by the number system that we adopt at the cost of precision.
 %The \texttt{while} statement takes two conditions, the precondition and postcondition. Precondition \texttt{val(anc1) > atol} indicates when to break the forward pass and postcondition \texttt{iplus != 0} indicates when to break the backward pass.
 
-To obtain gradients, one can wrap the variable \texttt{y!} with \texttt{Loss} type and feed it into \texttt{iexp\textquotesingle}
+To obtain gradients, one can wrap the variable \texttt{y!} with \texttt{Loss} type and feed it into \texttt{ibessel\textquotesingle}
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
-julia> y!, x = 0.0, 1.6
-(0.0, 1.6)
+julia> y, x = 0.0, 3.0
+(0.0, 3.0)
 
-julia> @instr iexp'(Loss(y!), x)
-
-julia> grad(x)
-4.9530324244260555
+julia> ibessel'(Loss(y), 2, x)
+(Loss(GVar(0.0, 1.0)), 2, GVar(3.0, 0.0149981304))
 \end{lstlisting}
 \end{minipage}
 
-Here, \texttt{iexp\textquotesingle} is a callable instance of type \texttt{Grad\{typeof(iexp)\}}. Its implementation is shown in \Sec{sec:jacobian}. This function itself is reversible and differentiable, one can back-propagate this function to obtain Hessians as introduced in \Sec{sec:simplehessian}. In NiLang, it is implemented as \texttt{simple\_hessian}.
+Here, \texttt{ibessel\textquotesingle} is a callable instance of type \texttt{Grad\{typeof(ibessel)\}}. Its implementation is shown in \Sec{sec:jacobian}. This function itself is reversible and differentiable, one can back-propagate this function to obtain Hessians as introduced in \Sec{sec:simplehessian}. In NiLang, it is implemented as \texttt{simple\_hessian}.
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
-julia> y!, x = 0.0, 1.6
-(0.0, 1.6)
-
-julia> simple_hessian(iexp, (Loss(y!), x))
-2×2 Array{Float64,2}:
- 0.0  0.0
- 0.0  4.95303
+julia> simple_hessian(ibessel, (Loss(y), 2, x))
+3×3 Array{Float64,2}:
+ 0.0  0.0   0.0    
+ 0.0  0.0   0.0    
+ 0.0  0.0  -0.27505
 \end{lstlisting}
 \end{minipage}
 
@@ -938,19 +969,18 @@ To obtain Hessians, we can also use the Hessian propagation approach as introduc
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
-julia> y!, x = 0.0, 1.6
-(0.0, 1.6)
-
-julia> @instr iexp''(Loss(y!), x)
+julia> ibessel''(Loss(y), 2, x)
+(Loss(BeijingRing{Float64}(0.0, 1.0, 1)), 2, 
+BeijingRing{Float64}(3.0, 0.014998134978750133, 2))
 
 julia> collect_hessian()
 2×2 Array{Float64,2}:
- 0.0  0.0
- 0.0  4.95303
+ 0.0   0.0    
+ 0.0  -0.27505
 \end{lstlisting}
 \end{minipage}
 
-\texttt{iexp\textquotesingle\textquotesingle} computes the second-order gradients. It wraps variables with type \texttt{BeijingRing}~\footnote{When people ask for the location in Beijing, they will start by asking which ring it is? We use the similar approach to locate the elements of Hessian matrix.} in the backward pass. \texttt{BeijingRing} records Jacobians and Hessians for a variable, where Hessians are stored in a global storage.
+\texttt{ibessel\textquotesingle\textquotesingle} computes the second-order gradients. It wraps variables with type \texttt{BeijingRing}~\footnote{When people ask for the location in Beijing, they will start by asking which ring it is? We use the similar approach to locate the elements of Hessian matrix.} in the backward pass. \texttt{BeijingRing} records Jacobians and Hessians for a variable, where Hessians are stored in a global storage.
 Whenever an $n$-th variable or ancilla is created, we push a ring of size $2n-1$ to a global tape. Whenever an ancilla is deallocated, we pop a ring from the top. The $n$-th ring stores Hessian elements $H_{i\leq n,n}$ and $H_{n,i<n}$.% We didn't use the symmetry relation $H_{i,j} = H_{j,i}$ to save memory here in order to simplify the implementation of backward rules described in the right most panel of \Fig{fig:ad}.
 The final result can be collected by calling \texttt{collect\_hessian()}, which will read out the Hessian matrix that stored in the global storage.
 
@@ -1133,7 +1163,7 @@ Here, the loss function \texttt{test1} is defined as the sum of the output unita
 
 \section{Discussion and outlook}\label{sec:discussion}
 In this paper, we show a program on an reversible Turing machine can be differentiated to any order reliably and efficiently without sophisticated designs to memorize computational graph and intermediate states. 
-We introduce a reversible Julia eDSL NiLang that implements a reversible AD. In a reversible programming language, we proposed to use ``arithmetic uncomputing'' trick to avoid the overhead of a reversible program in many practical cases.
+We introduce a reversible Julia eDSL NiLang that implements a reversible AD. In a reversible programming language, we proposed to use ``approximate uncomputing'' trick to avoid the overhead of a reversible program in many practical cases.
 
 In the following, we discussed some practical issues about reversible programming, and several future directions to go.
 %Notablely, we introduce the concept of ``arithematic uncomputing'' to reduce the overhead of recursive reversible algorithms.
@@ -1160,7 +1190,7 @@ Reversible programming simply provides more alternatives to reduce the overhead.
 %For inplace functions, especially those reversible functions. Reversible programming AD is sometimes more memory efficient. Comparing with logging computational graph.
 %Second, many computational overheads come from of the irreversibility of \texttt{/=} and \texttt{*=} operations. This part is not fundamental because reversible floating point instructions have already been designed~\cite{Nachtigal2010,Nachtigal2011}. Using reversible floating point instructions may significant decrease the computation time and memory usage of a RTM.
 %Even in current stage, 
-For example, the overhead in many iterative algorithms can often be removed with ``arithematic uncomputing'' trick without sacrificing reversibility as shown in the \texttt{iexp} example in \Sec{sec:exp}.
+For example, the overhead in many iterative algorithms can often be removed with ``arithematic uncomputing'' trick without sacrificing reversibility as shown in the \texttt{ibessel} example in \Sec{sec:bessel}.
 % We will review this point in \Sec{sec:hardware}.
 
 Clever compiling can also be used to remove most overheads.
