@@ -1,6 +1,6 @@
 #!/bin/bash
 
-FILE=paper.tex
+FILE=invc.tex
 git show HEAD~$1:$FILE > _temp.tex
 latexdiff _temp.tex $FILE > _tempdiff.tex
 xelatex _tempdiff.tex

@@ -598,7 +598,7 @@ the adjoint mode AD propagates the Jacobians in the reversed direction like
         J^{\out}_{\vx^{i-1}} &= J^{\out}_{\vx^i} J^{\vx^i}_{\vx^{i-1}},
     \end{split}\label{eq:jacobian}
 \end{align}
-where $\out$ represents the outputs of the program, $J^{\out}_{\vx^i} \equiv \frac{\partial \out}{\partial \vx^i}$ is the Jacobian to be propagated, and $J^{\vx^i}_{\vx^{i-1}}$ is the local Jacobian matrix. The Einstein's notation is used here so that the duplicated index $\vx^{i}$ is summed over.
+where $\out$ represents the outputs of the program, $J^{\out}_{\vx^i} \equiv \frac{\partial \out}{\partial \vx^i}$ is the Jacobian to be propagated, and $J^{\vx^i}_{\vx^{i-1}}$ is the local Jacobian matrix. The Einstein's notation~\cite{Einsum} is used here so that the duplicated index $\vx^{i}$ is summed over.
 %Tagent mode instruction-level automatic differentiation can be implemented easily in a irreversible language with dual numbers~\cite{Revels2016}.
 %Here we focus on the adjoint mode.
 \Eq{eq:jacobian} can be rewritten in the diagram of tensor networks~\cite{Orus2014} as shown in \Fig{fig:ad}.
@@ -1390,7 +1390,7 @@ The list of instructions implemented in NiLang
 
 \subsection{Backward rules for instructions}\label{app:jacobians}
 For function $\vec{y} = f(\vec{x})$, its Jacobian is $J_{ij} = \frac{\partial y_i}{\partial x_j}$ and its Hessian is $H^k_{ij} = \frac{\partial y_k}{x_i x_j}$.
-We have the following backward rules on the above instructions.
+We have the following local Jacobians and Hessians on the above instructions.
 
 \begin{enumerate}
     \item $a \mathrel+= b$
@@ -1506,6 +1506,16 @@ In the following, we omit the Jacobians and Hessians of inverse functions.
 \begin{align*}
     &J = \left(\begin{matrix}
 -1
+\end{matrix}\right)\\
+    &H = \mathbf{0}
+\end{align*}
+
+\item ${\rm SWAP}(a, b) = (b, a)$
+
+\begin{align*}
+    &J = \left(\begin{matrix}
+0 & 1 \\
+1 & 0
 \end{matrix}\right)\\
     &H = \mathbf{0}
 \end{align*}
