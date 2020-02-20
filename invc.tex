@@ -1124,28 +1124,7 @@ Here, in order to avoid frequent uncomputing, we allocate ancillas \texttt{ri} a
 The expression in $\sim$ is used to uncompute \texttt{ri}, \texttt{anc\_dot} and \texttt{anc\_norm}.
 %\texttt{R[col, col] += anc\_norm${}^\wedge$0.5} is a ternary instruction, whose backward rule is defined in NiLang.
 \texttt{dot} and \texttt{norm2} are reversible functions to compute dot product and vector norm.
-They are implemented as follows.
-
-\begin{minipage}{.44\textwidth}
-\begin{lstlisting}
-@i function dot(out!, v1::Vector{T}, v2) where T
-    for i = 1:length(v1)
-        out! += v1[i]'*v2[i]
-    end
-end
-
-@i function norm2(out!, vec::Vector{T}) where T
-    anc1 ← zero(T)
-    for i = 1:length(vec)
-        anc1 += identity(vec[i]')
-        out! += anc1*vec[i]
-        anc1 -= identity(vec[i]')
-    end
-end
-\end{lstlisting}
-\end{minipage}
-
-In \texttt{norm2}, we copied \texttt{vec[i]\textquotesingle} to \texttt{anc1} to avoid the same variable appear twice in the argument list of $\oplus(*)$, where the prime represents the adjoint dataview.
+Their implementations could be found in \App{app:functions}.
 One can easily check the correctness of the gradient function
 
 \begin{minipage}{.44\textwidth}
@@ -1164,6 +1143,88 @@ true
 
 Here, the loss function \texttt{test1} is defined as the sum of the output unitary matrix \texttt{q}. The \texttt{check\_grad} function is a gradient checker function defined in module NiLang.AD.
 %It should be possible to define other linear algebra functions reversiblly too. We leave this future projects.
+
+\subsection{Solving a graph embedding problem}\label{sec:graph}
+
+Consider the Petersen graph as shown in \Fig{fig:petersen}.
+\begin{figure}
+    \centerline{\includegraphics[width=0.6\columnwidth,trim={0 1cm 0 0},clip]{images/petersen.pdf}}
+    \caption{The Petersen graph with 10 vertices and 15 edges.}\label{fig:petersen}
+\end{figure}
+
+
+We want to embed it to a $k$ dimensional Euclidean space, so that the distance between a pair of neighboring vertices is $l_1$ while the distance between a pair o disconnected vertices is $l_2$. Find the minimum possible $k$.
+This problem, can be solved by differential pogramming by designing the following loss.
+\begin{align}
+    \begin{split}
+        \mathcal{L} &= \sigma^2(\{|\vec r_i - \vec r_j|^2 \mid  i,j ~\text{are connected}\}) \\
+        &+ \sigma^2(\{|\vec r_i - \vec r_j|^2 \mid i,j ~\text{are not connected}\}\}) + 
+    \end{split}
+\end{align}
+where $\vec r_i \in \mathbb{R}^k$ is the position of $i$th vertex.
+We seperate vertex pairs into two categories by connectivity and compute the variance of squared distance in each category.
+The loss is defined as the summation of variances.
+
+\begin{minipage}{.44\textwidth}
+\begin{lstlisting}
+using NiLang, NiLang.AD
+
+@i function sqdistance(dist!, x1::AbstractVector{T},
+        x2::AbstractVector) where T
+    @inbounds for i=1:length(x1)
+        x1[i] -= identity(x2[i])
+        dist! += x1[i] ^ 2
+        x1[i] += identity(x2[i])
+    end
+end
+
+@i function iloss(out!::T, x) where T
+    v1 ← zero(T)
+    m1 ← zero(T)
+    v2 ← zero(T)
+    m2 ← zero(T)
+    diff ← zero(T)
+    L1 ← [(1, 6), (2, 7), (3, 8), (4, 9), (5, 10),
+    (1, 2), (2, 3), (3, 4), (4, 5), (1, 5), (6, 8),
+    (8, 10), (7, 10), (7, 9), (6, 9)]
+    L2 ← [(1, 3), (1, 4), (1, 7), (1, 8), (1, 9),
+    (1, 10), (2, 4), (2, 5), (2, 6), (2, 8), (2, 9),
+    (2, 10), (3, 5), (3, 6), (3, 7), (3, 9), (3, 10),
+    (4, 6), (4, 7), (4, 8), (4, 10), (5, 6), (5, 7),
+    (5, 8), (5, 9), (6, 7), (6, 10), (7, 8), (8, 9),
+    (9, 10)]
+    d1 ← zeros(T, length(L1))
+    d2 ← zeros(T, length(L2))
+    @routine begin
+        for i=1:length(L1)
+            sqdistance(d1[i], x[:,L1[i][1]],
+                x[:,L1[i][2]])
+        end
+        for i=1:length(L2)
+            sqdistance(d2[i], x[:,L2[i][1]],
+                x[:,L2[i][2]])
+        end
+        var_and_mean(v1, m1, d1)
+        var_and_mean(v2, m2, d2)
+    end
+    out! += identity(v1)
+    out! += identity(v2)
+    ~@routine
+end
+\end{lstlisting}
+\end{minipage}
+
+One can access the gradient by typing
+
+\begin{minipage}{.44\textwidth}
+\begin{lstlisting}
+iloss'(Loss(0.0), randn(5, 10))
+\end{lstlisting}
+\end{minipage}
+
+In the training, we fixed two of the vertices and train the rest, otherwise the program will find the trivil solution of all same location. 
+The training uses Adam optimizer~\cite{}, a $20000$ steps training costs less than 2 seconds on a laptop. For $k=4$, we can get a loss close to machine precision, while for $k < 4$, the loss is much higher than $0$.
+From the solution, it is easy to verify $l_2/l_1 = 0$.
 
 \section{Discussion and outlook}\label{sec:discussion}
 In this paper, we show a program on an reversible Turing machine can be differentiated to any order reliably and efficiently without sophisticated designs to memorize computational graph and intermediate states. 
@@ -1301,6 +1362,7 @@ Damian Steiger for telling me the \texttt{comefrom} joke.
 Tong Liu and An-Qi Chen for helpful discussion on quantum adders and multipliers.
 Chris Rackauckas for helpful discussion on reversible integrators.
 Mike Innes for reviewing the comments about Zygote.
+Jun Takahashi for providing the facinating graph embedding problem.
 Simon Byrne and Chen Zhao for helpful discussion on floating point and logarithmic numbers.
 The authors are supported by the National Natural Science Foundation of China under the Grant No.~11774398, the Strategic Priority Research Program of Chinese Academy of Sciences Grant No.~XDB28000000.
 
@@ -1645,5 +1707,78 @@ This inequality shows that when the parameter space on the output side satisfies
 \end{proof}
 In the above example, it corresponds to the case $S\left(e^{(x+y)-e^x} | x \cup x + y\right) = 0$ in $f1$.
 The solution is to remove the information redundancy in output parameter space through uncomputing as shown in $f2$.
+
+\section{Functions used in the main text}\label{app:functions}
+
+\begin{minipage}{.44\textwidth}
+\begin{lstlisting}
+"""
+    dot(out!, v1, v2)
+
+dot product.
+"""
+@i function dot(out!, v1::Vector{T}, v2) where T
+    for i = 1:length(v1)
+        out! += v1[i]'*v2[i]
+    end
+end
+
+"""
+    norm2(out!, vec)
+
+squared norm.
+"""
+@i function norm2(out!, vec::Vector{T}) where T
+    anc1 ← zero(T)
+    for i = 1:length(vec)
+        anc1 += identity(vec[i]')
+        out! += anc1*vec[i]
+        anc1 -= identity(vec[i]')
+    end
+end
+\end{lstlisting}
+\end{minipage}
+
+In \texttt{norm2}, we copied \texttt{vec[i]\textquotesingle} to \texttt{anc1} to avoid the same variable appear twice in the argument list of $\oplus(*)$, where the prime represents the adjoint dataview.
+
+\begin{minipage}{.44\textwidth}
+\begin{lstlisting}
+"""
+    mean(out!, x)
+
+Get the mean value of `x`.
+"""
+@i function mean(out!, x)
+    anc ← zero(out!)
+    for i=1:length(x)
+        anc += identity(x[i])
+    end
+    out! += anc / length(x)
+    anc -= out! * length(x)
+end
+\end{lstlisting}
+\end{minipage}
+
+\begin{minipage}{.44\textwidth}
+\begin{lstlisting}
+"""
+    var_and_mean(var!, mean!, v)
+
+Get the variance and mean of `x`.
+"""
+@i function var_and_mean(var!, mean!, v::AbstractVector{T}) where T
+    cum ← zero(var!)
+    n ← length(v)-1
+    mean(mean!, v)
+    for i=1:length(v)
+        v[i] -= identity(mean!)
+        cum += v[i] ^ 2
+        v[i] += identity(mean!)
+    end
+    var! += cum / n
+    cum -= var! * n
+end
+\end{lstlisting}
+\end{minipage}
 
 \end{document}
