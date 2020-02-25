@@ -885,7 +885,7 @@ With this multiplier, we implementation $J_\nu$ as follows.
 \begin{lstlisting}
 using NiLang, NiLang.AD
 
-@i function ibessel(out!, ν, z; atol=1e-8)
+@i function ibesselj(out!, ν, z; atol=1e-8)
     k ← 0
     fact_nu ← zero(ν)
     halfz ← zero(z)
@@ -925,13 +925,10 @@ using NiLang, NiLang.AD
 end
 
 @i function ifactorial(out!, n)
-    anc1 ← 1
-    anc2 ← 0
-    @routine for i=1:n
-        imul(anc1, i, anc2)
+    out! += identity(1)
+    for i=1:n
+        MULINT(out!, i)
     end
-    out! += identity(anc1)
-    ~@routine
 end
 \end{lstlisting}
 \end{minipage}
@@ -942,23 +939,23 @@ The reason why the ``approximate uncomputing'' trick works here lies in the fact
 This trick can be used extensively in many other application. It mitigated the artifitial irreversibility brought by the number system that we have adopt at the cost of precision.
 %The \texttt{while} statement takes two conditions, the precondition and postcondition. Precondition \texttt{val(anc1) > atol} indicates when to break the forward pass and postcondition \texttt{iplus != 0} indicates when to break the backward pass.
 
-To obtain gradients, one can wrap the variable \texttt{y!} with \texttt{Loss} type and feed it into \texttt{ibessel\textquotesingle}
+To obtain gradients, one can wrap the variable \texttt{y!} with \texttt{Loss} type and feed it into \texttt{ibesselj\textquotesingle}
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
 julia> y, x = 0.0, 3.0
 (0.0, 3.0)
 
-julia> ibessel'(Loss(y), 2, x)
+julia> ibesselj'(Loss(y), 2, x)
 (Loss(GVar(0.0, 1.0)), 2, GVar(3.0, 0.0149981304))
 \end{lstlisting}
 \end{minipage}
 
-Here, \texttt{ibessel\textquotesingle} is a callable instance of type \texttt{Grad\{typeof(ibessel)\}}. Its implementation is shown in \Sec{sec:jacobian}. This function itself is reversible and differentiable, one can back-propagate this function to obtain Hessians as introduced in \Sec{sec:simplehessian}. In NiLang, it is implemented as \texttt{simple\_hessian}.
+Here, \texttt{ibesselj\textquotesingle} is a callable instance of type \texttt{Grad\{typeof(ibesselj)\}}. Its implementation is shown in \Sec{sec:jacobian}. This function itself is reversible and differentiable, one can back-propagate this function to obtain Hessians as introduced in \Sec{sec:simplehessian}. In NiLang, it is implemented as \texttt{hessian\_repeat}.
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
-julia> simple_hessian(ibessel, (Loss(y), 2, x))
+julia> hessian_repeat(ibesselj, (Loss(y), 2, x))
 3×3 Array{Float64,2}:
  0.0  0.0   0.0    
  0.0  0.0   0.0    
@@ -973,7 +970,7 @@ To obtain Hessians, we can also use the Hessian propagation approach as introduc
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
-julia> ibessel''(Loss(y), 2, x)
+julia> ibesselj''(Loss(y), 2, x)
 (Loss(BeijingRing{Float64}(0.0, 1.0, 1)), 2, 
 BeijingRing{Float64}(3.0, 0.014998134978750133, 2))
 
@@ -984,7 +981,7 @@ julia> collect_hessian()
 \end{lstlisting}
 \end{minipage}
 
-\texttt{ibessel\textquotesingle\textquotesingle} computes the second-order gradients. It wraps variables with type \texttt{BeijingRing}~\footnote{When people ask for the location in Beijing, they will start by asking which ring it is? We use the similar approach to locate the elements of Hessian matrix.} in the backward pass. \texttt{BeijingRing} records Jacobians and Hessians for a variable, where Hessians are stored in a global storage.
+\texttt{ibesselj\textquotesingle\textquotesingle} computes the second-order gradients. It wraps variables with type \texttt{BeijingRing}~\footnote{When people ask for the location in Beijing, they will start by asking which ring it is? We use the similar approach to locate the elements of Hessian matrix.} in the backward pass. \texttt{BeijingRing} records Jacobians and Hessians for a variable, where Hessians are stored in a global storage.
 Whenever an $n$-th variable or ancilla is created, we push a ring of size $2n-1$ to a global tape. Whenever an ancilla is deallocated, we pop a ring from the top. The $n$-th ring stores Hessian elements $H_{i\leq n,n}$ and $H_{n,i<n}$.% We didn't use the symmetry relation $H_{i,j} = H_{j,i}$ to save memory here in order to simplify the implementation of backward rules described in the right most panel of \Fig{fig:ad}.
 The final result can be collected by calling \texttt{collect\_hessian()}, which will read out the Hessian matrix that stored in the global storage.
 
@@ -1255,7 +1252,7 @@ Reversible programming simply provides more alternatives to reduce the overhead.
 %For inplace functions, especially those reversible functions. Reversible programming AD is sometimes more memory efficient. Comparing with logging computational graph.
 %Second, many computational overheads come from of the irreversibility of \texttt{/=} and \texttt{*=} operations. This part is not fundamental because reversible floating point instructions have already been designed~\cite{Nachtigal2010,Nachtigal2011}. Using reversible floating point instructions may significant decrease the computation time and memory usage of a RTM.
 %Even in current stage, 
-For example, the overhead in many iterative algorithms can often be removed with ``arithematic uncomputing'' trick without sacrificing reversibility as shown in the \texttt{ibessel} example in \Sec{sec:bessel}.
+For example, the overhead in many iterative algorithms can often be removed with ``arithematic uncomputing'' trick without sacrificing reversibility as shown in the \texttt{ibesselj} example in \Sec{sec:bessel}.
 % We will review this point in \Sec{sec:hardware}.
 
 Clever compiling can also be used to remove most overheads.
