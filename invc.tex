@@ -985,6 +985,12 @@ julia> collect_hessian()
 Whenever an $n$-th variable or ancilla is created, we push a ring of size $2n-1$ to a global tape. Whenever an ancilla is deallocated, we pop a ring from the top. The $n$-th ring stores Hessian elements $H_{i\leq n,n}$ and $H_{n,i<n}$.% We didn't use the symmetry relation $H_{i,j} = H_{j,i}$ to save memory here in order to simplify the implementation of backward rules described in the right most panel of \Fig{fig:ad}.
 The final result can be collected by calling \texttt{collect\_hessian()}, which will read out the Hessian matrix that stored in the global storage.
 
+\begin{figure}
+    \centerline{\includegraphics[width=\columnwidth,trim={0 0cm 0 0},clip]{images/fig4.pdf}}
+    \caption{Data oriented computational graph for the reversible bessel function. It is basically the line graph of the computational graph. A node (round circle) is a data, while connections are operations.}\label{fig:datagraph}
+\end{figure}
+
+
 \subsection{Unitary Matrices}\label{sec:umm}
 A unitary matrices features uniform eigenvalues and reversibility. It is widely used as an approach to ease the gradient exploding and vanishing problem~\cite{Arjovsky2015,Wisdom2016,Li2016} and the memory wall problem~\cite{Luo2019}.
 One of the simplest way to parametrize a unitary matrix is representing a unitary matrix as a product of two-level unitary operations~\cite{Li2016}. A real unitary matrix of size $N$ can be parametrized compactly by $N(N-1)/2$ rotation operations~\cite{Li2013}

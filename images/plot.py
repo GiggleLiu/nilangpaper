@@ -164,7 +164,11 @@ class PLT(object):
             ancs = []
             for i in range(5):
                 n += 1
-                ancs.append(node >> grid[n, 0])
+                if i>0:
+                    yanc = -4.5
+                else:
+                    yanc = 0
+                ancs.append(node >> grid[n, yanc])
                 ancs[-1].text("anc%d"%(i+1), "top", fontsize=SIZE)
                 ancs[-1].text("0", fontsize=SIZE)
                 ancs[-1].index = n
@@ -230,14 +234,15 @@ class PLT(object):
             plt.text(x_, y_+0.3, "pre: abs(anc1) > atol && abs(anc4) < atol", va='center', ha='center', fontsize=12, bbox=dict(facecolor='w', lw=0))
             x_, y_ = d.pin("bottom")
             plt.text(x_, y_-0.3, r"post: k != 0", va='center', ha='center', fontsize=12, bbox=dict(facecolor='w', lw=0))
-            y -= 1.5
-            (out, out_anc) = instr(r"$\oplus$", (out, out_anc), y)
+            y -= 1.8
+            nodes[-1], nodes[-2] = instr(r"$\oplus$", (out, out_anc), y)
+            for anc in ancs[1:]:
+                p = node >> grid[anc.index, y]
+                p.text("0", fontsize=SIZE)
+                edge >> (anc, p)
             # uncompute all
-            y -= 1.0
-            nodes = [z, hz, halfz_power_2, halfz_power_nu, nu, fact_nu, k]
-            nodes.extend(ancs)
-            nodes.extend([out_anc, out])
-
+            y -= 1.2
+            nodes = nodes[:8] + nodes[-2:]
             nodes[:-1] = uncompute("~A", nodes[:-1], y)
 
             # end
