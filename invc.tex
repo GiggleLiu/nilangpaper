@@ -881,7 +881,7 @@ This computational process could be diagramatically represented as a DAG as show
 The problem of this diagram is the data is represented as an edge, while in a simple graph, an edge connects at most two nodes. This underlines the fact that in a traditional computational graph, a variable can only be used in two functions, one as output and one as input. This also explains why DAG based computational graph can not be used to describe inplace functions, where data are used by multiple operations.
 For example, the red lines in the graph used to represent the reused variables in a \texttt{while} statement is in fact forbidden, it creates circles in the graph.
 \begin{figure}
-    \centerline{\includegraphics[width=0.6\columnwidth,trim={0cm 0cm 0 0},clip]{images/computational_graph.pdf}}
+    \centerline{\includegraphics[width=\columnwidth,trim={0cm 6cm 0 0},clip]{images/computational_graph.pdf}}
     \caption{Traditional computational graph for the reversible first kind Bessel function. Where a vertex (circle) is an operation and a directed edge is a variable. The gray region is the body of while loop.}\label{fig:computational-graph}
 \end{figure}
 

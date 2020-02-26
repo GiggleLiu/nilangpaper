@@ -299,4 +299,205 @@ class PLT(object):
             func("", ((0, _.C, "z"), (1, _.C, r"$\nu$"), (2, _.GATE, "out!")), 0)
             plt.text(0.7, 0.4, "ibesselj",  fontsize=12)
 
+    def fig4gif(self):
+        SIZE = 12
+        LW = 1.75
+        setting.node_setting['lw']=LW
+        setting.node_setting['inner_lw']=LW
+        edge = EdgeBrush('-', lw=LW)
+        innode = NodeBrush('basic', color='#FFFF99')
+        node = NodeBrush('basic', color='none')
+        grid = Grid([1.2, 0.8])
+        dashed = NodeBrush('box', size=(0.6, 0.4), ls="--", roundness=0.15)
+        gray = NodeBrush('box', size=(0.6, 0.4), lw=0, color="#CCCCCC", roundness=0.15, zorder=-10)
+        box = NodeBrush('box', size=(0.6, 0.4), lw=LW, color="none")
+        WIDE = NodeBrush("box", size=(0.5,0.3))
+        inv = NodeBrush("invisible")
+        nodes = {}
+        def instr(cum, vs, y0):
+            g = WIDE >> grid[nodes[vs[0]].index, y0]
+            g.text(cum, fontsize=12)
+            g.index = nodes[vs[0]].index
+            edge >> (nodes[vs[0]], g)
+            c = _.C >> grid[nodes[vs[1]].index, y0]
+            c.index = nodes[vs[1]].index
+            edge >> (nodes[vs[1]], c)
+            if len(vs) == 3:
+                nc = _.C >> grid[nodes[vs[2]].index, y0]
+                nc.index = nodes[vs[2]].index
+                nc.text("#2", "right", fontsize=SIZE)
+                edge >> (nodes[vs[2]], nc)
+
+                ss = sorted([g, c, nc], key=lambda x: x.index)
+                e = edge >> (ss[0], ss[1])
+                e2 = edge >> (ss[1], ss[2])
+                nodes[vs[0]] = g
+                nodes[vs[1]] = c
+                nodes[vs[2]] = nc
+            else:
+                e = edge >> (g, c)
+                nodes[vs[0]] = g
+                nodes[vs[1]] = c
+
+        def func(op, vs, y0, fontsize=12, text_offset=0.3):
+            edges = []
+            ds = []
+            for (v, style, txt) in vs:
+                g = style >> grid[nodes[v].index, y0]
+                g.index = nodes[v].index
+                g.text(txt)
+                edge >> (nodes[v], g)
+                nodes[v] = g
+            ss = sorted([nodes[v[0]] for v in vs], key=lambda x: x.index)
+            for si, sj in zip(ss[:-1], ss[1:]):
+                edges.append(edge >> (si, sj))
+                ds.append(sj.index - si.index)
+            if len(ss) == 1:
+                ss[0].text(op)
+            else:
+                edges[np.argmin(ds)].text(op, "top", text_offset=0.3, fontsize=fontsize)
+
+
+        def uncompute(txt, vs, y):
+            indices = [nodes[x].index for x in vs]
+            imin = np.min(indices)
+            imax = np.max(indices)
+            b = box >> grid[imin:imax, y:y]
+            b.text(txt, fontsize=16)
+            for n in vs:
+                edge >> (nodes[n], b.pin("top", align=nodes[n]))
+                nn = b.pin("bottom", align=nodes[n])
+                nn.index = nodes[n].index
+                nodes[n] = nn
+
+        with DynamicShow((10,10), 'fig4.gif') as ds:
+            y = 0
+            inv >> grid[-0.5,-20.7]
+            inv >> grid[13.5,-20.7]
+            inv >> grid[-0.5,-0.5]
+            inv >> grid[13.5,-0.5]
+            syms = np.array(['z', 'hz', 'hz_2', 'hz_nu', 'nu', 'fact_nu', 'k', 'anc1', 'anc2', 'anc3', 'anc4', 'anc5', 'out_anc', 'out'])
+            for n in [0,1,2,3,4,5,6,7,12,13]:
+                s = syms[n]
+                if n in [0, 4, 13]:
+                    nodes[s] = innode >> grid[n, 0]
+                else:
+                    nodes[s] = node >> grid[n, 0]
+                if not n in [0, 4]:
+                    nodes[s].text("0", fontsize=SIZE)
+                nodes[s].text(s, "top", fontsize=SIZE)
+                nodes[s].index = n
+            whilest = [0, 0]
+            Ast = [0, 0]
+            Bst = [0, 0]
+            y = [0]
+
+            def f1():
+                y[0] -= 1.5
+                Ast[0] = y[0]
+                instr(r"$\oplus(/2)$", ('hz', 'z'), y[0])
+                y[0] -= 1.0
+                instr(r"$\oplus$(^)", ('hz_nu', 'hz','nu'), y[0])
+                y[0] -= 1.0
+                instr(r"$\oplus$(^2)", ('hz_2', 'hz'), y[0])
+                func("ifactorial", (('fact_nu', _.GATE, "#1"), ('nu', _.C, "")), y[0], text_offset=0.5)
+                y[0] -= 1.0
+
+                instr(r"$\oplus(/)$", ('anc1', 'hz_nu', 'fact_nu'), y[0])
+                for i in [8,9,10,11]:
+                    s = syms[i]
+                    nodes[s] = node >> grid[i, y[0]]
+                    nodes[s].text(s, "top", fontsize=SIZE)
+                    nodes[s].text("0", fontsize=SIZE)
+                    nodes[s].index = i
+
+                y[0] -= 1.0
+                instr(r"$\oplus$", ('out_anc', 'anc1'), y[0])
+
+            def f2():
+                y[0] -= 2.0
+                whilest[0] = y[0]
+                func(r"$+1$", (('k', _.GATE, ""),), y[0])
+                y[0] -= 1.5
+            def f3():
+                Bst[0] = y[0]
+                instr(r"$\oplus$", ('anc5', 'k'), y[0])
+                y[0] -= 1.0
+                instr(r"$\oplus$", ('anc5', 'nu'), y[0])
+                y[0] -= 1.0
+                instr(r"$\ominus(*)$", ("anc2", 'k', "anc5"), y[0])
+                y[0] -= 1.0
+                instr(r"$\plus(*)$", ("anc3", 'hz_2', "anc2"), y[0])
+                Bst[1] = y[0]
+
+            def f4():
+                d = dashed >> grid[6:11,Bst[0]:Bst[1]]
+                d.text("B", "top", fontsize=16)
+
+            def f41():
+                y[0] -= 1.5
+                func("imul", (("anc1", _.GATE, "#1"), ('anc3', _.C, ""), ('anc4', _.GATE, "#3")), y[0])
+                y[0] -= 1.0
+                instr(r"$\oplus$", ('out_anc', 'anc1'), y[0])
+
+            def f5():
+                y[0] -= 1.0
+                # uncompute
+                uncompute("~B", ['k', 'anc1', 'anc2', 'anc3', 'anc4', 'anc5'], y[0])
+                y[0] -= 0.2
+                whilest[1] = y[0]
+
+            def f6():
+                d = gray >> grid[5.8:12,whilest[0]:whilest[1]]
+                x_, y_ = d.pin("top")
+                plt.text(x_, y_+0.3, "pre: abs(anc1) > atol && abs(anc4) < atol", va='center', ha='center', fontsize=12, bbox=dict(facecolor='w', lw=0))
+                x_, y_ = d.pin("bottom")
+                plt.text(x_, y_-0.3, r"post: k != 0", va='center', ha='center', fontsize=12, bbox=dict(facecolor='w', lw=0))
+            def f62():
+                y[0] -= 1.8
+                instr(r"$\oplus$", ('out', 'out_anc'), y[0])
+                for anc in ['anc2', 'anc3', 'anc4', 'anc5']:
+                    p = node >> grid[nodes[anc].index, y[0]]
+                    p.text("0", fontsize=SIZE)
+                    edge >> (nodes[anc], p)
+
+            def f61():
+                Ast[1] = y[0] - 0.2
+                d = dashed >> grid[0:13,Ast[0]:Ast[1]]
+                d.text("A", "top", fontsize=16)
+
+            def f7():
+                # uncompute all
+                y[0] -= 1.2
+                uncompute("~A", syms[[0,1,2,3,4,5,6,7,12]], y[0])
+
+            def f8():
+                # end
+                y[0] -= 1.5
+                for n in nodes.values():
+                    if n.index == 0 or n.index == 4 or n.index == 13:
+                        p = innode >> grid[n.index, y[0]]
+                        edge >> (n, p)
+                    elif n.index>=8 and n.index<=11:
+                        pass
+                    else:
+                        p = node >> grid[n.index, y[0]]
+                        p.text("0", fontsize=SIZE)
+                        edge >> (n, p)
+                print(y[0])
+
+            #f1()
+            #f2()
+            #f3()
+            #f4()
+            #f41()
+            #f5()
+            #f6()
+            #f61()
+            #f62()
+            #f7()
+            #f8()
+            ds.steps = [f1, f2, f3, f4, f41, f5, f6, f61, f62, f7, f8]
+
+
 fire.Fire(PLT())
