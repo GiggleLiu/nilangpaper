@@ -98,6 +98,8 @@
 \newcommand{\vg}{{\mathbf{g}}}
 \newcommand{\vp}{{\mathbf{p}}}
 \newcommand{\vy}{{\mathbf{y}}}
+\newcommand{\Var}{{\mathrm{Var}}}
+\newcommand{\Mean}{{\mathrm{E}}}
 \newcommand{\vvalue}{{\texttt{value}}}
 \newcommand{\grad}{{\texttt{grad}}}
 \newcommand{\parameter}{{\texttt{parameter}}}
@@ -140,6 +142,7 @@
 \newcommand{\upcite}[1]{\textsuperscript{\cite{#1}}}
 \newcommand{\Eq}[1]{Eq.~(\ref{#1})}
 \newcommand{\Fig}[1]{Fig.~\ref{#1}}
+\newcommand{\Ref}[1]{Ref.~\onlinecite{#1}}
 \newcommand{\Tbl}[1]{Table~\ref{#1}}
 \newcommand{\Sec}[1]{Sec.~\ref{#1}}
 \newcommand{\App}[1]{Appendix \ref{#1}}
@@ -879,11 +882,11 @@ end
 
 This computational process could be diagramatically represented as a DAG as show in \Fig{fig:computational-graph}.
 The problem of this diagram is the data is represented as an edge, while in a simple graph, an edge connects at most two nodes. This underlines the fact that in a traditional computational graph, a variable can only be used in two functions, one as output and one as input. This also explains why DAG based computational graph can not be used to describe inplace functions, where data are used by multiple operations.
-For example, the red lines in the graph used to represent the reused variables in a \texttt{while} statement is in fact forbidden, it creates circles in the graph.
-\begin{figure}
-    \centerline{\includegraphics[width=\columnwidth,trim={0cm 6cm 0 0},clip]{images/computational_graph.pdf}}
+Control flows are often unrolled because loops are allowed in a DAG.
+\begin{figure*}
+    \centerline{\includegraphics[width=0.8\textwidth,trim={0cm 6cm 0 0},clip]{images/computational_graph.pdf}}
     \caption{Traditional computational graph for the reversible first kind Bessel function. Where a vertex (circle) is an operation and a directed edge is a variable. The gray region is the body of while loop.}\label{fig:computational-graph}
-\end{figure}
+\end{figure*}
 
 In the following, we introduce the reversible implementation and the data oriented computational graph.
 Intuitively, this problem mimics the famous pebble game~\cite{Perumalla2013}, since one can not release state $s_{n-1}$ directly after computing $s_n$.
@@ -977,10 +980,10 @@ It is also clear that the values of \texttt{z} and \texttt{$\nu$} are not change
     \includegraphics[width=0.4\columnwidth,trim={0cm 1.5cm 0cm 1.0cm},clip]{images/fig5.pdf}
 \end{figure}
 
-\begin{figure}
-    \centerline{\includegraphics[width=\columnwidth,trim={1cm 1cm 0 0},clip]{images/fig4.pdf}}
+\begin{figure*}
+    \centerline{\includegraphics[width=0.7\textwidth,trim={1cm 1cm 0 0},clip]{images/fig4.pdf}}
     \caption{Data oriented computational graph for the reversible first kind Bessel function. Circles connected by vertical lines are variables, while boxes and dots connected by parallel lines are operations. A dot on a line represents a control parameter while a box represents a mutable parameter. Annotations $\#1, \#2, \ldots$ are used the mark the positions of variables in the argument list. The gray box represents the body of a while loop, where a precondition and postcondition are positioned on top and bottom of this box.}\label{fig:datagraph}
-\end{figure}
+\end{figure*}
 
 To obtain gradients, one can wrap the variable \texttt{y!} with \texttt{Loss} type and feed it into \texttt{ibesselj\textquotesingle}
 
@@ -1185,25 +1188,21 @@ Here, the loss function \texttt{test1} is defined as the sum of the output unita
 %It should be possible to define other linear algebra functions reversiblly too. We leave this future projects.
 
 \subsection{Solving a graph embedding problem}\label{sec:graph}
-
-Consider the Petersen graph as shown in \Fig{fig:petersen}.
+Graph embeding has an interesting application of finding a representation for an order parameter~\cite{Takahashi2020} in condensed matter physics.
+\Ref{Takahashi2020} considers a problem of finding the minimum Eulidean space dimension $k$ that a Petersen graph can fit into, with extra requirements that the distance between a pair of connnected vertices has the same value $l_1$, the distance between a pair of disconnected vertices has the same value $l_2$ and $l_2 > l_1$.
+The Petersen graph is 10 vertices graph as shown in \Fig{fig:petersen}.
 \begin{figure}
     \centerline{\includegraphics[width=0.6\columnwidth,trim={0 1cm 0 0},clip]{images/petersen.pdf}}
     \caption{The Petersen graph with 10 vertices and 15 edges.}\label{fig:petersen}
 \end{figure}
-
-
-We want to embed it to a $k$ dimensional Euclidean space, so that the distance between a pair of neighboring vertices is $l_1$ while the distance between a pair o disconnected vertices is $l_2$. Find the minimum possible $k$.
-This problem, can be solved by differential pogramming by designing the following loss.
+Let's denote the set of connected and disconnected vertex pairs as $L_1$ and $L_2$ respectively. This problem can be variationally solved by differential pogramming by designing the following loss.
 \begin{align}
     \begin{split}
-        \mathcal{L} &= \sigma^2(\{|\vec r_i - \vec r_j|^2 \mid  i,j ~\text{are connected}\}) \\
-        &+ \sigma^2(\{|\vec r_i - \vec r_j|^2 \mid i,j ~\text{are not connected}\}\}) + 
+        \mathcal{L} &= \Var({\rm dist}(L_1)) + \Var({\rm dist}(L_2)) \\
+        &+\exp({\rm relu}(\Mean({\rm dist}(L_1)) - \Mean({\rm dist}(L_2)) + 0.1))) - 1
     \end{split}
 \end{align}
-where $\vec r_i \in \mathbb{R}^k$ is the position of $i$th vertex.
-We seperate vertex pairs into two categories by connectivity and compute the variance of squared distance in each category.
-The loss is defined as the summation of variances.
+The first line is a summation of distance variances in two sets of vertex pairs. The second line is used to guarante $l_2 > l_1$.
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
@@ -1218,37 +1217,49 @@ using NiLang, NiLang.AD
     end
 end
 
-@i function iloss(out!::T, x) where T
-    v1 ← zero(T)
-    m1 ← zero(T)
-    v2 ← zero(T)
-    m2 ← zero(T)
-    diff ← zero(T)
-    L1 ← [(1, 6), (2, 7), (3, 8), (4, 9), (5, 10),
+# bonds of a petersen graph
+const L1 = [(1, 6), (2, 7), (3, 8), (4, 9), (5, 10),
     (1, 2), (2, 3), (3, 4), (4, 5), (1, 5), (6, 8),
     (8, 10), (7, 10), (7, 9), (6, 9)]
-    L2 ← [(1, 3), (1, 4), (1, 7), (1, 8), (1, 9),
+
+# disconnected bonds of a petersen graph
+const L2 = [(1, 3), (1, 4), (1, 7), (1, 8), (1, 9),
     (1, 10), (2, 4), (2, 5), (2, 6), (2, 8), (2, 9),
     (2, 10), (3, 5), (3, 6), (3, 7), (3, 9), (3, 10),
     (4, 6), (4, 7), (4, 8), (4, 10), (5, 6), (5, 7),
     (5, 8), (5, 9), (6, 7), (6, 10), (7, 8), (8, 9),
     (9, 10)]
+
+@i function embedding_loss(out!::T, x) where T
+    v1 ← zero(T)
+    m1 ← zero(T)
+    v2 ← zero(T)
+    m2 ← zero(T)
+    diff ← zero(T)
     d1 ← zeros(T, length(L1))
     d2 ← zeros(T, length(L2))
     @routine begin
         for i=1:length(L1)
-            sqdistance(d1[i], x[:,L1[i][1]],
-                x[:,L1[i][2]])
+            sqdistance(d1[i], 
+                x[:,L1[i][1]],x[:,L1[i][2]])
         end
         for i=1:length(L2)
-            sqdistance(d2[i], x[:,L2[i][1]],
-                x[:,L2[i][2]])
+            sqdistance(d2[i],
+                x[:,L2[i][1]],x[:,L2[i][2]])
         end
-        var_and_mean(v1, m1, d1)
-        var_and_mean(v2, m2, d2)
+        var_and_mean_sq(v1, m1, d1)
+        var_and_mean_sq(v2, m2, d2)
+        m1 -= identity(m2)
+        m1 += identity(0.1)
     end
     out! += identity(v1)
     out! += identity(v2)
+    if (m1 > 0, ~)
+        # to ensure mean(v2) > mean(v1)
+        # if mean(v1)+0.1 - mean(v2) > 0, punish it.
+        out! += exp(m1)
+        out! -= identity(1)
+    end
     ~@routine
 end
 \end{lstlisting}
@@ -1262,9 +1273,10 @@ iloss'(Loss(0.0), randn(5, 10))
 \end{lstlisting}
 \end{minipage}
 
-In the training, we fixed two of the vertices and train the rest, otherwise the program will find the trivil solution of all same location. 
-The training uses Adam optimizer~\cite{}, a $20000$ steps training costs less than 2 seconds on a laptop. For $k=4$, we can get a loss close to machine precision, while for $k < 4$, the loss is much higher than $0$.
-From the solution, it is easy to verify $l_2/l_1 = 0$.
+We repeat the training for each dimension $k$ from $1$ to $9$ and search for possible solutions by variationally optimizing the positions of vertices.
+In each training, we fixed two of the vertices and train the rest, otherwise the program will find the trivil solution with overlapped vertices. 
+The training employs the Adam optimizer with a learning rate $0.01$~\cite{Kingma2014}, a $10000$ steps training costs less than 1 second on a laptop. For $k=5$, we can get a loss close to machine precision with high probability, while for $k < 5$, the loss is always much higher than $0$.
+From the solution, it is easy to verify $l_2/l_1 = \sqrt{2}$.
 
 \section{Discussion and outlook}\label{sec:discussion}
 In this paper, we show a program on an reversible Turing machine can be differentiated to any order reliably and efficiently without sophisticated designs to memorize computational graph and intermediate states. 
@@ -1476,6 +1488,8 @@ The list of instructions implemented in NiLang
             ${\rm SWAP}(a, b)$ & $b, a$\\
             ${\rm ROT}(a, b, \theta)$ & $a \cos\theta - b\sin\theta, b \cos\theta + a\sin\theta, \theta$\\
             ${\rm IROT}(a, b, \theta)$ & $a \cos\theta + b\sin\theta, b \cos\theta - a\sin\theta, \theta$\\
+            ${\rm MULINT}(a, b)$ & $a * b, b$\\
+            ${\rm DIVINT}(a, b)$ & $a / b, b$\\
             $y \pluseq a^\wedge b$ & $y+a^b, a, b$\\
             $y \pluseq \exp(x)$ & $y+e^x, x$\\
             $y \pluseq \log(x)$ & $y+\log x, x$\\
@@ -1487,7 +1501,7 @@ The list of instructions implemented in NiLang
             \bottomrule
         \end{tabularx}
     }
-    \caption{A collection of reversible instructions, ``.'' is the broadcasting operations in Julia.}\label{tbl:revinstructions}
+    \caption{A collection of reversible instructions, ``.'' is the broadcasting operations in Julia. The second argument of \texttt{MULINT} and \texttt{DIVINT} should be a nonzero integer.}\label{tbl:revinstructions}
 \end{minipage}
 \end{table}
 
@@ -1783,57 +1797,43 @@ In \texttt{norm2}, we copied \texttt{vec[i]\textquotesingle} to \texttt{anc1} to
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
 """
-    mean(out!, x)
+    var_and_mean_sq(var!, mean!, sqv)
 
-Get the mean value of `x`.
+Variance and mean value from squared values `sqv`.
 """
-@i function mean(out!, x)
-    anc ← zero(out!)
-    for i=1:length(x)
-        anc += identity(x[i])
+@i function var_and_mean_sq(var!, mean!, sqv)
+    sqmean ← zero(mean!)
+    @inbounds for i=1:length(sqv)
+        mean! += sqv[i] ^ 0.5
+        var! += identity(sqv[i])
     end
-    out! += anc / length(x)
-    anc -= out! * length(x)
-end
-\end{lstlisting}
-\end{minipage}
-
-\begin{minipage}{.44\textwidth}
-\begin{lstlisting}
-"""
-    var_and_mean(var!, mean!, v)
-
-Get the variance and mean of `x`.
-"""
-@i function var_and_mean(var!, mean!, v::AbstractVector{T}) where T
-    cum ← zero(var!)
-    n ← length(v)-1
-    mean(mean!, v)
-    for i=1:length(v)
-        v[i] -= identity(mean!)
-        cum += v[i] ^ 2
-        v[i] += identity(mean!)
-    end
-    var! += cum / n
-    cum -= var! * n
+    DIVINT(mean!, length(sqv))
+    DIVINT(var!, length(sqv))
+    sqmean += mean! ^ 2
+    var! -= identity(sqmean)
+    sqmean -= mean! ^ 2
+    MULINT(var!, length(sqv))
+    DIVINT(var!, length(sqv)-1)
 end
 \end{lstlisting}
 \end{minipage}
 
 \section{CUDA compitibility}\label{app:cuda}
-It is interesting to see how NiLang combines with other parts of Julia ecosystem like CUDAnative~\cite{Besard2018}.
-One can write a reversible kernel like
+CUDA programming is playing a more and more important role in high performance computing. In Julia, one can write kernel functions in native Julia language with CUDAnative~\cite{Besard2018}.
+NiLang is compatible with CUDAnative, one can write a reversible kernel like the following.
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
 using CuArrays, CUDAnative, GPUArrays
 using NiLang, NiLang.AD
 
-@i @inline function swap_kernel(state::AbstractVector{T}, mask1, mask2) where T
-    @invcheckoff b ← (blockIdx().x-1) * blockDim().x + threadIdx().x
+@i @inline function swap_kernel(state, mask1, mask2)
+    @invcheckoff b ← (blockIdx().x-1) * 
+        blockDim().x + threadIdx().x
     @invcheckoff if (b < length(state), ~)
         if (b&mask1==0 && b&mask2==mask2, ~)
-            NiLang.SWAP(state[b+1], state[b ⊻ (mask1|mask2) + 1])
+            SWAP(state[b+1], state[b ⊻ 
+                (mask1|mask2) + 1])
         end
     end
 end
@@ -1847,14 +1847,18 @@ One can lannch this kernel function to GPUs with a single macro \texttt{@cuda} a
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
-julia> @i function instruct!(state::CuVector, gate::Val{:SWAP}, locs::Tuple{Int,Int})
+julia> @i function instruct!(state::CuVector,
+            gate::Val{:SWAP}, locs::Tuple{Int,Int})
            mask1 ← 1 << (tget(locs, 1)-1)
            mask2 ← 1 << (tget(locs, 2)-1)
-           XY ← GPUArrays.thread_blocks_heuristic(length(state))
-           @cuda threads=tget(XY,1) blocks=tget(XY,2) swap_kernel(state, mask1, mask2)
+           XY ← GPUArrays.thread_blocks_heuristic(
+                length(state))
+           @cuda threads=tget(XY,1) blocks=tget(XY,
+                2) swap_kernel(state, mask1, mask2)
        end
 
-julia> instruct!(CuArray(randn(8)), Val(:SWAP), (1,3))[1]
+julia> instruct!(CuArray(randn(8)),
+            Val(:SWAP), (1,3))[1]
 8-element CuArray{Float64,1,Nothing}:
  -0.06956048379200473
  -0.6464176838567472
