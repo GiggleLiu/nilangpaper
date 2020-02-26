@@ -59,16 +59,17 @@ class PLT(object):
 
     def fig4(self, tp='pdf'):
         SIZE = 12
-        setting.node_setting['lw']=2
-        setting.node_setting['inner_lw']=2
-        edge = EdgeBrush('-', lw=2)
+        LW = 1.75
+        setting.node_setting['lw']=LW
+        setting.node_setting['inner_lw']=LW
+        edge = EdgeBrush('-', lw=LW)
         innode = NodeBrush('basic', color='#FFFF99')
         node = NodeBrush('basic', color='none')
         grid = Grid([1.2, 0.8])
         dashed = NodeBrush('box', size=(0.6, 0.4), ls="--", roundness=0.15)
         gray = NodeBrush('box', size=(0.6, 0.4), lw=0, color="#CCCCCC", roundness=0.15, zorder=-10)
-        box = NodeBrush('box', size=(0.6, 0.4), lw=2, color="none")
-        WIDE = NodeBrush("box", size=(0.6,0.3))
+        box = NodeBrush('box', size=(0.6, 0.4), lw=LW, color="none")
+        WIDE = NodeBrush("box", size=(0.5,0.3))
         def instr(cum, vs, y0):
             g = WIDE >> grid[vs[0].index, y0]
             g.text(cum, fontsize=12)
@@ -78,8 +79,9 @@ class PLT(object):
             c.index = vs[1].index
             edge >> (vs[1], c)
             if len(vs) == 3:
-                nc = _.NC >> grid[vs[2].index, y0]
+                nc = _.C >> grid[vs[2].index, y0]
                 nc.index = vs[2].index
+                nc.text("#2", "right", fontsize=SIZE)
                 edge >> (vs[2], nc)
 
                 ss = sorted([g, c, nc], key=lambda x: x.index)
@@ -180,8 +182,8 @@ class PLT(object):
             out_anc.index = n
 
             n += 1
-            out = node >> grid[n, 0]
-            out.text("out", "top", fontsize=SIZE)
+            out = innode >> grid[n, 0]
+            out.text("out!", "top", fontsize=SIZE)
             out.text("0", fontsize=SIZE)
             out.index = n
 
@@ -224,6 +226,7 @@ class PLT(object):
             nodes.extend([out_anc, out])
 
             nodes[6:12] = uncompute("~B", nodes[6:12], y)
+            ancs[:] = nodes[7:12]
             y -= 0.2
             whilestop = y
             stopA = y - 0.2
@@ -254,5 +257,46 @@ class PLT(object):
                     p = node >> grid[n.index, y]
                     p.text("0", fontsize=SIZE)
                 edge >> (n, p)
+
+    def fig5(self, tp='pdf'):
+        SIZE = 12
+        LW = 1.75
+        setting.node_setting['lw']=LW
+        setting.node_setting['inner_lw']=LW
+        edge = EdgeBrush('-', lw=LW)
+        innode = NodeBrush('basic', color='#FFFF99')
+        node = NodeBrush('basic', color='none')
+        grid = Grid([1.2, 0.8])
+        dashed = NodeBrush('box', size=(0.6, 0.4), ls="--", roundness=0.15)
+        gray = NodeBrush('box', size=(0.6, 0.4), lw=0, color="#CCCCCC", roundness=0.15, zorder=-10)
+        box = NodeBrush('box', size=(0.6, 0.4), lw=LW, color="none")
+        WIDE = NodeBrush("box", size=(0.5,0.3))
+
+        def func(op, vs, y0, fontsize=12, text_offset=0.3):
+            nodes = []
+            edges = []
+            ds = []
+            for (v, style, txt) in vs:
+                g = style >> grid[v, y0]
+                if style == _.C:
+                    g.text(txt, "bottom")
+                else:
+                    g.text(txt)
+                g.index = v
+                nodes.append(g)
+            ss = sorted(nodes, key=lambda x: x.index)
+            for si, sj in zip(ss[:-1], ss[1:]):
+                edges.append(edge >> (si, sj))
+                ds.append(sj.index - si.index)
+            if len(ss) == 1:
+                ss[0].text(op)
+            else:
+                edges[np.argmin(ds)].text(op, "top", text_offset=0.3, fontsize=fontsize)
+
+            return nodes
+
+        with DynamicShow((3,1.5), 'fig5.%s'%tp) as ds:
+            func("", ((0, _.C, "z"), (1, _.C, r"$\nu$"), (2, _.GATE, "out!")), 0)
+            plt.text(0.7, 0.4, "ibesselj",  fontsize=12)
 
 fire.Fire(PLT())

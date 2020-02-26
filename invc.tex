@@ -859,7 +859,33 @@ An Bessel function of the first kind of order $\nu$ can be computed using Taylor
 \begin{equation}
     J_\nu(z) = \sum\limits_{n=0}^{\infty} \frac{(z/2)^\nu}{\Gamma(k+1)\Gamma(k+\nu+1)} (-z^2/4)^{n}
 \end{equation}
-where $\Gamma(n) = (n-1)!$ is the Gamma function. One can compute the accumulated item iteratively as $s_n = -\frac{z^2}{4} s_{n-1}$.
+where $\Gamma(n) = (n-1)!$ is the Gamma function. One can compute the accumulated item iteratively as $s_n = -\frac{z^2}{4} s_{n-1}$. The irreversible implementation is
+
+\begin{minipage}{.44\textwidth}
+\begin{lstlisting}
+function besselj(ν, z; atol=1e-8)
+    k = 0
+    s = (z/2)^ν / factorial(ν)
+    out = s
+    while abs(s) > atol
+        k += 1
+        s *= (-1) / k / (k+ν) * (z/2)^2
+        out += s
+    end
+    out
+end
+\end{lstlisting}
+\end{minipage}
+
+This computational process could be diagramatically represented as a DAG as show in \Fig{fig:computational-graph}.
+The problem of this diagram is the data is represented as an edge, while in a simple graph, an edge connects at most two nodes. This underlines the fact that in a traditional computational graph, a variable can only be used in two functions, one as output and one as input. This also explains why DAG based computational graph can not be used to describe inplace functions, where data are used by multiple operations.
+For example, the red lines in the graph used to represent the reused variables in a \texttt{while} statement is in fact forbidden, it creates circles in the graph.
+\begin{figure}
+    \centerline{\includegraphics[width=0.6\columnwidth,trim={0cm 0cm 0 0},clip]{images/computational_graph.pdf}}
+    \caption{Traditional computational graph for the reversible first kind Bessel function. Where a vertex (circle) is an operation and a directed edge is a variable. The gray region is the body of while loop.}\label{fig:computational-graph}
+\end{figure}
+
+In the following, we introduce the reversible implementation and the data oriented computational graph.
 Intuitively, this problem mimics the famous pebble game~\cite{Perumalla2013}, since one can not release state $s_{n-1}$ directly after computing $s_n$.
 One would need an increasing size of tape to cache the intermediate state.
 To circumvent this problem. We introduce the following reversible approximate multiplier
@@ -939,6 +965,23 @@ The reason why the ``approximate uncomputing'' trick works here lies in the fact
 This trick can be used extensively in many other application. It mitigated the artifitial irreversibility brought by the number system that we have adopt at the cost of precision.
 %The \texttt{while} statement takes two conditions, the precondition and postcondition. Precondition \texttt{val(anc1) > atol} indicates when to break the forward pass and postcondition \texttt{iplus != 0} indicates when to break the backward pass.
 
+This reversible program can be diagramatically represented as a directed hypergraph as show in \Fig{fig:datagraph}.
+The key difference is we adopt a data centric view.
+In this view, we classify the arguments of an operation into control parameters and mutable parameters.
+A control parameter is represented as a dot, it does not change after the operation.
+We can using this property to analyse uncomputable variables. For example in routine ``B'' \texttt{anc2}, \texttt{anc3} and \texttt{anc5} are changed in the compute session.
+\texttt{anc2} and \texttt{anc4} are changed in the copy session, while \texttt{anc3} is used but not changed in function \texttt{imul}.
+Hence we can call the inverse routine \texttt{$\sim$B} to safely uncompute \texttt{anc2}, \texttt{anc3} and \texttt{anc5} and reuse them in the next iteration.
+It is also clear that the values of \texttt{z} and \texttt{$\nu$} are not changed in this function, while \texttt{out!} is changed to the desired output. It can be represented as the following.
+\begin{figure}[htp]
+    \includegraphics[width=0.4\columnwidth,trim={0cm 1.5cm 0cm 1.0cm},clip]{images/fig5.pdf}
+\end{figure}
+
+\begin{figure}
+    \centerline{\includegraphics[width=\columnwidth,trim={1cm 1cm 0 0},clip]{images/fig4.pdf}}
+    \caption{Data oriented computational graph for the reversible first kind Bessel function. Circles connected by vertical lines are variables, while boxes and dots connected by parallel lines are operations. A dot on a line represents a control parameter while a box represents a mutable parameter. Annotations $\#1, \#2, \ldots$ are used the mark the positions of variables in the argument list. The gray box represents the body of a while loop, where a precondition and postcondition are positioned on top and bottom of this box.}\label{fig:datagraph}
+\end{figure}
+
 To obtain gradients, one can wrap the variable \texttt{y!} with \texttt{Loss} type and feed it into \texttt{ibesselj\textquotesingle}
 
 \begin{minipage}{.44\textwidth}
@@ -984,12 +1027,6 @@ julia> collect_hessian()
 \texttt{ibesselj\textquotesingle\textquotesingle} computes the second-order gradients. It wraps variables with type \texttt{BeijingRing}~\footnote{When people ask for the location in Beijing, they will start by asking which ring it is? We use the similar approach to locate the elements of Hessian matrix.} in the backward pass. \texttt{BeijingRing} records Jacobians and Hessians for a variable, where Hessians are stored in a global storage.
 Whenever an $n$-th variable or ancilla is created, we push a ring of size $2n-1$ to a global tape. Whenever an ancilla is deallocated, we pop a ring from the top. The $n$-th ring stores Hessian elements $H_{i\leq n,n}$ and $H_{n,i<n}$.% We didn't use the symmetry relation $H_{i,j} = H_{j,i}$ to save memory here in order to simplify the implementation of backward rules described in the right most panel of \Fig{fig:ad}.
 The final result can be collected by calling \texttt{collect\_hessian()}, which will read out the Hessian matrix that stored in the global storage.
-
-\begin{figure}
-    \centerline{\includegraphics[width=\columnwidth,trim={0 0cm 0 0},clip]{images/fig4.pdf}}
-    \caption{Data oriented computational graph for the reversible bessel function. It is basically the line graph of the computational graph. A node (round circle) is a data, while connections are operations.}\label{fig:datagraph}
-\end{figure}
-
 
 \subsection{Unitary Matrices}\label{sec:umm}
 A unitary matrices features uniform eigenvalues and reversibility. It is widely used as an approach to ease the gradient exploding and vanishing problem~\cite{Arjovsky2015,Wisdom2016,Li2016} and the memory wall problem~\cite{Luo2019}.

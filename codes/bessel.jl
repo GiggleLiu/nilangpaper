@@ -3,9 +3,9 @@ using NiLang, NiLang.AD
 """
     J(ν, z) := ∑ (−1)^k / Γ(k+1) / Γ(k+ν+1) * (z/2)^(ν+2k)
 """
-function bessel(ν, z; atol=1e-8)
+function besselj(ν, z; atol=1e-8)
     k = 0
-    s = (z/2)^ν / gamma(ν+1)
+    s = (z/2)^ν / factorial(ν)
     out = s
     while abs(s) > atol
         k += 1
