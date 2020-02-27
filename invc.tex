@@ -157,6 +157,7 @@
 \newcommand{\red}[1]{[{\bf  \color{red}{LW: #1}}]}
 \newcommand{\xred}[1]{[{\bf  \color{red}{\sout{LW: #1}}}]}
 \newcommand{\blue}[1]{[{\bf  \color{blue}{JG: #1}}]}
+\newcommand{\violet}[1]{[{\bf  \color{violet}{MLS: #1}}]}
 \newcommand{\green}[1]{[{\bf  \color{green}{TZ: #1}}]}
 \newcommand{\xgreen}[1]{[{\bf  \color{green}{\sout{TZ: #1}}}]}
 \newcommand{\xblue}[1]{[{\bf  \color{blue}{\sout{JG: #1}}}]}
@@ -248,6 +249,7 @@ However, implementing adjoint mode AD is harder than implementing its tangent mo
 \section{Language design}\label{sec:lang}
 
 \subsection{Intruductions to reversible language design}
+    \violet{Add more introduction to reversible programming}
     In a modern programming language, functions are pushed to a global stack for scheduling. The memory layout of a function consists of input arguments, a function frame with information like the return address and saved memory segments, local variables, and working stack. After the call, the function clears these runtime information, only stores the return value. In the reversible programming style, this kind of design pattern is no longer the best practice. One can not discard input variables and local variables easily after a function call, since discarding information may ruin reversibility. For this reason, reversible functions are very different from irreversible ones from multiple perspectives.
 
     First of all, the memory management in a reversible language is different.
@@ -258,7 +260,7 @@ However, implementing adjoint mode AD is harder than implementing its tangent mo
 
 \begin{figure}
     \centerline{\includegraphics[width=0.8\columnwidth,trim={0 0cm 0 0cm},clip]{images/controlflow.pdf}}
-    \caption{Flow chart for reversible (a) \texttt{if} statement and (b) \texttt{while} statement. ``stmts'', ``stmts1'' and ``stmts2'' are statements, statements in true branch and statements in false branch respectively. ``pre'' and ``post'' are precondition and postconditions respectively.}\label{fig:controlflow}
+    \caption{Flow chart for reversible (a) \texttt{if} statement and (b) \texttt{while} statement. ``stmts'', ``stmts1'' and ``stmts2'' are statements, statements in true branch and statements in false branch respectively. ``pre'' and ``post'' are precondition and postconditions\violet{explain postcondition} respectively.}\label{fig:controlflow}
 \end{figure}
 Secondly, a reversible control flow is sepcially designed.
 The reversible \texttt{if} statement is shown in \Fig{fig:controlflow} (a), the program enters the branch specified by precondition. After executing that branch, the program checks the consistency of precondition and postcondition to make sure they are the same. In the reverse pass, the program enters the branch specified by the postcondition.
@@ -596,7 +598,7 @@ Local Jacobians and Hessians for basic instructions used in this section could b
 
 \subsection{First order gradient}\label{sec:jacobian}
 Consider a computation $\vx^{i-1} = f_{i}^{-1}(\vx^{i})$ in a reversed program,
-the adjoint mode AD propagates the Jacobians in the reversed direction like
+the adjoint mode AD\violet{adjoint mode AD does not propagate Jacobians.} propagates the Jacobians in the reversed direction like
 \begin{align}
     \begin{split}
         J^{\out}_{\out'} &= \delta_{\out,\out'},\\
@@ -889,7 +891,7 @@ Control flows are often unrolled because loops are allowed in a DAG.
 \end{figure*}
 
 In the following, we introduce the reversible implementation and the data oriented computational graph.
-Intuitively, this problem mimics the famous pebble game~\cite{Perumalla2013}, since one can not release state $s_{n-1}$ directly after computing $s_n$.
+Intuitively, this problem mimics the famous pebble game~\cite{Perumalla2013}\violet{explain pebble game.}, since one can not release state $s_{n-1}$ directly after computing $s_n$.
 One would need an increasing size of tape to cache the intermediate state.
 To circumvent this problem. We introduce the following reversible approximate multiplier
 
