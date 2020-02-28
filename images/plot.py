@@ -503,8 +503,9 @@ class PLT(object):
         LW = 1.75
         setting.node_setting['lw']=LW
         setting.node_setting['inner_lw']=LW
+        setting.edge_setting['doubleline_space']=0.03
         edge = EdgeBrush('-', lw=LW)
-        edge2 = EdgeBrush('=', lw=LW)
+        edge2 = EdgeBrush('=', lw=1.25)
         innode = NodeBrush('basic', color='#FFFF99')
         node = NodeBrush('basic', color='none')
         graynode = NodeBrush('tn.mpo', color='#999999')

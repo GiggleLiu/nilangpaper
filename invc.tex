@@ -257,7 +257,7 @@ The memory is becoming a wall~\cite{Luo2019} that limits the scale of many appli
     A variable can also be pushed to a stack and used later with a pop statement. This is similar to a traditional stack operation except it zero-clears the variable after pushing and presupposes the variable being zero-cleared before poping.
 \begin{figure}
     \centerline{\includegraphics[width=\columnwidth,trim={0 1cm 0 0cm},clip]{images/fig6.pdf}}
-    \caption{Data oriented computational graph that shows the compute-copy-uncompute design pattern. Circles connected by vertical lines are variables, while boxes and dots connected by parallel lines are operations. A dot on a line represents a control parameter while a box represents a mutable parameter.
+    \caption{Data oriented computational graph that shows the compute-copy-uncompute design pattern. Notations are highly inspired by quantum circuit. Circles connected by vertical lines are variables, where double lines represents multiple variables. Boxes and dots connected by parallel lines are operations. A dot on a line represents a control parameter while a box represents a mutable parameter.
     }\label{fig:ccu}
 \end{figure}
 Since deallocating a memory requires knowing the contents in the memory, then the compute-copy-uncompute design pattern would be very useful.
