@@ -221,6 +221,7 @@ However, implementing adjoint mode AD is harder than implementing its tangent mo
     The computational process is often stored in a computational graph, a directed acyclic graph (DAG) that represents the relationship between data and functions. In Pytorch~\cite{Paszke2017} and Flux~\cite{Innes2018a}, every variable has a tracker field that stores its parent information, i.e., the input data and function generating this variable. TensorFlow~\cite{Tensorflow2015} implements a static computational graph as a description of the program before actual computation happens. The required variables are also recorded in this graph.
     For source to source AD package, Tools like Tapenade~\cite{Hascoet2013} and Zygote~\cite{Innes2018, Innes2019} generate the adjoint code statically while putting variable on a stack called the wengert list.
     As reverse mode AD require storing intermediate result, the memory consumption of the program is typically O(n) where n is the runtime of the program. In many deep learning models like recurrent neural network~\cite{Lipton2015} and residual neural networks~\cite{He2016}, the depth can reach several thousand, where the memory is often the bottleneck of these programs. In traditional AD application, program that might do billions of computations will as well get a wengert list in the range of GBs, thus memory will become a bottleneck as well.
+The memory is becoming a wall~\cite{Luo2019} that limits the scale of many applications on GPU. The computational power of a Nvidia V100 GPU can reaches 100 TFLOPS, which is the scale of a mini cluster. However, it memory is only 32GB. A better solution to memory menagement should be found.
 
 % where the manually derived backwards rule still faces the degenerate spectrum problem (gradients explodes), instruction-level AD will return reasonable gradients. With instruction-level AD, people don't worry about inplace functions, which may be a huge problem in traditional approaches. We can back-propagate over a quantum simulator, where all instructions are reversible two level unitaries (i.e. Jacobian rotation).
 
@@ -254,16 +255,26 @@ However, implementing adjoint mode AD is harder than implementing its tangent mo
     We denote the allocation of a zero emptied memory to variable \texttt{x} as \texttt{x $\leftarrow$ 0}, and deallocate a zero emptied variable \texttt{x} as \texttt{x $\rightarrow$ 0}.
     A variable allocated and deallocated in a local scope is called an ancilla, it does not occupy the memory for long period.
     A variable can also be pushed to a stack and used later with a pop statement. This is similar to a traditional stack operation except it zero-clears the variable after pushing and presupposes the variable being zero-cleared before poping.
-
 \begin{figure}
-    \centerline{\includegraphics[width=0.8\columnwidth,trim={0 0cm 0 0cm},clip]{images/controlflow.pdf}}
-    \caption{Flow chart for reversible (a) \texttt{if} statement and (b) \texttt{while} statement. ``stmts'', ``stmts1'' and ``stmts2'' are statements, statements in true branch and statements in false branch respectively. ``pre'' and ``post'' are precondition and postconditions respectively.}\label{fig:controlflow}
+    \centerline{\includegraphics[width=\columnwidth,trim={0 1cm 0 0cm},clip]{images/fig6.pdf}}
+    \caption{Data oriented computational graph that shows the compute-copy-uncompute design pattern. Circles connected by vertical lines are variables, while boxes and dots connected by parallel lines are operations. A dot on a line represents a control parameter while a box represents a mutable parameter.
+    }\label{fig:ccu}
 \end{figure}
+Since deallocating a memory requires knowing the contents in the memory, then the compute-copy-uncompute design pattern would be very useful.
+As show in \Fig{fig:ccu} (a), In the computing pass in dashed box \texttt{X}, the program executes on space $x_{1\colon 3}$ and computes desired result. In the copying pass, the contents in $x_3$ is readed out because this is the piece of information that we care. After storing this information into a pre-emptied memory $x_4$ through addition operation $\oplus$.
+Since this copy operation does not change contents of $x_{1\colon 3}$, we can use the inverse operation \texttt{$\sim$X} to restore their values to the initial values. If some of these uncomputed variables are initialized to some known value like $0$, now they can be deallocated since their states is known again.
+If this subroutine of generating $x_4$ is used in another program as shown in \Fig{fig:ccu} (b), $x_4$ can be uncomputed by the reversing this subroutine.
+The interesting fact is, $X$ and $~X$ are both executed twice, which is not nessesary. However, if we cancel a pair of $X$ and $~X$ (the gray boxes), we need to keep the memory $x_{1\colon3}$ during computing $f(x_4)$, since they are not known to compiler. This is a trade off between space and time, which we will discuss in more details in \Sec{sec:timespace}.
+
 Secondly, a reversible control flow is sepcially designed.
 The reversible \texttt{if} statement is shown in \Fig{fig:controlflow} (a). It contains two conditions, a precondition and a postcondition. The precondition decides which branch to enter in the forward execution, while the postcondition decides which branch to enter in the backward execution. After executing the specific branch, the program checks the consistency between precondition and postcondition to make sure they are the consistent.
 The reversible \texttt{while} statement is shown in \Fig{fig:controlflow} (b). It also has both precondition and postcondition. Before executing the condition expressions, the program preassumes the postcondition is false.
 After each iteration, the program asserts the postcondition to be true. In the reverse pass, we exchange the precondition and postcondition.
 The reversible \texttt{for} statement is similar to irreversible ones except after executing the loop, the program checks the values of these variables to make sure they are not changed. In the reverse pass, we exchange start and stop and inverse the sign of step.
+\begin{figure}
+    \centerline{\includegraphics[width=0.8\columnwidth,trim={0 0cm 0 0cm},clip]{images/controlflow.pdf}}
+    \caption{Flow chart for reversible (a) \texttt{if} statement and (b) \texttt{while} statement. ``stmts'', ``stmts1'' and ``stmts2'' are statements, statements in true branch and statements in false branch respectively. ``pre'' and ``post'' are precondition and postconditions respectively.}\label{fig:controlflow}
+\end{figure}
 
 Lastly, the reversible arithmetic and boolean instructions are also different. Every instruction has a unique inverse that can undo the changes.
 For logical expressions, we have \texttt{y $\veebar$= f(args...)} self reversible.

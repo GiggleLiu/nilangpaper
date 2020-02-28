@@ -312,7 +312,6 @@ class PLT(object):
         gray = NodeBrush('box', size=(0.6, 0.4), lw=0, color="#CCCCCC", roundness=0.15, zorder=-10)
         box = NodeBrush('box', size=(0.6, 0.4), lw=LW, color="none")
         WIDE = NodeBrush("box", size=(0.5,0.3))
-        inv = NodeBrush("invisible")
         nodes = {}
         def instr(cum, vs, y0):
             g = WIDE >> grid[nodes[vs[0]].index, y0]
@@ -499,5 +498,172 @@ class PLT(object):
             #f8()
             ds.steps = [f1, f2, f3, f4, f41, f5, f6, f61, f62, f7, f8]
 
+    def fig6(self, tp="pdf"):
+        SIZE = 12
+        LW = 1.75
+        setting.node_setting['lw']=LW
+        setting.node_setting['inner_lw']=LW
+        edge = EdgeBrush('-', lw=LW)
+        edge2 = EdgeBrush('=', lw=LW)
+        innode = NodeBrush('basic', color='#FFFF99')
+        node = NodeBrush('basic', color='none')
+        graynode = NodeBrush('tn.mpo', color='#999999')
+        grid = Grid([1.2, 0.8])
+        dashed = NodeBrush('box', size=(0.6, 0.4), ls="--", roundness=0.15)
+        gray = NodeBrush('box', size=(0.6, 0.4), lw=0, color="#CCCCCC", roundness=0.15, zorder=-10)
+        box = NodeBrush('box', size=(0.6, 0.4), lw=LW, color="none")
+        WIDE = NodeBrush("box", size=(0.5,0.3))
+        inv = NodeBrush("invisible")
+        nodes = {}
+        doubleline=[False, False, False, False]
+        def instr(cum, vs, y0):
+            g = WIDE >> grid[nodes[vs[0]].index, y0]
+            g.text(cum, fontsize=12)
+            g.index = nodes[vs[0]].index
+            edge >> (nodes[vs[0]], g)
+            c = _.C >> grid[nodes[vs[1]].index, y0]
+            c.index = nodes[vs[1]].index
+            edge >> (nodes[vs[1]], c)
+            if len(vs) == 3:
+                nc = _.C >> grid[nodes[vs[2]].index, y0]
+                nc.index = nodes[vs[2]].index
+                nc.text("#2", "right", fontsize=SIZE)
+                edge >> (nodes[vs[2]], nc)
+
+                ss = sorted([g, c, nc], key=lambda x: x.index)
+                e = edge >> (ss[0], ss[1])
+                e2 = edge >> (ss[1], ss[2])
+                nodes[vs[0]] = g
+                nodes[vs[1]] = c
+                nodes[vs[2]] = nc
+            else:
+                e = edge >> (g, c)
+                nodes[vs[0]] = g
+                nodes[vs[1]] = c
+
+        def func(op, vs, y0, fontsize=12, text_offset=0.3, node=node):
+            edges = []
+            ds = []
+            for (v, style, txt) in vs:
+                g = style >> grid[nodes[v].index, y0]
+                g.index = nodes[v].index
+                g.text(txt)
+                (edge2 if doubleline[nodes[v].index] else edge) >> (nodes[v], g)
+                nodes[v] = g
+            ss = sorted([nodes[v[0]] for v in vs], key=lambda x: x.index)
+            for si, sj in zip(ss[:-1], ss[1:]):
+                edges.append(edge >> (si, sj))
+                ds.append(sj.index - si.index)
+            if len(ss) == 1:
+                ss[0].text(op)
+            else:
+                edges[np.argmin(ds)].text(op, "top", text_offset=0.3, fontsize=fontsize)
+
+
+        def uncompute(txt, vs, y):
+            indices = [nodes[x].index for x in vs]
+            imin = np.min(indices)
+            imax = np.max(indices)
+            b = box >> grid[imin:imax, y:y]
+            b.text(txt, fontsize=16)
+            for n in vs:
+                edge >> (nodes[n], b.pin("top", align=nodes[n]))
+                nn = b.pin("bottom", align=nodes[n])
+                nn.index = nodes[n].index
+                nodes[n] = nn
+
+        with DynamicShow((7,5), 'fig6.%s'%tp) as ds:
+            grid.offset = (0, -1)
+            syms = np.array(['x1', 'x2', 'x3', 'x4'])
+            for n in range(4):
+                s = syms[n]
+                nodes[s] = node >> grid[n, 0]
+                nodes[s].text(r"$x_{%d}$"%(n+1), fontsize=SIZE)
+                nodes[s].index = n
+            whilest = [0, 0]
+            Ast = [0, 0]
+            Bst = [0, 0]
+            y = [0]
+
+            y[0] -= 1.2
+            Ast[0] = y[0]
+            func("", (("x1", _.C, ""), ('x2', _.GATE, "A")), y[0])
+            func("", (('x3', _.GATE, "B"),), y[0])
+
+            y[0] -= 1.0
+            func("", (("x2", _.GATE, "C"), ('x3', _.GATE, "")), y[0])
+            Ast[1] = y[0]
+            d = dashed >> grid[0.2:2,Ast[0]:Ast[1]]
+            d.text("X", "left", fontsize=16)
+
+            y[0] -= 1.0
+            func("", (("x3", _.C, ""), ('x4', _.GATE, r"$\oplus$")), y[0])
+
+            y[0] -= 1.0
+            Bst[0] = y[0]
+            func(r"", (("x2", _.GATE, "~C"), ('x3', _.GATE, "")), y[0])
+
+            y[0] -= 1.0
+            func("", (("x1", _.C, ""), ('x2', _.GATE, "~A")), y[0])
+            func("", (('x3', _.GATE, "~B"),), y[0])
+            Bst[1] = y[0]
+            d = dashed >> grid[0.2:2,Bst[0]:Bst[1]]
+            d.text("~X", "left", fontsize=16)
+
+            y[0] -= 1.2
+            for n in range(4):
+                ni = node >> grid[n, y[0]]
+                edge >> (ni, nodes[syms[n]])
+
+            doubleline[:]=[True, False, True]
+            grid.offset = (6, 0)
+            y[0] = 0
+            syms = np.array(['x1t3', 'x4', 'x5tn'])
+            texts = np.array([r'$x_{1\colon 3}$', r'$x_{4}$', r'$x_{5\colon n}$'])
+            for n in range(3):
+                s = syms[n]
+                nodes[s] = node >> grid[n, 0]
+                nodes[s].text(texts[n], fontsize=12 if n==1 else 10)
+                nodes[s].index = n
+            whilest = [0, 0]
+            Ast = [0, 0]
+            Bst = [0, 0]
+            y = [0]
+
+            y[0] -= 1.2
+            Ast[0] = y[0]
+            func("", (('x1t3', _.GATE, "X"),), y[0])
+
+            y[0] -= 1.0
+            func("", (("x1t3", _.C, ""), ('x4', _.GATE, r"$\oplus$")), y[0])
+
+            y[0] -= 1.0
+            func("", (('x1t3', graynode, "~X"),), y[0])
+            Ast[1] = y[0]
+            d = dashed >> grid[0:1,Ast[0]:Ast[1]]
+            d.text("Y", "left", fontsize=16)
+
+            y[0] -= 1.0
+            func(r"", (("x4", _.C, ""), ('x5tn', _.WIDE, "$f(x_4)$")), y[0])
+
+            y[0] -= 1.0
+            Bst[0] = y[0]
+            func("", (('x1t3', graynode, "X"),), y[0])
+
+            y[0] -= 1.0
+            func("", (("x1t3", _.C, ""), ('x4', _.GATE, r"$\oplus$")), y[0])
+
+            y[0] -= 1.0
+            func("", (('x1t3', _.GATE, "~X"),), y[0])
+            Bst[1] = y[0]
+            d = dashed >> grid[0:1,Bst[0]:Bst[1]]
+            d.text("~Y", "left", fontsize=16)
+
+            y[0] -= 1.2
+            for n in range(3):
+                ni = node >> grid[n, y[0]]
+                (edge if n==1 else edge2) >> (ni, nodes[syms[n]])
+            plt.text(-1.3, 0, "(a)", fontsize=14)
+            plt.text(4.7, 0, "(b)", fontsize=14)
 
 fire.Fire(PLT())
