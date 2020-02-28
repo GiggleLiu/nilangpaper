@@ -199,8 +199,6 @@
 
 %\begin{multicols}{2}
 \section{Introduction}\label{sec:intro}
-    \blue{this is a comment!}
-
     Computing the gradients of a numeric model $f : \mathbb{R}^m \rightarrow \mathbb{R}^n$ plays a crutial role in scientific computing. Consider a computing process
 \begin{align*}
     &\vx^1 = f_1(\vx^0)\\
@@ -212,7 +210,7 @@ where $x^0\in R^m$, $x^L\in R^n$, $L$ is the depth of computing.
 The Jacobian of this program is a $n\times m$ matrix $J_{ij} \equiv \frac{\partial x^L_i}{\partial x_j^0}$, where $x_j^0$ and $x_i^L$ are single elements of inputs and outputs.
 Computing part of the Jacobian automatically is what we called automatic differentiation (AD). It can be classified into three classes, the tangent mode AD, the adjoint mode AD and the mixed mode AD.~\cite{Hascoet2013}
 The tangent mode AD computes the Jacobian matrix elements that related to a single input using the chain rule $\frac{\partial \vx^k}{\partial x^0_j} = \frac{\partial \vx^k}{\partial \vx^{k-1}}\frac{\partial \vx^{k-1}}{\partial x^0_j}$, while a tangent mode AD computes Jacobian matrix elements that related to a single output using $\frac{\partial \vx^k}{\partial x^0_j} = \frac{\partial \vx^k}{\partial \vx^{k-1}}\frac{\partial \vx^{k-1}}{\partial x^0_j}$.
-    In variational applications where the loss function always outputs a scalar, the adjoint mode AD is perfered,.
+    In variational applications where the loss function always outputs a scalar, the adjoint mode AD is perfered.
 However, implementing adjoint mode AD is harder than implementing its tangent mode counterpart, because it requires propagating the gradients in the inverse direction of computing the loss. The back propagation of gradients requires intermediate information of a program that includes
 \begin{enumerate}
     \item the computational process,
@@ -221,7 +219,9 @@ However, implementing adjoint mode AD is harder than implementing its tangent mo
     The computational process is often stored in a computational graph, a directed acyclic graph (DAG) that represents the relationship between data and functions. In Pytorch~\cite{Paszke2017} and Flux~\cite{Innes2018a}, every variable has a tracker field that stores its parent information, i.e., the input data and function generating this variable. TensorFlow~\cite{Tensorflow2015} implements a static computational graph as a description of the program before actual computation happens. The required variables are also recorded in this graph.
     For source to source AD package, Tools like Tapenade~\cite{Hascoet2013} and Zygote~\cite{Innes2018, Innes2019} generate the adjoint code statically while putting variable on a stack called the wengert list.
     As reverse mode AD require storing intermediate result, the memory consumption of the program is typically O(n) where n is the runtime of the program. In many deep learning models like recurrent neural network~\cite{Lipton2015} and residual neural networks~\cite{He2016}, the depth can reach several thousand, where the memory is often the bottleneck of these programs. In traditional AD application, program that might do billions of computations will as well get a wengert list in the range of GBs, thus memory will become a bottleneck as well.
-The memory is becoming a wall~\cite{Luo2019} that limits the scale of many applications on GPU. The computational power of a Nvidia V100 GPU can reaches 100 TFLOPS, which is the scale of a mini cluster. However, it memory is only 32GB. A better solution to memory menagement should be found.
+The memory management is becoming a wall~\cite{Luo2019} that limits the scale of many applications on GPU. The computational power of a Nvidia V100 GPU can reaches 100 TFLOPS, which is the scale of a mini cluster. However, it memory is only 32GB. A better solution to memory menagement should be found.
+    \blue{@MLS, Do you have any good comments about starving CPU, i.e. memory accessing is consuming much more time than computing itself.
+    This is why caching itermediate result is a performance killer.}
 
 % where the manually derived backwards rule still faces the degenerate spectrum problem (gradients explodes), instruction-level AD will return reasonable gradients. With instruction-level AD, people don't worry about inplace functions, which may be a huge problem in traditional approaches. We can back-propagate over a quantum simulator, where all instructions are reversible two level unitaries (i.e. Jacobian rotation).
 
