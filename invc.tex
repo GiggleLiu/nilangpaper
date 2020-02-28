@@ -260,11 +260,11 @@ However, implementing adjoint mode AD is harder than implementing its tangent mo
 
 \begin{figure}
     \centerline{\includegraphics[width=0.8\columnwidth,trim={0 0cm 0 0cm},clip]{images/controlflow.pdf}}
-    \caption{Flow chart for reversible (a) \texttt{if} statement and (b) \texttt{while} statement. ``stmts'', ``stmts1'' and ``stmts2'' are statements, statements in true branch and statements in false branch respectively. ``pre'' and ``post'' are precondition and postconditions\violet{explain postcondition} respectively.}\label{fig:controlflow}
+    \caption{Flow chart for reversible (a) \texttt{if} statement and (b) \texttt{while} statement. ``stmts'', ``stmts1'' and ``stmts2'' are statements, statements in true branch and statements in false branch respectively. ``pre'' and ``post'' are precondition and postconditions respectively.}\label{fig:controlflow}
 \end{figure}
 Secondly, a reversible control flow is sepcially designed.
-The reversible \texttt{if} statement is shown in \Fig{fig:controlflow} (a), the program enters the branch specified by precondition. After executing that branch, the program checks the consistency of precondition and postcondition to make sure they are the same. In the reverse pass, the program enters the branch specified by the postcondition.
-For the reversible \texttt{while} statement shown in \Fig{fig:controlflow} (b), before executing the condition expressions, the program preassumes the postcondition is false.
+The reversible \texttt{if} statement is shown in \Fig{fig:controlflow} (a). It contains two conditions, a precondition and a postcondition. The precondition decides which branch to enter in the forward execution, while the postcondition decides which branch to enter in the backward execution. After executing the specific branch, the program checks the consistency between precondition and postcondition to make sure they are the consistent.
+The reversible \texttt{while} statement is shown in \Fig{fig:controlflow} (b). It also has both precondition and postcondition. Before executing the condition expressions, the program preassumes the postcondition is false.
 After each iteration, the program asserts the postcondition to be true. In the reverse pass, we exchange the precondition and postcondition.
 The reversible \texttt{for} statement is similar to irreversible ones except after executing the loop, the program checks the values of these variables to make sure they are not changed. In the reverse pass, we exchange start and stop and inverse the sign of step.
 
@@ -597,8 +597,8 @@ The assignments in lines 4 and 5 are straightforward.
 Local Jacobians and Hessians for basic instructions used in this section could be found in \App{app:jacobians}.
 
 \subsection{First order gradient}\label{sec:jacobian}
-Consider a computation $\vx^{i-1} = f_{i}^{-1}(\vx^{i})$ in a reversed program,
-the adjoint mode AD\violet{adjoint mode AD does not propagate Jacobians.} propagates the Jacobians in the reversed direction like
+Consider a computation $\vx^{i-1} = f_{i}^{-1}(\vx^{i})$ in a reversed program, the Jacobians can be propagated in the reversed direction like
+\violet{adjoint mode AD does not propagate Jacobians.}\blue{now?}
 \begin{align}
     \begin{split}
         J^{\out}_{\out'} &= \delta_{\out,\out'},\\
@@ -633,7 +633,7 @@ Finally, execute the inverse program \texttt{$f^{-1}$}, the gradients are stored
 The computation of gradients are implemented with multiple dispatch, that is, when an instruction has a \texttt{GVar} type in its argument list, it calls a different routine. The same trick is used in the dual number implementation of tangent mode AD~\cite{Revels2016}.
 %Its inverse \texttt{$\sim$GVar} deallocates the gradient field safely and returns its value field.  Here, "safely" means before deallocation, the program will check the gradient field to make sure its value is restored to $0$.
 %When an instruction \texttt{instruct} meets a \texttt{GVar}, besides computing its value field $\vvalue(\vy) = \texttt{instruct}(\vvalue(\vx))$, it also updates the gradient field $\grad(\vy) = \left[J^{\vy}_{\vx}\right]^{-1} \grad(\vx)$, where $\left[J^{\vy}_{\vx}\right]^{-1}$ is the Jacobian of $\texttt{instruct}^{-1}$. One can define this gradient function on either \texttt{instruct} or \texttt{instruct${}^{-1}$}.
-In the following, we examplify the design by binding the adjoint rules to instructions \texttt{$\oplus(*)$} and \texttt{$\ominus(*)$}
+In the following, we examplify the design by binding the backward rules to instructions \texttt{$\oplus(*)$} and \texttt{$\ominus(*)$}
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}[mathescape=true]
@@ -891,9 +891,8 @@ Control flows are often unrolled because loops are allowed in a DAG.
 \end{figure*}
 
 In the following, we introduce the reversible implementation and the data oriented computational graph.
-Intuitively, this problem mimics the famous pebble game~\cite{Perumalla2013}\violet{explain pebble game.}, since one can not release state $s_{n-1}$ directly after computing $s_n$.
-One would need an increasing size of tape to cache the intermediate state.
-To circumvent this problem. We introduce the following reversible approximate multiplier
+Intuitively, one needs an increasing size of tape to cache the intermediate state, since one can not release state $s_{n-1}$ directly after computing $s_n$~\cite{Perumalla2013}.
+To reduce the memory allocation without increasing the time complexity of program, we introduce the following reversible approximate multiplier
 
 \begin{minipage}{.44\textwidth}
     \begin{lstlisting}[numberstyle=\scriptsize\color{gray},numbers=left,numbersep=8pt]
