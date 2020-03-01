@@ -213,7 +213,7 @@ where $x^0\in R^m$, $x^L\in R^n$, $L$ is the depth of computing.
 The Jacobian of this program is a $n\times m$ matrix $J_{ij} \equiv \frac{\partial x^L_i}{\partial x_j^0}$, where $x_j^0$ and $x_i^L$ are single elements of inputs and outputs.
 Computing part of the Jacobian automatically is what we called automatic differentiation (AD). It can be classified into three classes, the tangent mode AD, the adjoint mode AD and the mixed mode AD.~\cite{Hascoet2013}
 The tangent mode AD computes the Jacobian matrix elements that related to a single input using the chain rule $\frac{\partial \vx^k}{\partial x^0_j} = \frac{\partial \vx^k}{\partial \vx^{k-1}}\frac{\partial \vx^{k-1}}{\partial x^0_j}$, while a tangent mode AD computes Jacobian matrix elements that related to a single output using $\frac{\partial \vx^k}{\partial x^0_j} = \frac{\partial \vx^k}{\partial \vx^{k-1}}\frac{\partial \vx^{k-1}}{\partial x^0_j}$.
-    In variational applications where the loss function always outputs a scalar, the adjoint mode AD is perfered.
+    In variational applications where the loss function always outputs a scalar, the adjoint mode AD is preferred.
 However, implementing adjoint mode AD is harder than implementing its tangent mode counterpart, because it requires propagating the gradients in the inverse direction of computing the loss. The back propagation of gradients requires intermediate information of a program that includes
 \begin{enumerate}
     \item the computational process,
@@ -222,9 +222,9 @@ However, implementing adjoint mode AD is harder than implementing its tangent mo
     The computational process is often stored in a computational graph, a directed acyclic graph (DAG) that represents the relationship between data and functions. In Pytorch~\cite{Paszke2017} and Flux~\cite{Innes2018a}, every variable has a tracker field that stores its parent information, i.e., the input data and function generating this variable. TensorFlow~\cite{Tensorflow2015} implements a static computational graph as a description of the program before actual computation happens. The required variables are also recorded in this graph.
     For source to source AD package, Tools like Tapenade~\cite{Hascoet2013} and Zygote~\cite{Innes2018, Innes2019} generate the adjoint code statically while putting variable on a stack called the wengert list. \blue{The introduction to source to source AD is a bit weak, please give reader an overview about the development and difficulty in this field.}
     As reverse mode AD require storing intermediate result, the memory consumption of the program is typically O(n) where n is the runtime of the program. In many deep learning models like recurrent neural network~\cite{Lipton2015} and residual neural networks~\cite{He2016}, the depth can reach several thousand, where the memory is often the bottleneck of these programs. In traditional AD application, program that might do billions of computations will as well get a wengert list in the range of GBs, thus memory will become a bottleneck as well.
-The memory management is becoming a wall~\cite{Luo2019} that limits the scale of many applications on GPU. The computational power of a Nvidia V100 GPU can reaches 100 TFLOPS, which is the scale of a mini cluster. However, it memory is only 32GB. A better solution to memory menagement should be found.
+The memory management is becoming a wall~\cite{Luo2019} that limits the scale of many applications on GPU. The computational power of a Nvidia V100 GPU can reaches 100 TFLOPS, which is the scale of a mini cluster. However, it memory is only 32GB. A better solution to memory management should be found.
     \blue{@MLS, Do you have any good comments about starving CPU, i.e. memory accessing is consuming much more time than computing itself.
-    This is why caching itermediate result is a performance killer.}
+    This is why caching intermediate result is a performance killer.}
 
 % where the manually derived backwards rule still faces the degenerate spectrum problem (gradients explodes), instruction-level AD will return reasonable gradients. With instruction-level AD, people don't worry about inplace functions, which may be a huge problem in traditional approaches. We can back-propagate over a quantum simulator, where all instructions are reversible two level unitaries (i.e. Jacobian rotation).
 
@@ -257,7 +257,7 @@ The memory management is becoming a wall~\cite{Luo2019} that limits the scale of
     The key difference between reversible and irreversible memory management is the content of a variable that going to be discarded in a reversible program must be known.
     We denote the allocation of a zero emptied memory as \texttt{x $\leftarrow$ 0}, and the corresponding deallocation as \texttt{x $\rightarrow$ 0}.
     We call a variable $x$ that allocated and deallocated in a local scope an ancilla, it does not occupy the memory for long period.
-    We can also push a variable to a stack and used later with a pop statement. This is similar to a traditional stack operation except it zero-clears the variable after pushing and presupposes the variable being zero-cleared before poping.
+    We can also push a variable to a stack and used later with a pop statement. This is similar to a traditional stack operation except it zero-clears the variable after pushing and presupposes the variable being zero-cleared before popping.
 \begin{figure}
     \centerline{\includegraphics[width=\columnwidth,trim={0 1cm 0 0cm},clip]{images/fig6.pdf}}
     \caption{Data oriented computational graph that shows the compute-copy-uncompute paradigm. Notations are highly inspired by quantum circuit. Circles connected by vertical lines are variables, where double lines represents multiple variables. Boxes and dots connected by parallel lines are operations. A dot on a line represents a control parameter while a box represents a mutable parameter.
@@ -268,7 +268,7 @@ Know the contents in the memory when deallocating is not easy, hence Charles H. 
 As show in \Fig{fig:ccu} (a), in the computing stage, the program in dashed box \texttt{X} is executed on space $x_{1\colon3}$ to compute desired result. In the copying stage, the contents in $x_3$ is read out to a pre-emptied memory $x_4$ through addition operation $\oplus$, because this is the piece of information that we care.
 Since this copy operation does not change contents of $x_{1\colon3}$, we can use the inverse operation \texttt{$\sim$X} to undo all the changes to these registers. If some of these uncomputed variables are initialized to some known value like $0$, now they can be deallocated since their states is known again.
 If this subroutine of generating $x_4$ is used in another program as shown in \Fig{fig:ccu} (b), $x_4$ can be uncomputed by the reversing this subroutine.
-The interesting fact is, both $X$ and $\sim X$ are executed twice, which is not nessesary. We can ofcause cancel a pair of $X$ and $\sim X$ (the gray boxes), the cost is we need to keep the memory $x_{1\colon3}$ during computing $f(x_4)$, i.e. additional space. This is a trade off between space and time, which we will discuss the detail in \Sec{sec:timespace}.
+The interesting fact is, both $X$ and $\sim X$ are executed twice, which is not necessary. We can ofcause cancel a pair of $X$ and $\sim X$ (the gray boxes), the cost is we need to keep the memory $x_{1\colon3}$ during computing $f(x_4)$, i.e. additional space. This is a trade off between space and time, which we will discuss the detail in \Sec{sec:timespace}.
 
 \subsubsection{Control flows}
 The reversible \texttt{if} statement is shown in \Fig{fig:controlflow} (a). It contains two conditions, a precondition and a postcondition. The precondition decides which branch to enter in the forward execution, while the postcondition decides which branch to enter in the backward execution. After executing the specific branch, the program checks the consistency between precondition and postcondition to make sure they are the consistent.
@@ -283,9 +283,9 @@ The reversible \texttt{for} statement is similar to irreversible ones except aft
 \subsubsection{Arithmetic instructions}
 Every instruction has a unique inverse that can undo the changes.
 For logical operations, we have \texttt{y $\veebar$= f(args...)} self reversible.
-For other arithemetic operations, we assume \texttt{y += f(args...)} and \texttt{y -= f(args...)} are reversible to each other although it is not true for floating point numbers due to the rounding error. Here \texttt{f} can be \texttt{identity}, \texttt{*}, \texttt{/} and \texttt{\^} et. al.
+For other arithmetic operations, we assume \texttt{y += f(args...)} and \texttt{y -= f(args...)} are reversible to each other although it is not true for floating point numbers due to the rounding error. Here \texttt{f} can be \texttt{identity}, \texttt{*}, \texttt{/} and \texttt{\^} et. al.
 Besides the above two types of operations, \texttt{SWAP} operation that exchanges the contents in two memory spaces are also widely used in reversible computing systems.
-We will have a detailed discussion about the rouding error and number system later in \Sec{sec:hardware}
+We will have a detailed discussion about the rounding error and number system later in \Sec{sec:hardware}
 
 \subsection{NiLang's Reversible IR}
 In the last subsection, we have reviewed basic building blocks of a typical reversible language. In order to insert the code of obtaining gradients into the reversed program, the reversible language design should have related abstraction power.
@@ -371,7 +371,7 @@ Any statement is this IR has a unique inverse as shown in \Tbl{tbl:revstatements
             \texttt{@safe <expr>} & \texttt{@safe <expr>}\\
             \bottomrule
         \end{tabularx}
-    }
+    }$
     \caption{A collection of reversible statements.
     ``.'' is the symbol for broadcasting magic in Julia,
     ``$\sim$'' is the symbol for reversing a statement or a function.
@@ -565,7 +565,7 @@ The body of cast is a reversible mapping that transforms \texttt{x} to \texttt{(
 Its inverse that coverts an object of type \texttt{GVar} to type \texttt{A} is automatically generated by reversing the above statements.
 %With the flexibility to use types, it is not necessary to use global stacks in our eDSL.
 
-The fields of an object can be accessed and manipuated by dataviews. A dataview can be an object, a field of a dataview, an array element of a dataview, or a bijective mapping of a dataview.
+The fields of an object can be accessed and altered through dataviews. A dataview can be an object, a field of a dataview, an array element of a dataview, or a bijective mapping of a dataview.
 Let us first consider the following example.
 
 \begin{minipage}{.44\textwidth}
@@ -641,13 +641,13 @@ The algorithm to compute the adjoint mode AD can be summarized as follows.
 \end{algorithm}
 
 The program first computes the forward pass, and then wrap each output variable with \texttt{GVar}.
-The constructor \texttt{GVar} attaches a zero gradient field to a variable. If an input varaible is an array, \texttt{GVar} will be broadcasted to each array element automatically.
+The constructor \texttt{GVar} attaches a zero gradient field to a variable. If an input variable is an array, \texttt{GVar} will be broadcasted to each array element automatically.
 The line \texttt{\grad($\vy_g$[\texttt{iloss}]) += 1.0} adds one to the gradient field of loss to initialize a single row of Jacobian as in the first line of \Eq{eq:jacobian}.
 Finally, execute the inverse program \texttt{$f^{-1}$}, the gradients are stored in the $\grad$ dataview of output variables.
 The computation of gradients are implemented with multiple dispatch, that is, when an instruction has a \texttt{GVar} type in its argument list, it calls a different routine. The same trick is used in the dual number implementation of tangent mode AD~\cite{Revels2016}.
 %Its inverse \texttt{$\sim$GVar} deallocates the gradient field safely and returns its value field.  Here, "safely" means before deallocation, the program will check the gradient field to make sure its value is restored to $0$.
 %When an instruction \texttt{instruct} meets a \texttt{GVar}, besides computing its value field $\vvalue(\vy) = \texttt{instruct}(\vvalue(\vx))$, it also updates the gradient field $\grad(\vy) = \left[J^{\vy}_{\vx}\right]^{-1} \grad(\vx)$, where $\left[J^{\vy}_{\vx}\right]^{-1}$ is the Jacobian of $\texttt{instruct}^{-1}$. One can define this gradient function on either \texttt{instruct} or \texttt{instruct${}^{-1}$}.
-In the following, we examplify the design by binding the backward rules to instructions \texttt{$\oplus(*)$} and \texttt{$\ominus(*)$}
+In the following, we exemplify the design by binding the backward rules to instructions \texttt{$\oplus(*)$} and \texttt{$\ominus(*)$}
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}[mathescape=true]
@@ -659,7 +659,7 @@ end
 \end{lstlisting}
 \end{minipage}
 
-Here, we adopt a convension that only variables ended with \texttt{!} will be changed after the function call.
+Here, we adopt a convention that only variables ended with \texttt{!} will be changed after the function call.
 %This backward rule has been included in NiLang, one can check the gradients by typing in a Julia REPL
 %If one defines the backward rule on \texttt{instruct}, the compiler will generate the backward rule for its inverse \texttt{instruct${}^{-1}$} as the inverse function. This is doable 
 Although the backward rule is defined on $\ominus(*)$, the compiler generates the backward rules on $\oplus(*)$ too.
@@ -786,7 +786,7 @@ An example to obtain Hessians is provided in \Sec{sec:bessel}.
 
 \subsection{Gradient on ancilla problem}
 In this section, we introduced an easily overlooked problem in our reversible AD framework.
-An ancilla sometimes can carry a nonzero gradient when it is going to be deallocated. As a result, even if an ancilla can be uncomputed rigorously in the original program, its \texttt{GVar} wrapped version is not nessesarily safely deallocated.
+An ancilla sometimes can carry a nonzero gradient when it is going to be deallocated. As a result, even if an ancilla can be uncomputed rigorously in the original program, its \texttt{GVar} wrapped version is not necessarily safely deallocated.
 In NiLang, we simply ``drop'' the gradient field of ancillas instead of raising an error.
 In the following, we justify our approach by proving the following theorem
 \begin{theorem}
@@ -896,9 +896,9 @@ end
 \end{lstlisting}
 \end{minipage}
 
-This computational process could be diagramatically represented as a DAG as show in \Fig{fig:cgraphs}(\subref{fig:computational-graph}).
+This computational process could be diagrammatically represented as a DAG as show in \Fig{fig:cgraphs}(\subref{fig:computational-graph}).
 In this diagram, the data is represented as an edge, it connects at most two nodes, one generates this data and one consumes it as an input parameter.
-Computational graph is more likely a mathematical expression, it can not describe inplace functions or control flows conveviently because it does not have the concept of memory.
+Computational graph is more likely a mathematical expression, it can not describe inplace functions or control flows conveniently because it does not have the concept of memory.
 %\begin{figure*}
     %\centerline{\includegraphics[width=0.8\textwidth,trim={0cm 6cm 0 0},clip]{images/computational_graph.pdf}}
     %\caption{Traditional computational graph for the reversible first kind Bessel function. Where a vertex (circle) is an operation and a directed edge is a variable. The gray region is the body of while loop.}\label{fig:computational-graph}
@@ -994,9 +994,9 @@ end
 \end{minipage}
 
 Here, only a constant number of ancillas are used in this implementation, while the algorithm complexity does not increase comparing to its irreversible counterpart.
-ancilla \texttt{anc4} plays the role of \textit{dirty ancilla} in multiplication, it is uncomputed rigoriously in the uncomputing stage.
+ancilla \texttt{anc4} plays the role of \textit{dirty ancilla} in multiplication, it is uncomputed rigorously in the uncomputing stage.
 The reason why the ``approximate uncomputing'' trick works here lies in the fact that from the mathematic perspective the state in $n$th step $\{s_n, z\}$ contains the same amount of information as the state in the $n-1$th step $\{s_{n-1}, z\}$ except some special points, it is highly possible to find an equation to uncompute the previous state from the current state.
-This trick can be used extensively in many other application. It mitigated the artifitial irreversibility brought by the number system that we have adopt at the cost of precision.
+This trick can be used extensively in many other application. It mitigated the artificial irreversibility brought by the number system that we have adopt at the cost of precision.
 %The \texttt{while} statement takes two conditions, the precondition and postcondition. Precondition \texttt{val(anc1) > atol} indicates when to break the forward pass and postcondition \texttt{iplus != 0} indicates when to break the backward pass.
 
 This reversible program can be diagramatically represented as a memory oriented computational graph as show in \Fig{fig:cgraphs} (\subref{fig:datagraph}).
@@ -1136,7 +1136,7 @@ julia> x
 \end{minipage}
 
 In the above testing code, \texttt{test\textquotesingle} attaches a gradient field to each element of \texttt{x}. \texttt{$\sim$test\textquotesingle} is the inverse program that erase the gradient fields.
-Notablly, this reversible implementation costs zero memory allocation although it changes the target variables inplace.
+Notably, this reversible implementation costs zero memory allocation although it changes the target variables inplace.
 
 %It implements the backward rule of a \texttt{ROT} instruction
 %\begin{align}
@@ -1220,20 +1220,20 @@ Here, the loss function \texttt{test1} is defined as the sum of the output unita
 
 \subsection{Solving a graph embedding problem}\label{sec:graph}
 Graph embeding has an interesting application of finding a representation for an order parameter~\cite{Takahashi2020} in condensed matter physics.
-\Ref{Takahashi2020} considers a problem of finding the minimum Eulidean space dimension $k$ that a Petersen graph can fit into, with extra requirements that the distance between a pair of connnected vertices has the same value $l_1$, the distance between a pair of disconnected vertices has the same value $l_2$ and $l_2 > l_1$.
+\Ref{Takahashi2020} considers a problem of finding the minimum Euclidean space dimension $k$ that a Petersen graph can fit into, with extra requirements that the distance between a pair of connected vertices has the same value $l_1$, the distance between a pair of disconnected vertices has the same value $l_2$ and $l_2 > l_1$.
 The Petersen graph is 10 vertices graph as shown in \Fig{fig:petersen}.
 \begin{figure}
     \centerline{\includegraphics[width=0.6\columnwidth,trim={0 1cm 0 0},clip]{images/petersen.pdf}}
     \caption{The Petersen graph with 10 vertices and 15 edges.}\label{fig:petersen}
 \end{figure}
-Let's denote the set of connected and disconnected vertex pairs as $L_1$ and $L_2$ respectively. This problem can be variationally solved by differential pogramming by designing the following loss.
+Let's denote the set of connected and disconnected vertex pairs as $L_1$ and $L_2$ respectively. This problem can be variationally solved by differential programming by designing the following loss.
 \begin{align}
     \begin{split}
         \mathcal{L} &= \Var({\rm dist}(L_1)) + \Var({\rm dist}(L_2)) \\
         &+\exp({\rm relu}(\Mean({\rm dist}(L_1)) - \Mean({\rm dist}(L_2)) + 0.1))) - 1
     \end{split}
 \end{align}
-The first line is a summation of distance variances in two sets of vertex pairs. The second line is used to guarante $l_2 > l_1$.
+The first line is a summation of distance variances in two sets of vertex pairs. The second line is used to guarantee $l_2 > l_1$.
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
@@ -1305,7 +1305,7 @@ iloss'(Loss(0.0), randn(5, 10))
 \end{minipage}
 
 We repeat the training for each dimension $k$ from $1$ to $9$ and search for possible solutions by variationally optimizing the positions of vertices.
-In each training, we fixed two of the vertices and train the rest, otherwise the program will find the trivil solution with overlapped vertices. 
+In each training, we fixed two of the vertices and train the rest, otherwise the program will find the trivial solution with overlapped vertices. 
 The training employs the Adam optimizer with a learning rate $0.01$~\cite{Kingma2014}, a $10000$ steps training costs less than 1 second on a laptop. For $k=5$, we can get a loss close to machine precision with high probability, while for $k < 5$, the loss is always much higher than $0$.
 From the solution, it is easy to verify $l_2/l_1 = \sqrt{2}$.
 
@@ -1372,7 +1372,7 @@ In the future, it can be compiled to reversible instructions~\cite{Vieri1999} an
 %the target instruction can be a \texttt{comefrom} instruction that specifing the postcondition.
 However, arithmetic instructions should be redesigned to support better reversible programs.
 The major obstacle to exact reversibility programming is current floating point adders and multipliers used in our computing devices are not exactly reversible.
-There are proposals of reversible floating point adders and multipliers~\cite{Nachtigal2010,Nachtigal2011,Nguyen2013,Hner2018}, however these designs with allocate garbage bits in each operaton.
+There are proposals of reversible floating point adders and multipliers~\cite{Nachtigal2010,Nachtigal2011,Nguyen2013,Hner2018}, however these designs with allocate garbage bits in each operation.
 %, which is not too different from the information buffer approach~\cite{Maclaurin2015}.
 %In other words, to represent a 64 bit floating point number requires more than 64 bits in storage. Reversible multiplier is also possible in similar approach.~\cite{Nachtigal2010} 
 %With floating point numbers, rigorous reversible arithematic designs without using information buffer or garbage qubits is nearly impossible.
@@ -1384,14 +1384,14 @@ With these infrastructures, a reversible program can be executed without sufferi
 %Reversible programming just provides an alternative to execute on an energy efficient reversible hardwares.
 Reversible instructions can be executed on an energy efficient reversible hardware.
 In the introduction, we mensioned several reversible hardwares. A reversible hardware can be those supporting reversible gates such as the Toffoli gate and the Fredkin gate, or like an adiabatic CMOS with the ability to recover signal energy. The latter is known as the generalized reversible computing.~\cite{Frank2005,Frank2017b}
-In the near future, there might be energy efficient artificial intellegence (AI) chips as coprocessors that our eDSL can compile to.
+In the near future, there might be energy efficient artificial intelligence (AI) chips as coprocessors that our eDSL can compile to.
 Since reversible computing is mainly driven by quantum computing in recent years.
-In the following, we comment briefly on quntum devices.
+In the following, we comment briefly on quantum devices.
 
 \subsubsection{Quantum Computers}\label{sec:qc}
 Building a universal quantum computer~\cite{Nielsen2002} is difficult. 
 The difficulty lies in the fact that it is extremely hard to protect a quantum state.
-Unlike a classical state, an quantum state is can not be cloned, meanwhile, it losses information by interating with the environment, or decoherence.
+Unlike a classical state, an quantum state is can not be cloned, meanwhile, it losses information by interacting with the environment, or decoherence.
 %These two facts underlines the simulation nature of quantum devices.
 %Although there are proposals about quantum random access memory~\cite{Giovannetti2008}, they are difficult to implement, and are known to have many caveats~\cite{Aaronson2015}.
 %In the era of noisy intermediate sized quantum devices, more and more people are switching to classical-quantum hybrid devices, where a quantum device plays the role of a programmable simulator.
@@ -1442,9 +1442,9 @@ Xiu-Zhe Luo for discussion on the implementation details of source to source aut
 Shuo-Hui Li for helpful discussion on differential geometry.
 Damian Steiger for telling me the \texttt{comefrom} joke.
 Tong Liu and An-Qi Chen for helpful discussion on quantum adders and multipliers.
-Chris Rackauckas for helpful discussion on reversible integrators.
+Chris Rackauckas for helpful discussion on reversible integrator.
 Mike Innes for reviewing the comments about Zygote.
-Jun Takahashi for providing the facinating graph embedding problem.
+Jun Takahashi for discussion about the graph embedding problem.
 Simon Byrne and Chen Zhao for helpful discussion on floating point and logarithmic numbers.
 The authors are supported by the National Natural Science Foundation of China under the Grant No.~11774398, the Strategic Priority Research Program of Chinese Academy of Sciences Grant No.~XDB28000000.
 
@@ -1787,7 +1787,7 @@ The above example reveals a fact that training impossible when output parameters
     \end{split}
 \end{align}
 The third line uses the bijectivity $S(\vx \cup \vp_x) = S(\vy \cup \vp_y)$.
-This inequality shows that when the parameter space on the output side satisfies $S(\vy | \vp_y) = 0$, i.e. contains all information to determine the output field, the input parameters are also completely determined by this parameter space, hence traning can not work.
+This inequality shows that when the parameter space on the output side satisfies $S(\vy | \vp_y) = 0$, i.e. contains all information to determine the output field, the input parameters are also completely determined by this parameter space, hence training can not work.
 \end{proof}
 In the above example, it corresponds to the case $S\left(e^{(x+y)-e^x} | x \cup x + y\right) = 0$ in $f1$.
 The solution is to remove the information redundancy in output parameter space through uncomputing as shown in $f2$.
@@ -1873,8 +1873,8 @@ end
 
 This kernel function simulates the SWAP gate in quantum computing.
 Here, we use the macro \texttt{@invcheckoff} to remove the reversibility checks.
-It is nessesary because the possible error thrown in a kernel function can not be handled properly on a CUDA thread.
-One can lannch this kernel function to GPUs with a single macro \texttt{@cuda} as show in the following using case.
+It is necessary because the possible error thrown in a kernel function can not be handled properly on a CUDA thread.
+One can launch this kernel function to GPUs with a single macro \texttt{@cuda} as show in the following using case.
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
