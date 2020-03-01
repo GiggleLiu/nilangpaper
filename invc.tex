@@ -9,6 +9,7 @@
 \usepackage{amssymb}
 \usepackage{tabularx}
 \usepackage{upquote}
+\usepackage{subcaption}
 %\usepackage{multicol}
 %\usepackage{caption}
 %\usepackage[plain]{algorithm}
@@ -28,10 +29,9 @@
 \newcommand{\rrangle}[1][]{\savebox{\@brx}{\(\m@th{#1\rangle}\)}%
   \mathclose{\copy\@brx\kern-0.5\wd\@brx\usebox{\@brx}}}
 \makeatother
-
 \usepackage{bbm}
 \usepackage{jlcode}
-\usepackage{graphicx, subfigure}
+\usepackage{graphicx}
 \usepackage{amsmath,color,amsthm}
 \usepackage{mathrsfs}
 \usepackage{float}
@@ -249,27 +249,28 @@ The memory management is becoming a wall~\cite{Luo2019} that limits the scale of
 
 \section{Language design}\label{sec:lang}
 
-\subsection{Intruductions to reversible language design}
+    \subsection{Intruductions to reversible language design}\blue{how about now? feel free to comment more}
     \violet{Add more introduction to reversible programming}
-    In a modern programming language, functions are pushed to a global stack for scheduling. The memory layout of a function consists of input arguments, a function frame with information like the return address and saved memory segments, local variables, and working stack. After the call, the function clears these runtime information, only stores the return value. In the reversible programming style, this kind of design pattern is no longer the best practice. One can not discard input variables and local variables easily after a function call, since discarding information may ruin reversibility. For this reason, reversible functions are very different from irreversible ones from multiple perspectives.
+    In a modern programming language, functions are pushed to a global stack for scheduling. The memory layout of a function consists of input arguments, a function frame with information like the return address and saved memory segments, local variables, and working stack. After the call, the function clears these runtime information, only stores the return value. In the reversible programming, this kind of design is no longer the best practice. One can not discard input variables and local variables easily after a function call, since discarding information may ruin reversibility. For this reason, reversible functions are very different from irreversible ones from multiple perspectives.
 
-    First of all, the memory management in a reversible language is different.
-    The key difference is when a variable in a reversible program is discarded, its contents should be known.
-    We denote the allocation of a zero emptied memory to variable \texttt{x} as \texttt{x $\leftarrow$ 0}, and deallocate a zero emptied variable \texttt{x} as \texttt{x $\rightarrow$ 0}.
-    A variable allocated and deallocated in a local scope is called an ancilla, it does not occupy the memory for long period.
-    A variable can also be pushed to a stack and used later with a pop statement. This is similar to a traditional stack operation except it zero-clears the variable after pushing and presupposes the variable being zero-cleared before poping.
+\subsubsection{Memory management}
+    The key difference between reversible and irreversible memory management is the content of a variable that going to be discarded in a reversible program must be known.
+    We denote the allocation of a zero emptied memory as \texttt{x $\leftarrow$ 0}, and the corresponding deallocation as \texttt{x $\rightarrow$ 0}.
+    We call a variable $x$ that allocated and deallocated in a local scope an ancilla, it does not occupy the memory for long period.
+    We can also push a variable to a stack and used later with a pop statement. This is similar to a traditional stack operation except it zero-clears the variable after pushing and presupposes the variable being zero-cleared before poping.
 \begin{figure}
     \centerline{\includegraphics[width=\columnwidth,trim={0 1cm 0 0cm},clip]{images/fig6.pdf}}
-    \caption{Data oriented computational graph that shows the compute-copy-uncompute design pattern. Notations are highly inspired by quantum circuit. Circles connected by vertical lines are variables, where double lines represents multiple variables. Boxes and dots connected by parallel lines are operations. A dot on a line represents a control parameter while a box represents a mutable parameter.
+    \caption{Data oriented computational graph that shows the compute-copy-uncompute paradigm. Notations are highly inspired by quantum circuit. Circles connected by vertical lines are variables, where double lines represents multiple variables. Boxes and dots connected by parallel lines are operations. A dot on a line represents a control parameter while a box represents a mutable parameter.
     }\label{fig:ccu}
 \end{figure}
-Since deallocating a memory requires knowing the contents in the memory, then the compute-copy-uncompute design pattern would be very useful.
-As show in \Fig{fig:ccu} (a), In the computing pass in dashed box \texttt{X}, the program executes on space $x_{1\colon 3}$ and computes desired result. In the copying pass, the contents in $x_3$ is readed out because this is the piece of information that we care. After storing this information into a pre-emptied memory $x_4$ through addition operation $\oplus$.
-Since this copy operation does not change contents of $x_{1\colon 3}$, we can use the inverse operation \texttt{$\sim$X} to restore their values to the initial values. If some of these uncomputed variables are initialized to some known value like $0$, now they can be deallocated since their states is known again.
-If this subroutine of generating $x_4$ is used in another program as shown in \Fig{fig:ccu} (b), $x_4$ can be uncomputed by the reversing this subroutine.
-The interesting fact is, $X$ and $~X$ are both executed twice, which is not nessesary. However, if we cancel a pair of $X$ and $~X$ (the gray boxes), we need to keep the memory $x_{1\colon3}$ during computing $f(x_4)$, since they are not known to compiler. This is a trade off between space and time, which we will discuss in more details in \Sec{sec:timespace}.
 
-Secondly, a reversible control flow is sepcially designed.
+Know the contents in the memory when deallocating is not easy, hence Charles H. Bennett introduced the famous compute-copy-uncompute paradigm~\cite{Bennett1973}.
+As show in \Fig{fig:ccu} (a), in the computing stage, the program in dashed box \texttt{X} is executed on space $x_{1\colon3}$ to compute desired result. In the copying stage, the contents in $x_3$ is read out to a pre-emptied memory $x_4$ through addition operation $\oplus$, because this is the piece of information that we care.
+Since this copy operation does not change contents of $x_{1\colon3}$, we can use the inverse operation \texttt{$\sim$X} to undo all the changes to these registers. If some of these uncomputed variables are initialized to some known value like $0$, now they can be deallocated since their states is known again.
+If this subroutine of generating $x_4$ is used in another program as shown in \Fig{fig:ccu} (b), $x_4$ can be uncomputed by the reversing this subroutine.
+The interesting fact is, both $X$ and $\sim X$ are executed twice, which is not nessesary. We can ofcause cancel a pair of $X$ and $\sim X$ (the gray boxes), the cost is we need to keep the memory $x_{1\colon3}$ during computing $f(x_4)$, i.e. additional space. This is a trade off between space and time, which we will discuss the detail in \Sec{sec:timespace}.
+
+\subsubsection{Control flows}
 The reversible \texttt{if} statement is shown in \Fig{fig:controlflow} (a). It contains two conditions, a precondition and a postcondition. The precondition decides which branch to enter in the forward execution, while the postcondition decides which branch to enter in the backward execution. After executing the specific branch, the program checks the consistency between precondition and postcondition to make sure they are the consistent.
 The reversible \texttt{while} statement is shown in \Fig{fig:controlflow} (b). It also has both precondition and postcondition. Before executing the condition expressions, the program preassumes the postcondition is false.
 After each iteration, the program asserts the postcondition to be true. In the reverse pass, we exchange the precondition and postcondition.
@@ -279,10 +280,12 @@ The reversible \texttt{for} statement is similar to irreversible ones except aft
     \caption{Flow chart for reversible (a) \texttt{if} statement and (b) \texttt{while} statement. ``stmts'', ``stmts1'' and ``stmts2'' are statements, statements in true branch and statements in false branch respectively. ``pre'' and ``post'' are precondition and postconditions respectively.}\label{fig:controlflow}
 \end{figure}
 
-Lastly, the reversible arithmetic and boolean instructions are also different. Every instruction has a unique inverse that can undo the changes.
-For logical expressions, we have \texttt{y $\veebar$= f(args...)} self reversible.
-In the following discussion, we assume \texttt{y += f(args...)} and \texttt{y -= f(args...)} reverse to each other although it is not true for floating point numbers considering rounding error. Here \texttt{f} can be \texttt{identity}, \texttt{*}, \texttt{/} and \texttt{\^} et. al.
-We will discuss the number system in detail later in \Sec{sec:hardware}
+\subsubsection{Arithmetic instructions}
+Every instruction has a unique inverse that can undo the changes.
+For logical operations, we have \texttt{y $\veebar$= f(args...)} self reversible.
+For other arithemetic operations, we assume \texttt{y += f(args...)} and \texttt{y -= f(args...)} are reversible to each other although it is not true for floating point numbers due to the rounding error. Here \texttt{f} can be \texttt{identity}, \texttt{*}, \texttt{/} and \texttt{\^} et. al.
+Besides the above two types of operations, \texttt{SWAP} operation that exchanges the contents in two memory spaces are also widely used in reversible computing systems.
+We will have a detailed discussion about the rouding error and number system later in \Sec{sec:hardware}
 
 \subsection{NiLang's Reversible IR}
 In the last subsection, we have reviewed basic building blocks of a typical reversible language. In order to insert the code of obtaining gradients into the reversed program, the reversible language design should have related abstraction power.
@@ -405,7 +408,7 @@ The compilation of a reversible function contains three stages.
 
 The first stage preprocess human inputs to a reversible IR.
 The preprocessor expands the symbol ``\texttt{$\sim$}'' in the postcondition field of \texttt{if} statement by copying the precondition, adds missing ancilla ``$\leftarrow$'' statements to ensure ``\texttt{$\leftarrow$}'' and ``\texttt{$\rightarrow$}'' appear in pairs inside a function, a \texttt{while} statement or a \texttt{for} statement, and expands the uncomputing macro \texttt{$\sim$@routine}.
-Since the "compmute-copy-uncompute" design pattern is extensively used in reversible programming for uncomputing ancillas.
+Since the compmute-copy-uncompute paradigm is extensively used in reversible programming for uncomputing ancillas.
 One can use \texttt{@routine <stmt>} statement to record a statement, and \texttt{$\sim$@routine} to insert \texttt{$\sim$<stmt>} for uncomputing. 
 The following example preprocesses an \texttt{if} statement to the reversible IR.
 
@@ -810,7 +813,7 @@ where the second term with $\frac{\partial \vx^L}{\partial{b}}$ vanishes natural
 The following is an example that everyone likes, computing Fibonacci number recursively.
 
 \begin{minipage}{.44\textwidth}
-\begin{lstlisting}
+    \begin{lstlisting}
 using NiLang
 
 @i function rfib(out!, n::T) where T
@@ -893,12 +896,28 @@ end
 \end{lstlisting}
 \end{minipage}
 
-This computational process could be diagramatically represented as a DAG as show in \Fig{fig:computational-graph}.
+This computational process could be diagramatically represented as a DAG as show in \Fig{fig:cgraphs}(\subref{fig:computational-graph}).
 The problem of this diagram is the data is represented as an edge, while in a simple graph, an edge connects at most two nodes. This underlines the fact that in a traditional computational graph, a variable can only be used in two functions, one as output and one as input. This also explains why DAG based computational graph can not be used to describe inplace functions, where data are used by multiple operations.
 Control flows are often unrolled because loops are allowed in a DAG.
-\begin{figure*}
-    \centerline{\includegraphics[width=0.8\textwidth,trim={0cm 6cm 0 0},clip]{images/computational_graph.pdf}}
-    \caption{Traditional computational graph for the reversible first kind Bessel function. Where a vertex (circle) is an operation and a directed edge is a variable. The gray region is the body of while loop.}\label{fig:computational-graph}
+%\begin{figure*}
+    %\centerline{\includegraphics[width=0.8\textwidth,trim={0cm 6cm 0 0},clip]{images/computational_graph.pdf}}
+    %\caption{Traditional computational graph for the reversible first kind Bessel function. Where a vertex (circle) is an operation and a directed edge is a variable. The gray region is the body of while loop.}\label{fig:computational-graph}
+%\end{figure*}
+\begin{figure*}[t!]
+    \centering
+    \begin{subfigure}[t]{0.53\textwidth}
+        \centering
+        \includegraphics[width=\columnwidth,trim={0 4cm 0 0cm},clip]{images/computational_graph.pdf}
+        \caption{Where a vertex (circle) is an operation and a directed edge is a variable. The gray region is the body of while loop. The while loop is unrolled.}\label{fig:computational-graph}
+    \end{subfigure}%
+    \begin{subfigure}[t]{0.47\textwidth}
+        \centering
+        \includegraphics[width=\columnwidth,trim={0 1cm 0 0cm},clip]{images/fig4.pdf}
+        \caption{Vertical lines are variables, boxes and dots connected by parallel lines are operations. A dot represents using a variable as control while a box represents mutating a variable. 
+        %Annotations $\#1, \#2, \ldots$ are used the mark the positions of variables in the argument list. 
+        The gray box represents the body of a while loop, where a precondition and postcondition are positioned on top and bottom of this box.}\label{fig:datagraph}
+    \end{subfigure}
+    \caption{The comparison between (a) tranditional and (b) data oriented computational graph of the first kind Bessel function.}\label{fig:cgraphs}
 \end{figure*}
 
 In the following, we introduce the reversible implementation and the data oriented computational graph.
@@ -915,7 +934,7 @@ end
 \end{lstlisting}
 \end{minipage}
 
-Here, the definition of SWAP can be found in \App{app:instr}, $\texttt{anc!} \approx 0$ is a \textit{dirty ancilla}.
+Here, the definition of \texttt{SWAP} instruction can be found in \App{app:instr}, $\texttt{anc!} \approx 0$ is a \textit{dirty ancilla}.
 Line 2 computes the result and accumulates it to the dirty ancilla, we get an approximately correct output in \texttt{anc!}.
 Line 3``uncomputes'' \texttt{out!} approximately by using the information stored in \texttt{anc!}, leaving a dirty zero state in register \texttt{out!}.
 Line 4 swaps the contents in \texttt{out!} and \texttt{anc!}.
@@ -980,7 +999,7 @@ The reason why the ``approximate uncomputing'' trick works here lies in the fact
 This trick can be used extensively in many other application. It mitigated the artifitial irreversibility brought by the number system that we have adopt at the cost of precision.
 %The \texttt{while} statement takes two conditions, the precondition and postcondition. Precondition \texttt{val(anc1) > atol} indicates when to break the forward pass and postcondition \texttt{iplus != 0} indicates when to break the backward pass.
 
-This reversible program can be diagramatically represented as a directed hypergraph as show in \Fig{fig:datagraph}.
+This reversible program can be diagramatically represented as a directed hypergraph as show in \Fig{fig:cgraphs} (\subref{fig:tdatagraph}).
 The key difference is we adopt a data centric view.
 In this view, we classify the arguments of an operation into control parameters and mutable parameters.
 A control parameter is represented as a dot, it does not change after the operation.
@@ -992,10 +1011,10 @@ It is also clear that the values of \texttt{z} and \texttt{$\nu$} are not change
     \includegraphics[width=0.4\columnwidth,trim={0cm 1.5cm 0cm 1.0cm},clip]{images/fig5.pdf}
 \end{figure}
 
-\begin{figure*}
-    \centerline{\includegraphics[width=0.7\textwidth,trim={1cm 1cm 0 0},clip]{images/fig4.pdf}}
-    \caption{Data oriented computational graph for the reversible first kind Bessel function. Circles connected by vertical lines are variables, while boxes and dots connected by parallel lines are operations. A dot on a line represents a control parameter while a box represents a mutable parameter. Annotations $\#1, \#2, \ldots$ are used the mark the positions of variables in the argument list. The gray box represents the body of a while loop, where a precondition and postcondition are positioned on top and bottom of this box.}\label{fig:datagraph}
-\end{figure*}
+%\begin{figure*}
+    %\centerline{\includegraphics[width=0.7\textwidth,trim={1cm 1cm 0 0},clip]{images/fig4.pdf}}
+    %\caption{Data oriented computational graph for the reversible first kind Bessel function. Circles connected by vertical lines are variables, while boxes and dots connected by parallel lines are operations. A dot on a line represents a control parameter while a box represents a mutable parameter. Annotations $\#1, \#2, \ldots$ are used the mark the positions of variables in the argument list. The gray box represents the body of a while loop, where a precondition and postcondition are positioned on top and bottom of this box.}\label{fig:datagraph}
+%\end{figure*}
 
 To obtain gradients, one can wrap the variable \texttt{y!} with \texttt{Loss} type and feed it into \texttt{ibesselj\textquotesingle}
 
