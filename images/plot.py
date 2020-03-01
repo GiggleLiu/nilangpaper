@@ -230,7 +230,7 @@ class PLT(object):
             y -= 0.2
             whilestop = y
             stopA = y - 0.2
-            d = dashed >> grid[0:13,startA:stopA]
+            d = dashed >> grid[0:12.2,startA:stopA]
             d.text("A", "top", fontsize=16)
             d = gray >> grid[5.8:12,whilestart:whilestop]
             x_, y_ = d.pin("top")
