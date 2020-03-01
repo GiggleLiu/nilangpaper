@@ -296,8 +296,10 @@ class PLT(object):
             return nodes
 
         with DynamicShow((3,1.5), 'fig5.%s'%tp) as ds:
-            func("", ((0, _.C, "z"), (1, _.C, r"$\nu$"), (2, _.GATE, "out!")), 0)
-            plt.text(0.7, 0.4, "ibesselj",  fontsize=12)
+            plt.text(*grid[0, 0.6], r"z", ha='center', va='center')
+            plt.text(*grid[1, 0.6], r"$\nu$", ha='center', va='center')
+            plt.text(*grid[2, 0.6], r"out!", ha='center', va='center')
+            func("", ((0, _.C, ""), (1, _.C, r""), (2, WIDE, "ibesselj")), 0)
 
     def fig4gif(self):
         SIZE = 12

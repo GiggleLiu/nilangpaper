@@ -897,8 +897,8 @@ end
 \end{minipage}
 
 This computational process could be diagramatically represented as a DAG as show in \Fig{fig:cgraphs}(\subref{fig:computational-graph}).
-The problem of this diagram is the data is represented as an edge, while in a simple graph, an edge connects at most two nodes. This underlines the fact that in a traditional computational graph, a variable can only be used in two functions, one as output and one as input. This also explains why DAG based computational graph can not be used to describe inplace functions, where data are used by multiple operations.
-Control flows are often unrolled because loops are allowed in a DAG.
+In this diagram, the data is represented as an edge, it connects at most two nodes, one generates this data and one consumes it as an input parameter.
+Computational graph is more likely a mathematical expression, it can not describe inplace functions or control flows conveviently because it does not have the concept of memory.
 %\begin{figure*}
     %\centerline{\includegraphics[width=0.8\textwidth,trim={0cm 6cm 0 0},clip]{images/computational_graph.pdf}}
     %\caption{Traditional computational graph for the reversible first kind Bessel function. Where a vertex (circle) is an operation and a directed edge is a variable. The gray region is the body of while loop.}\label{fig:computational-graph}
@@ -917,10 +917,10 @@ Control flows are often unrolled because loops are allowed in a DAG.
         %Annotations $\#1, \#2, \ldots$ are used the mark the positions of variables in the argument list. 
         The gray box represents the body of a while loop, where a precondition and postcondition are positioned on top and bottom of this box.}\label{fig:datagraph}
     \end{subfigure}
-    \caption{The comparison between (a) tranditional and (b) data oriented computational graph of the first kind Bessel function.}\label{fig:cgraphs}
+    \caption{The comparison between (a) tranditional and (b) memory oriented computational graph of the first kind Bessel function.}\label{fig:cgraphs}
 \end{figure*}
 
-In the following, we introduce the reversible implementation and the data oriented computational graph.
+In the following, we introduce the reversible implementation and the memory oriented computational graph.
 Intuitively, one needs an increasing size of tape to cache the intermediate state, since one can not release state $s_{n-1}$ directly after computing $s_n$~\cite{Perumalla2013}.
 To reduce the memory allocation without increasing the time complexity of program, we introduce the following reversible approximate multiplier
 
@@ -999,31 +999,31 @@ The reason why the ``approximate uncomputing'' trick works here lies in the fact
 This trick can be used extensively in many other application. It mitigated the artifitial irreversibility brought by the number system that we have adopt at the cost of precision.
 %The \texttt{while} statement takes two conditions, the precondition and postcondition. Precondition \texttt{val(anc1) > atol} indicates when to break the forward pass and postcondition \texttt{iplus != 0} indicates when to break the backward pass.
 
-This reversible program can be diagramatically represented as a directed hypergraph as show in \Fig{fig:cgraphs} (\subref{fig:tdatagraph}).
-The key difference is we adopt a data centric view.
-In this view, we classify the arguments of an operation into control parameters and mutable parameters.
-A control parameter is represented as a dot, it does not change after the operation.
-We can using this property to analyse uncomputable variables. For example in routine ``B'' \texttt{anc2}, \texttt{anc3} and \texttt{anc5} are changed in the compute session.
-\texttt{anc2} and \texttt{anc4} are changed in the copy session, while \texttt{anc3} is used but not changed in function \texttt{imul}.
-Hence we can call the inverse routine \texttt{$\sim$B} to safely uncompute \texttt{anc2}, \texttt{anc3} and \texttt{anc5} and reuse them in the next iteration.
-It is also clear that the values of \texttt{z} and \texttt{$\nu$} are not changed in this function, while \texttt{out!} is changed to the desired output. It can be represented as the following.
-\begin{figure}[htp]
-    \includegraphics[width=0.4\columnwidth,trim={0cm 1.5cm 0cm 1.0cm},clip]{images/fig5.pdf}
-\end{figure}
+This reversible program can be diagramatically represented as a memory oriented computational graph as show in \Fig{fig:cgraphs} (\subref{fig:datagraph}).
+The key difference is we adopt a variable centric view, while a variable can be used by multiple operations.
+If a function uses a variable but does not change the contents of it, we call this variable a control parameter in this function. It is represented as a dot in the graph. Otherwise if it is changed, it is represented as a square.
+This diagram can be used to analyse uncomputable variables. In this example routine ``B'' changes \texttt{anc2}, \texttt{anc3} and \texttt{anc5}.
+while the following operation \texttt{imul} does not change these variables.
+Hence we can apply the inverse routine \texttt{$\sim$B} to safely restore contents \texttt{anc2}, \texttt{anc3} and \texttt{anc5}, this is what we called compute-copy-uncompute paradigm.
+%After computation, values of \texttt{z} and \texttt{$\nu$} are not changed, while a pre-emptied \texttt{out!} is changed to the desired output.
+%The whole function can be represented as
+%\begin{figure}[htp]
+%    \includegraphics[width=0.4\columnwidth,trim={0cm 1.5cm 0cm 0.5cm},clip]{images/fig5.pdf}
+%\end{figure}
 
 %\begin{figure*}
     %\centerline{\includegraphics[width=0.7\textwidth,trim={1cm 1cm 0 0},clip]{images/fig4.pdf}}
     %\caption{Data oriented computational graph for the reversible first kind Bessel function. Circles connected by vertical lines are variables, while boxes and dots connected by parallel lines are operations. A dot on a line represents a control parameter while a box represents a mutable parameter. Annotations $\#1, \#2, \ldots$ are used the mark the positions of variables in the argument list. The gray box represents the body of a while loop, where a precondition and postcondition are positioned on top and bottom of this box.}\label{fig:datagraph}
 %\end{figure*}
 
-To obtain gradients, one can wrap the variable \texttt{y!} with \texttt{Loss} type and feed it into \texttt{ibesselj\textquotesingle}
+To obtain gradients, one can wrap the variable \texttt{out!!} with \texttt{Loss} and feed it into \texttt{ibesselj\textquotesingle}
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
-julia> y, x = 0.0, 3.0
+julia> out!, x = 0.0, 3.0
 (0.0, 3.0)
 
-julia> ibesselj'(Loss(y), 2, x)
+julia> ibesselj'(Loss(out!), 2, x)
 (Loss(GVar(0.0, 1.0)), 2, GVar(3.0, 0.0149981304))
 \end{lstlisting}
 \end{minipage}
@@ -1032,7 +1032,7 @@ Here, \texttt{ibesselj\textquotesingle} is a callable instance of type \texttt{G
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
-julia> hessian_repeat(ibesselj, (Loss(y), 2, x))
+julia> hessian_repeat(ibesselj, (Loss(out!), 2, x))
 3×3 Array{Float64,2}:
  0.0  0.0   0.0    
  0.0  0.0   0.0    
@@ -1047,7 +1047,7 @@ To obtain Hessians, we can also use the Hessian propagation approach as introduc
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
-julia> ibesselj''(Loss(y), 2, x)
+julia> ibesselj''(Loss(out!), 2, x)
 (Loss(BeijingRing{Float64}(0.0, 1.0, 1)), 2, 
 BeijingRing{Float64}(3.0, 0.014998134978750133, 2))
 
@@ -1141,9 +1141,9 @@ Notablly, this reversible implementation costs zero memory allocation although i
 %It implements the backward rule of a \texttt{ROT} instruction
 %\begin{align}
 %    \begin{split}
-%    \overline{\theta}  &= \sum\frac{\partial R(\theta)}{\partial \theta}\odot(\overline{y}x^T)\\
-%    &= \Tr\left[\frac{\partial R(\theta)}{\partial \theta}^T\overline{y}x^T\right]\\
-%    &= \Tr\left[R\left(\frac{\pi}{2}-\theta\right)\overline{y}x^T\right]
+%    \overline{\theta}  &= \sum\frac{\partial R(\theta)}{\partial \theta}\odot(\overline{out!}x^T)\\
+%    &= \Tr\left[\frac{\partial R(\theta)}{\partial \theta}^T\overline{out!}x^T\right]\\
+%    &= \Tr\left[R\left(\frac{\pi}{2}-\theta\right)\overline{out!}x^T\right]
 %    \end{split}
 %\end{align}
 
