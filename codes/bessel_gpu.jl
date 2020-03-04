@@ -51,7 +51,7 @@ end
         jac ← zero(x)
 
         anc1 += log(x)
-        anc2 += CUDAnative.pow(x, value(n))
+        anc2 += (x, value(n))
         jac += anc1*anc2
     end
     grad(n) += grad(out!) * jac
@@ -82,7 +82,7 @@ end
     end
 end
 
-@i function ibesselj(out!, ν, z; atol=1e-8)
+@i function ibesselj(out!, ν::Integer, z; atol=1e-8)
     @routine @invcheckoff begin
         k ← 0
         fact_nu ← zero(ν)
@@ -97,8 +97,8 @@ end
         anc5 ← zero(z)
 
         halfz += z / 2
-        halfz_power_nu += CUDAnative.pow(halfz, ν)
-        halfz_power_2 += CUDAnative.pow(halfz, 2)
+        halfz_power_nu += halfz ^ Float32(ν)
+        halfz_power_2 += halfz ^ 2
         ifactorial(fact_nu, ν)
 
         anc1 += halfz_power_nu/fact_nu
@@ -126,7 +126,7 @@ end
     @invcheckoff i → (blockIdx().x-1) * blockDim().x + threadIdx().x
 end
 
-@i function ibesselj(out!::CuVector, ν, z::CuVector; atol=1e-8)
+@i function ibesselj(out!::CuVector, ν::Integer, z::CuVector; atol=1e-8)
    XY ← GPUArrays.thread_blocks_heuristic(length(out!))
    @cuda threads=tget(XY,1) blocks=tget(XY,2) ibesselj_kernel(out!, ν, z, atol)
    @invcheckoff XY → GPUArrays.thread_blocks_heuristic(length(out!))
@@ -141,6 +141,33 @@ using BenchmarkTools
 
 a = CuArray(ones(128))
 out! = CuArray(zeros(128))
-out! = ibesselj(out!, 2, GVar.(a))[1]
+out! = ibesselj(out!, 2, a)[1]
+a_g = GVar.(a)
 out_g! = GVar.(out!, CuArray(ones(128)))
-Inv(ibesselj)(out_g!, 2, GVar.(a))
+(~ibesselj)(out_g!, 2, a_g)
+
+using CUDAnative, CuArrays, GPUArrays
+function sq_kernel(out!, x)
+    i = (blockIdx().x-1) * blockDim().x + threadIdx().x
+    v = 3f0
+    @inbounds out![i] += x[i] ^ v
+    return nothing
+end
+
+function sqfunc(out!::CuVector, z::CuVector)
+   XY = GPUArrays.thread_blocks_heuristic(length(out!))
+   @cuda threads=XY[1] blocks=XY[2] sq_kernel(out!, z)
+end
+
+# this fail
+sqfunc(randn(Float32,128) |> CuArray, randn(Float32,128) |> CuArray)
+
+
+function sq_kernel(out!, x)
+    i = (blockIdx().x-1) * blockDim().x + threadIdx().x
+    @inbounds out![i] += x[i] ^ 3
+    return nothing
+end
+
+# this work
+sqfunc(randn(Float32,128) |> CuArray, randn(Float32,128) |> CuArray)
