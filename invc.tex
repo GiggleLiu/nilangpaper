@@ -1063,7 +1063,7 @@ Whenever an $n$-th variable or ancilla is created, we push a ring of size $2n-1$
 The final result can be collected by calling \texttt{collect\_hessian()}, which will read out the Hessian matrix that stored in the global storage.
 
 \subsubsection{Benchmark}
-We implemented the Bessel function 
+We have different source to souce automatic differention implementations of the first type Bessel function benchmarked and show the results below.
 \begin{table}[h!]\centering
 \begin{minipage}{\columnwidth}
 \ra{1.3}
@@ -1071,12 +1071,13 @@ We implemented the Bessel function
         \begin{tabularx}{\textwidth}{X X c c}\toprule
             & \textbf{Tangent/Adjoint} & \textbf{$T_{\rm min}$/ns} & Space/KB\\
             \hline
-            Julia & - & 23 & 0\\
-            NiLang & - & 166 (86) & 0\\
-            ForwardDiff & Tangent & 47 & 0\\
-            Manual & Adjoint & 126 & 0\\
-            NiLang.AD & Adjoint & 280 & 0\\
-            Zygote & Adjoint & 37788 & 13.47\\
+            Julia & - & 22 & 0\\
+            NiLang & - & 59 & 0\\
+            ForwardDiff & Tangent & 35 & 0\\
+            Manual & Adjoint & 83 & 0\\
+            NiLang.AD & Adjoint & 213 & 0\\
+            NiLang.AD (GPU) & Adjoint & 1.4 & 0\\
+            Zygote & Adjoint & 31201 & 13.47\\
             Tapenade & Adjoint & ? & ?\\
             \hline
             \bottomrule
@@ -1086,6 +1087,17 @@ We implemented the Bessel function
 \end{minipage}
 \end{table}
 
+Julia is the CPU time used for running the irreversible forward program, is the baseline of benchmarking.
+NiLang is the reversible implementation, it is 2.7 times slower than its irreversible counterpart. Here, we have remove the reversibility check.
+ForwardDiff gives the best performance because it is designed for functions with single input.
+It is even faster than manually derived gradients
+\begin{equation}
+    J_{\nu}'(z) = \frac{J_{\nu-1} - J_{\nu+1}}{2}
+\end{equation}
+NiLang.AD is the reversible differential programming implementation, it considers only the backward pass.
+The benchmark of its GPU version is estimated on Nvidia Titan V by broadcasting the gradient function on CUDA array of size $2^17$ and take average.
+The Zygote benchmark considers both forward pass and backward pass.
+Tapenade \blue{needs your effort, @MLS}
 
 \subsection{Unitary Matrices}\label{sec:umm}
 A unitary matrices features uniform eigenvalues and reversibility. It is widely used as an approach to ease the gradient exploding and vanishing problem~\cite{Arjovsky2015,Wisdom2016,Li2016} and the memory wall problem~\cite{Luo2019}.
