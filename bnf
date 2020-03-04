@@ -49,7 +49,9 @@ InstrStmt : DataView InstrBinOp <ident> [InstrTrailer];
 
 RevStmt : '$\\sim$' Stmt;
 
-AncillaStmt : <ident> '$\\leftarrow$' <$JuliaExpr$>;
+AncillaStmt : <ident> '$\\leftarrow$' <$JuliaExpr$>
+            | <ident> '$\\rightarrow$' <$JuliaExpr$>
+            ;
 
 TypecastStmt : '(' <$JuliaExpr$> '=>' <$JuliaExpr$> ')' '(' <ident> ')';
 

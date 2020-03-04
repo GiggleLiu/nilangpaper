@@ -1016,7 +1016,7 @@ Hence we can apply the inverse routine \texttt{$\sim$B} to safely restore conten
     %\caption{Data oriented computational graph for the reversible first kind Bessel function. Circles connected by vertical lines are variables, while boxes and dots connected by parallel lines are operations. A dot on a line represents a control parameter while a box represents a mutable parameter. Annotations $\#1, \#2, \ldots$ are used the mark the positions of variables in the argument list. The gray box represents the body of a while loop, where a precondition and postcondition are positioned on top and bottom of this box.}\label{fig:datagraph}
 %\end{figure*}
 
-To obtain gradients, one can wrap the variable \texttt{out!!} with \texttt{Loss} and feed it into \texttt{ibesselj\textquotesingle}
+To obtain gradients, one can wrap the variable \texttt{out!} with \texttt{Loss} and feed it into \texttt{ibesselj\textquotesingle}
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
@@ -1061,6 +1061,31 @@ julia> collect_hessian()
 \texttt{ibesselj\textquotesingle\textquotesingle} computes the second-order gradients. It wraps variables with type \texttt{BeijingRing}~\footnote{When people ask for the location in Beijing, they will start by asking which ring it is? We use the similar approach to locate the elements of Hessian matrix.} in the backward pass. \texttt{BeijingRing} records Jacobians and Hessians for a variable, where Hessians are stored in a global storage.
 Whenever an $n$-th variable or ancilla is created, we push a ring of size $2n-1$ to a global tape. Whenever an ancilla is deallocated, we pop a ring from the top. The $n$-th ring stores Hessian elements $H_{i\leq n,n}$ and $H_{n,i<n}$.% We didn't use the symmetry relation $H_{i,j} = H_{j,i}$ to save memory here in order to simplify the implementation of backward rules described in the right most panel of \Fig{fig:ad}.
 The final result can be collected by calling \texttt{collect\_hessian()}, which will read out the Hessian matrix that stored in the global storage.
+
+\subsubsection{Benchmark}
+We implemented the Bessel function 
+\begin{table}[h!]\centering
+\begin{minipage}{\columnwidth}
+\ra{1.3}
+    \scalebox{1.0}{
+        \begin{tabularx}{\textwidth}{X X c c}\toprule
+            & \textbf{Tangent/Adjoint} & \textbf{$T_{\rm min}$/ns} & Space/KB\\
+            \hline
+            Julia & - & 23 & 0\\
+            NiLang & - & 166 (86) & 0\\
+            ForwardDiff & Tangent & 47 & 0\\
+            Manual & Adjoint & 126 & 0\\
+            NiLang.AD & Adjoint & 280 & 0\\
+            Zygote & Adjoint & 37788 & 13.47\\
+            Tapenade & Adjoint & ? & ?\\
+            \hline
+            \bottomrule
+        \end{tabularx}
+    }
+    \caption{Time and space used in computing the gradients of Bessel functions $J_2(1.0)$.}\label{tbl:besselj}
+\end{minipage}
+\end{table}
+
 
 \subsection{Unitary Matrices}\label{sec:umm}
 A unitary matrices features uniform eigenvalues and reversibility. It is widely used as an approach to ease the gradient exploding and vanishing problem~\cite{Arjovsky2015,Wisdom2016,Li2016} and the memory wall problem~\cite{Luo2019}.
@@ -1860,7 +1885,7 @@ using NiLang, NiLang.AD
 
 @i @inline function swap_kernel(state, mask1, mask2)
     @invcheckoff b ← (blockIdx().x-1) * 
-        blockDim().x + threadIdx().x
+        blockDim().x + threadIdx().x - 1
     @invcheckoff if (b < length(state), ~)
         if (b&mask1==0 && b&mask2==mask2, ~)
             SWAP(state[b+1], state[b ⊻ 
