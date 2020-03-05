@@ -1,4 +1,4 @@
-will have a detailed discussion about the\documentclass[a4paper,superscriptaddress,11pt]{quantumarticle}
+%\documentclass[a4paper,superscriptaddress,11pt]{quantumarticle}
 \documentclass[aps,twocolumn,longbibliography,english,superscriptaddress]{revtex4-1}
 %\documentclass[a4paper,superscriptaddress,11pt]{article}
 \pdfoutput=1
@@ -224,36 +224,32 @@ However, implementing adjoint mode AD is harder than implementing its tangent mo
     Most popular AD implementations in the market are based on operator overloading. These packages provide a finite set of primitive functions with predefined backward rules.
     In Pytorch~\cite{Paszke2017} and Flux~\cite{Innes2018a}, every variable has a tracker field. When applying a predefined primitive function on a variable, the variable's tracker field keeps track of this function as well as data that needed in later back propagation. TensorFlow~\cite{Tensorflow2015} uses the similar approach expect it builds a static computational graph as a description of the program before actual computation happens.
     %These packages all prefer tensor types, where the overhead of memory allocations is less significant.
-    When it comes to needs about new primitives in scientific computing, they all rely on users to write backward rules for them.
-    For example, in physics, the requirements to AD are diversed.
+    In research, people need new primitives every now and then, these packages can not cover all the diversed needs in different fields.
+    Then it relies on users to code backward rules manually.
+    For example, in physics, the requirements to AD are quite diversed.
     \begin{enumerate}
         \item We need to differentiate over sparse matrix operations that are important for Hamiltonian engineering~\cite{Xie2020}, like solving dominant eigenvalues and eigenvectors~\cite{Golub2012}.
-        \item We need to back propagating SVD function in tensor network algorithms to study the phase transition problem~\cite{Liao2019}.
+        \item We need to back propagating singular value decomposition (SVD) function and QR decomposition in tensor network algorithms to study the phase transition problem~\cite{Liao2019}.
         \item We need to differentiate over a quantum simulation where each quantum gate is a inplace function that changes the quantum register directly~\cite{Luo2019}.
     \end{enumerate}
-    None of the above packages can meet all these requirements by using predefined primitives only. Some progresses were made at the cost of lots of scientists effort. In the back propagation of dominant eigensolver~\cite{Xie2020}, authors manages to circumvent the sparse matrix issue by allowing users to provide the backward function for sparse matrix generator.
-    The backward rules for SVD and eigensolvers has been manually derived recent years~\cite{Seeger2017,Wan2019,Hubig2019}. One can obtain the gradients correctly for both real numbers and complex numbers~\cite{Wan2019} in most cases, expect when the spectrum contains degeneracy.
+    None of the above packages can meet all these requirements by using predefined primitives only.
+    Scientists put lots of effort into deriving backward rules. In the back propagation of dominant eigensolver~\cite{Xie2020}, people managed to circumvent the sparse matrix issue by allowing users to provide the backward function for sparse matrix generator.
+    The backward rules for SVD and eigensolvers has been manually derived recent years~\cite{Seeger2017,Wan2019,Hubig2019}. One can obtain the gradients correctly for both real numbers and complex numbers~\cite{Wan2019} in most cases, expect when the spectrum is degenerate.
     In variational quantum simulator Yao~\cite{Luo2019}, authors implemented a builtin cache free AD engine by utilizing the reversible nature of quantum computing. They derive and implement the backward rule for each type of quantum gate.
 
     Souce code transformation based AD brings hope to free scientists from deriving backard rules.
-    Tools like Tapenade~\cite{Hascoet2013} and Zygote~\cite{Innes2018, Innes2019} generate the adjoint code statically while putting variable on a stack called the wengert list. However, this approach has its own problem too.
-    As the reverse mode AD requires storing intermediate result, the memory consumption of the program is typically O(n) where n is the runtime of the program.
-    In many deep learning models like recurrent neural network~\cite{Lipton2015} and residual neural networks~\cite{He2016}, the depth can reach several thousand, where the memory is often the bottleneck of these programs.
-    In traditional AD applications\blue{what is traditional AD applications}, a program that might do billions of computations will as well get a wengert list in the range of GBs, thus memory will become a bottleneck as well.
-The memory management is becoming a wall~\cite{Luo2019} that limiting the scale of many applications on GPU. The computational power of a Nvidia V100 GPU can reaches 100 TFLOPS, competing a small cluster. However, its memory is only 32GB. A better solution to memory management should be found.
-	for source to source ad, a direct consequene of caching intermediate states is the poor performance.
-    an efficient source to source adjoint mode ad framework will give hope to solving many important issues.
-    back propagating sparse matrix operations,
-although their backward rules have been drived in recent years, these backward rules can not handle degenerate eigenvalues properly. Hopefully, the automatically generated backward rules do not have such problems.
-
-    \blue{@MLS, Do you have any good comments about starving CPU, i.e. memory accessing is consuming much more time than computing itself.
-    This is why caching intermediate result is a performance killer.}
-
-% where the manually derived backwards rule still faces the degenerate spectrum problem (gradients explodes), instruction-level AD will return reasonable gradients. With instruction-level AD, people don't worry about inplace functions, which may be a huge problem in traditional approaches. We can back-propagate over a quantum simulator, where all instructions are reversible two level unitaries (i.e. Jacobian rotation).
-
+    Tools like Tapenade~\cite{Hascoet2013} and Zygote~\cite{Innes2018, Innes2019} generate the adjoint code statically while putting variable on a stack called the wengert list.
+    However, this approach has its own problem too. In traditional AD applications\blue{what is traditional AD applications}, a program that might do billions of computations will as well get a wengert list in the range of GBs. Frequent caching of data slows down the program significantly, the memory will become a bottleneck as well.
+    %As the reverse mode AD 
+In both machine learning and scientific computation, the memory management in AD is becoming a wall~\cite{Luo2019} that limiting the scale of many applications.
+In many deep learning models like recurrent neural network~\cite{Lipton2015} and residual neural networks~\cite{He2016}, the depth can reach several thousand, where the memory is often the bottleneck of these programs. The memory wall problem is even more sevie when one runs the application on GPU. The computational power of a Nvidia V100 GPU can reaches 100 TFLOPS, competing a small cluster. However, its memory is only 32GB.
+Back propagating a general program using source code transformation just makes the case worse, because the memory consumption of the program is typically $O(T)$ where $T$ is the runtime of the program. It is nearly impossible to automatically generate the backward rule for SVD with reasonable performance. A better solution to memory management must be found to make source to source AD practical.
 %We don't need extra effort to learn meta parameters.~\cite{} Neural ODE is much easier to design~\cite{Chen2018}.
 
-    We tackle this problem by making a program reversible. In the machine learning field, reversibility has been used in reduce the memory allocations in recurrent neural networks~/\cite{MacKay2018} and residual neural networks~\cite{Behrmann2018}. These techinics include information buffer~\cite{Maclaurin2015} and reversible activation functions~\cite{Gomez2017,Jacobsen2018}. However, our approach is general purposed. We develop an embedded domain-specific language (eDSL) NiLang in Julia language~\cite{Bezanson2012,Bezanson2017} that implements reversible programming.~\cite{Perumalla2013,Frank2017}. This eDSL provides a macro to generate reversible functions, one can write reversible control flows, instructions and memory managements in this macro.
+    We tackle this problem by writting a program reversibly. Reversibility has been used in reduce the memory allocations in machine learning models such as recurrent neural networks~\cite{MacKay2018}, Hyperparameter learning~\cite{Maclaurin2015} and residual neural networks~\cite{Behrmann2018}, where information buffer~\cite{Maclaurin2015} and reversible activation functions~\cite{Gomez2017,Jacobsen2018} are used to decrease the memory usage.
+    Our approach makes reversibility a language feature hence is more general purposed.
+    We develop an embedded domain-specific language (eDSL) NiLang in Julia language~\cite{Bezanson2012,Bezanson2017} that implements reversible programming.~\cite{Perumalla2013,Frank2017}. This eDSL provides a macro to generate reversible functions that can be used by other programs. One can write reversible control flows, instructions and memory managements inside this macro.
+
 In history, there have been some prototypes of reversible languages like Janus~\cite{Lutz1986}, R (not the popular one)~\cite{Frank1997}, Erlang~\cite{Lanese2018} and object-oriented ROOPL~\cite{Haulund2017}. % These languages have reversible control flow that allows user to input an additional postcondition in control flows to help programs run backward.
     In the past, the primary motivation of studying reversible programming is to support reversible devices~\cite{Frank1999} like adiabatic complementary metal–oxide–semiconductor (CMOS)~\cite{Koller1992}, molecular mechanical computing system~\cite{Merkle2018} and superconducting system~\cite{Likharev1977,Semenov2003}. These devices either implements reversible logical gates or is able to recover signal energy, where the latter is also called generalized reversible computing. Reversible computing are more energy efficient from information and entropy's perspective by the Landauer's principle~\cite{Landauer1961}
     %They do not erase information hence do not have a lower bound of energy consumption by Landauer principle~\cite{Landauer1961}. However, investigators show less interest to reversible programming since 15 years ago, because the energy efficiency of traditional CMOS devices is still several orders~\cite{Debenedictis2017,Frank2017} above this lower bound, removing this lower bound is not an urgent problem yet.
