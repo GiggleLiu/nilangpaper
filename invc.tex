@@ -430,6 +430,11 @@ For example, one can use \texttt{@safe @show <var>} for debugging.
 \subsection{Compiling}
 The compilation of a reversible function contains three stages.
 
+\begin{figure}[h]
+    \centerline{\includegraphics[width=0.7\columnwidth,trim={0cm 0cm 0 0cm},clip]{images/compiling.pdf}}
+    %\caption{Three compiling stages of NiLang.}\label{fig:compiling}
+\end{figure}
+
 The first stage pre-processes human inputs to a reversible IR.
 The preprocessor expands the symbol ``\texttt{$\sim$}'' in the postcondition field of \texttt{if} statement by copying the precondition, adds missing ancilla ``$\leftarrow$'' statements to ensure ``\texttt{$\leftarrow$}'' and ``\texttt{$\rightarrow$}'' appear in pairs inside a function, a \texttt{while} statement or a \texttt{for} statement, and expands the uncomputing macro \texttt{$\sim$@routine}.
 Since the compmute-copy-uncompute paradigm is extensively used in reversible programming for uncomputing ancillas.
@@ -440,11 +445,12 @@ The following example pre-processes an \texttt{if} statement to the reversible I
 \begin{lstlisting}
 julia> using NiLangCore, MacroTools
 
-julia> MacroTools.prettify(
-       @code_preprocess if (x > 3, ~)
-           @routine z += x * y
-           ~@routine
-       end)
+julia> NiLangCore.precom_ex(
+       :(if (x > 3, ~)
+            @routine z += x * y
+            ~@routine
+       end), NiLangCore.PreInfo()
+       ) |> MacroTools.prettify
 :(if (x > 3, x > 3)
       z += x * y
       z -= x * y
@@ -459,12 +465,13 @@ The second stage generates the reversed code according to table \Tbl{tbl:revstat
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
-julia> MacroTools.prettify(
-       @code_reverse if (pre, post)
+julia> NiLangCore.dual_ex(
+       :(if (pre, post)
            z += x * y
        else
            z += x / y
        end)
+       ) |> MacroTools.prettify
 :(if (post, pre)
       z -= x * y
   else
@@ -479,12 +486,13 @@ The following example shows how an \texttt{if} statement is transformed in this 
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
-julia> MacroTools.prettify(
-       @code_julia if (pre, post)
+julia> NiLangCore.compile_ex(
+       :(if (pre, post)
            z += x * y
        else
            z += x / y
-       end)
+       end), NiLangCore.CompileInfo()
+       ) |> MacroTools.prettify
 quote
     bat = pre
     if bat
