@@ -1,4 +1,4 @@
-%\documentclass[a4paper,superscriptaddress,11pt]{quantumarticle}
+will have a detailed discussion about the\documentclass[a4paper,superscriptaddress,11pt]{quantumarticle}
 \documentclass[aps,twocolumn,longbibliography,english,superscriptaddress]{revtex4-1}
 %\documentclass[a4paper,superscriptaddress,11pt]{article}
 \pdfoutput=1
@@ -219,10 +219,34 @@ However, implementing adjoint mode AD is harder than implementing its tangent mo
     \item the computational process,
     \item and variables used in computing gradients.
 \end{enumerate}
-    The computational process is often stored in a computational graph, a directed acyclic graph (DAG) that represents the relationship between data and functions. In Pytorch~\cite{Paszke2017} and Flux~\cite{Innes2018a}, every variable has a tracker field that stores its parent information, i.e., the input data and function generating this variable. TensorFlow~\cite{Tensorflow2015} implements a static computational graph as a description of the program before actual computation happens. The required variables are also recorded in this graph.
+    The computational process is often stored in a computational graph, which is a directed acyclic graph (DAG) that represents the relationship between data and functions.
+    There are two basic techniques for implementation of computational graph, operator overloading and source code transformation.
+    Most popular AD implementations in the market are based on operator overloading. These packages provide a finite set of primitive functions with predefined backward rules.
+    In Pytorch~\cite{Paszke2017} and Flux~\cite{Innes2018a}, every variable has a tracker field. When applying a predefined primitive function on a variable, the variable's tracker field keeps track of this function as well as data that needed in later back propagation. TensorFlow~\cite{Tensorflow2015} uses the similar approach expect it builds a static computational graph as a description of the program before actual computation happens.
+    %These packages all prefer tensor types, where the overhead of memory allocations is less significant.
+    When it comes to needs about new primitives in scientific computing, they all rely on users to write backward rules for them.
+    For example, in physics, the requirements to AD are diversed.
+    \begin{enumerate}
+        \item We need to differentiate over sparse matrix operations that are important for Hamiltonian engineering~\cite{Xie2020}, like solving dominant eigenvalues and eigenvectors~\cite{Golub2012}.
+        \item We need to back propagating SVD function in tensor network algorithms to study the phase transition problem~\cite{Liao2019}.
+        \item We need to differentiate over a quantum simulation where each quantum gate is a inplace function that changes the quantum register directly~\cite{Luo2019}.
+    \end{enumerate}
+    None of the above packages can meet these requirements by using predefined primitives only. Some progresses were made at the cost of lots of scientists effort. In the back propagation of dominant eigensolver~\cite{Xie2020}, authors manages to circumvent the sparse matrix issue by allowing users to provide the backward function for sparse matrix generator.
+    The backward rules for SVD and eigensolvers has been manually derived recent years~\cite{Seeger2017,Wan2019,Hubig2019}. One can obtain the gradients correctly for both real numbers and complex numbers~\cite{Wan2019} in most cases, expect when the spectrum contains degeneracy.
+    In variational quantum simulator Yao~\cite{Luo2019}, authors implemented a builtin cache free AD engine by utilizing the reversible nature of quantum computing. They derive and implement the backward rule for each type of quantum gate.
+
+    Souce code transformation based AD brings hope to free scientists from the labor of defining backard rules.
+    However, this approach has its own problem too.
+    As the reverse mode AD requires storing intermediate result, the memory consumption of the program is typically O(n) where n is the runtime of the program.
     For source to source AD package, Tools like Tapenade~\cite{Hascoet2013} and Zygote~\cite{Innes2018, Innes2019} generate the adjoint code statically while putting variable on a stack called the wengert list. \blue{The introduction to source to source AD is a bit weak, please give reader an overview about the development and difficulty in this field.}
-    As reverse mode AD require storing intermediate result, the memory consumption of the program is typically O(n) where n is the runtime of the program. In many deep learning models like recurrent neural network~\cite{Lipton2015} and residual neural networks~\cite{He2016}, the depth can reach several thousand, where the memory is often the bottleneck of these programs. In traditional AD applications, a program that might do billions of computations will as well get a wengert list in the range of GBs, thus memory will become a bottleneck as well.
+    In many deep learning models like recurrent neural network~\cite{Lipton2015} and residual neural networks~\cite{He2016}, the depth can reach several thousand, where the memory is often the bottleneck of these programs.
+    In traditional AD applications\blue{what is traditional AD applications}, a program that might do billions of computations will as well get a wengert list in the range of GBs, thus memory will become a bottleneck as well.
 The memory management is becoming a wall~\cite{Luo2019} that limiting the scale of many applications on GPU. The computational power of a Nvidia V100 GPU can reaches 100 TFLOPS, competing a small cluster. However, its memory is only 32GB. A better solution to memory management should be found.
+	for source to source ad, a direct consequene of caching intermediate states is the poor performance.
+    an efficient source to source adjoint mode ad framework will give hope to solving many important issues.
+    back propagating sparse matrix operations,
+although their backward rules have been drived in recent years, these backward rules can not handle degenerate eigenvalues properly. Hopefully, the automatically generated backward rules do not have such problems.
+
     \blue{@MLS, Do you have any good comments about starving CPU, i.e. memory accessing is consuming much more time than computing itself.
     This is why caching intermediate result is a performance killer.}
 
@@ -281,15 +305,16 @@ The reversible \texttt{for} statement is similar to irreversible ones except aft
 \end{figure}
 
 \subsubsection{Arithmetic instructions}
-Every instruction has a unique inverse that can undo the changes.
+Every arithmetic instruction has a unique inverse that can undo the changes.
 For logical operations, we have \texttt{y $\veebar$= f(args...)} self reversible.
 For other arithmetic operations, we assume \texttt{y += f(args...)} and \texttt{y -= f(args...)} are reversible to each other although it is not true for floating point numbers due to the rounding error. Here \texttt{f} can be \texttt{identity}, \texttt{*}, \texttt{/} and \texttt{\^} et. al.
 Besides the above two types of operations, \texttt{SWAP} operation that exchanges the contents in two memory spaces are also widely used in reversible computing systems.
-We will have a detailed discussion about the rounding error and number system later in \Sec{sec:hardware}
+For applications sensitive to rounding errors, we should take the effect of rounding error to reversibility seriously. Rounding errors can be suppressed by using other number systems, which will be discussed in \Sec{sec:hardware}
 
 \subsection{NiLang's Reversible IR}
 In the last subsection, we have reviewed basic building blocks of a typical reversible language. In order to insert the code of obtaining gradients into the reversed program, the reversible language design should have related abstraction power.
-This motivates us to design a new reversible language NiLang to fit this task.
+It can be achieved by utilizing the multiple dispatch of Julia by defining a new elementary type and dispatch.
+ForwardDiff
 NiLang is an eDSL in Julia. We choose Julia as the host language for multipile purposes. Julia's meta programming and its package for pattern matching MLStyle.jl~\cite{MLStyle} allow us to define an eDSL conveniently. Meanwhile, the type inference and just in time compiling can remove most overheads introduced in our eDSL, providing a reasonable performance. Most importantly, the multiple dispatch provides the polymorphism that will be used in our autodiff engine.
 
 The main feature of NiLang is contained in a single macro \texttt{@i} that compiles a reversible function.
@@ -1477,10 +1502,8 @@ By introducing entanglement little by little, we can accelerate some basic compo
 The development of reversible compiling theory can be benefit quantum compiling directly.
 
 \subsection{Outlook}\label{sec:outlook}
-The reversible eDSL NiLang can be used to solve many existing scientific computing problems.
+
 First of all, it can be used to generate AD rules for existing machine learning packages like Zygote.
-For example, one can use NiLang to generate backward rules for singular value decoposition and eigenvalue decomposition functions that extensively used in scientific computing~\cite{Xie2020,Liao2019}.
-Although their backward rules~\cite{Seeger2017,Wan2019,Hubig2019} have been drived in recent years, these backward rules can not handle degenerate eigenvalues properly. Hopefully, the automatically generated backward rules do not have such problems.
 
 Secondly, we can use it to overcome the memory wall problem in some applications.
 NiLang provides a systematic time-space trade off scheme through uncomputing.
