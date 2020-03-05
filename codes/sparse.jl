@@ -49,6 +49,7 @@ b = sprand(1000, 1000, 0.01)
 
 using BenchmarkTools
 @benchmark dot(0.0, $a, $b)
+@benchmark (~dot)(0.0, $a, $b)
 @benchmark SparseArrays.dot($a, $b)
 out! = SparseArrays.dot(a, b)
 @benchmark (~dot)($(GVar(out!, 1.0)), $(GVar.(a)), $(GVar.(b)))

@@ -18,3 +18,4 @@ _temp/
 .ipynb_checkpoints/
 qmpsNotes.bib
 codes/.benchmarks/
+output/
