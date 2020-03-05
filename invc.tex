@@ -809,70 +809,6 @@ where the second term with $\frac{\partial \vx^L}{\partial{b}}$ vanishes natural
 
 \section{Examples}\label{sec:example}
 
-\subsection{Computing Fibonacci Numbers}\label{sec:fib}
-The following is an example that everyone likes, computing Fibonacci number recursively.
-
-\begin{minipage}{.44\textwidth}
-    \begin{lstlisting}
-using NiLang
-
-@i function rfib(out!, n::T) where T
-    n1 ← zero(T)
-    n2 ← zero(T)
-    @routine begin
-        n1 += identity(n)
-        n1 -= identity(1)
-        n2 += identity(n)
-        n2 -= identity(2)
-    end
-    if (value(n) <= 2, ~)
-        out! += identity(1)
-    else
-        rfib(out!, n1)
-        rfib(out!, n2)
-    end
-    ~@routine
-end
-\end{lstlisting}
-\end{minipage}
-
-The time complexity of this recursive algorithm is exponential to input \texttt{n}. It is also possible to write a reversible linear time for loop algorithm.
-A slightly non-trivial task is computing the first Fibonacci number that greater or equal to a certain number $z$, where a \texttt{while} statement is required.
-
-\begin{minipage}{.44\textwidth}
-\begin{lstlisting}
-@i function rfibn(n!, z)
-    @safe @assert n! == 0
-    out ← 0
-    rfib(out, n!)
-    while (out < z, n! != 0)
-        ~rfib(out, n!)
-        n! += identity(1)
-        rfib(out, n!)
-    end
-    ~rfib(out, n!)
-end
-\end{lstlisting}
-\end{minipage}
-
-In this example, the postcondition \texttt{n!=0} in the \texttt{while} statement is false before entering the loop, and becomes true in later iterations. In the reverse program, the \texttt{while} statement stops at \texttt{n==0}.
-If executed correctly, a user will see the following result.
-
-\begin{minipage}{.44\textwidth}
-\begin{lstlisting}
-julia> rfib(0, 10)
-(55, 10)
-
-julia> rfibn(0, 100)
-(12, 100)
-
-julia> (~rfibn)(rfibn(0, 100)...)
-(0, 100)
-\end{lstlisting}
-\end{minipage}
-
-This examplifies how an addition postcondition provided by user can help reversing a control flow without caching controls.
-
 \subsection{Bessel function}\label{sec:bessel}
 An Bessel function of the first kind of order $\nu$ can be computed using Taylor expansion
 \begin{equation}
@@ -1149,11 +1085,11 @@ This code is adapted from the irrversbile implementation in Julia package \textt
     end
     @invcheckoff branch_keeper → zeros(Bool, 2*m)
 end
-\end{minipage}
 \end{lstlisting}
+\end{minipage}
 
 With simple adaptation, the code becomes reversible.
-Here, the key point is using a \texttt{branch_keeper} vector to cache branch decisions.
+Here, the key point is using a \texttt{branch\_keeper} vector to cache branch decisions.
 From the benchmark, we show time costs is approximately 1.6 times the Julia native forward implementation.
 
 \begin{minipage}{.44\textwidth}
@@ -1186,8 +1122,8 @@ BenchmarkTools.Trial:   #$ TODO: remove this comment
   --------------
   samples:          10000
   evals/sample:     1
-\end{minipage}
 \end{lstlisting}
+\end{minipage}
 
 Here, we turn off the invertibility check off to achieve best performance.
 One can always turn off this check after the debugging.
@@ -2033,6 +1969,69 @@ julia> instruct!(CuArray(randn(8)),
 \end{lstlisting}
 \end{minipage}
 
+\section{Computing Fibonacci Numbers}\label{sec:fib}
+The following is an example that everyone likes, computing Fibonacci number recursively.
+
+\begin{minipage}{.44\textwidth}
+    \begin{lstlisting}
+using NiLang
+
+@i function rfib(out!, n::T) where T
+    n1 ← zero(T)
+    n2 ← zero(T)
+    @routine begin
+        n1 += identity(n)
+        n1 -= identity(1)
+        n2 += identity(n)
+        n2 -= identity(2)
+    end
+    if (value(n) <= 2, ~)
+        out! += identity(1)
+    else
+        rfib(out!, n1)
+        rfib(out!, n2)
+    end
+    ~@routine
+end
+\end{lstlisting}
+\end{minipage}
+
+The time complexity of this recursive algorithm is exponential to input \texttt{n}. It is also possible to write a reversible linear time for loop algorithm.
+A slightly non-trivial task is computing the first Fibonacci number that greater or equal to a certain number $z$, where a \texttt{while} statement is required.
+
+\begin{minipage}{.44\textwidth}
+\begin{lstlisting}
+@i function rfibn(n!, z)
+    @safe @assert n! == 0
+    out ← 0
+    rfib(out, n!)
+    while (out < z, n! != 0)
+        ~rfib(out, n!)
+        n! += identity(1)
+        rfib(out, n!)
+    end
+    ~rfib(out, n!)
+end
+\end{lstlisting}
+\end{minipage}
+
+In this example, the postcondition \texttt{n!=0} in the \texttt{while} statement is false before entering the loop, and becomes true in later iterations. In the reverse program, the \texttt{while} statement stops at \texttt{n==0}.
+If executed correctly, a user will see the following result.
+
+\begin{minipage}{.44\textwidth}
+\begin{lstlisting}
+julia> rfib(0, 10)
+(55, 10)
+
+julia> rfibn(0, 100)
+(12, 100)
+
+julia> (~rfibn)(rfibn(0, 100)...)
+(0, 100)
+\end{lstlisting}
+\end{minipage}
+
+This examplifies how an addition postcondition provided by user can help reversing a control flow without caching controls.
 
 
 \end{document}
