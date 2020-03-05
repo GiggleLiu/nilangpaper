@@ -1099,6 +1099,100 @@ The benchmark of its GPU version is estimated on Nvidia Titan V by broadcasting 
 The Zygote benchmark considers both forward pass and backward pass.
 Tapenade \blue{needs your effort, @MLS}
 
+\subsection{Sparse Matrices}
+Source to souce automatic differentiation is very useful in differentiating sparse matrices. Sparse matrices can not easily benefit generic definition of dense matrix backward rules, because generic rules does not keep the sparse structure.
+
+Here, we show a simple example that uses reversible programming to differentiate the
+Frobenius dot/inner product between two sparse matrices that defined as \texttt{trace(A'B)}.
+This code is adapted from the irrversbile implementation in Julia package \texttt{SparseArrays}.
+
+\begin{minipage}{.44\textwidth}
+\begin{lstlisting}
+@i function dot(r::T, A::SparseMatrixCSC{T},B::SparseMatrixCSC{T}) where {T}
+    m ← size(A, 1)
+    n ← size(A, 2)
+    @invcheckoff branch_keeper ← zeros(Bool, 2*m)
+    @safe size(B) == (m,n) || throw(DimensionMismatch("matrices must have the same dimensions"))
+    @invcheckoff @inbounds for j = 1:n
+        ia1 ← A.colptr[j]
+        ib1 ← B.colptr[j]
+        ia2 ← A.colptr[j+1]
+        ib2 ← B.colptr[j+1]
+        ia ← ia1
+        ib ← ib1
+        @inbounds for i=1:ia2-ia1+ib2-ib1-1
+            ra ← A.rowval[ia]
+            rb ← B.rowval[ib]
+            if (ra == rb, ~)
+                r += A.nzval[ia]' * B.nzval[ib]
+            end
+            # b move -> true, a move -> false
+            branch_keeper[i] ⊻= ia == ia2-1 || ra > rb
+            ra → A.rowval[ia]
+            rb → B.rowval[ib]
+            if (branch_keeper[i], ~)
+                ib += identity(1)
+            else
+                ia += identity(1)
+            end
+        end
+
+        ~@inbounds for i=1:ia2-ia1+ib2-ib1-1
+            # b move -> true, a move -> false
+            branch_keeper[i] ⊻= ia == ia2-1 || A.rowval[ia] > B.rowval[ib]
+            if (branch_keeper[i], ~)
+                ib += identity(1)
+            else
+                ia += identity(1)
+            end
+        end
+    end
+    @invcheckoff branch_keeper → zeros(Bool, 2*m)
+end
+\end{minipage}
+\end{lstlisting}
+
+With simple adaptation, the code becomes reversible.
+Here, the key point is using a \texttt{branch_keeper} vector to cache branch decisions.
+From the benchmark, we show time costs is approximately 1.6 times the Julia native forward implementation.
+
+\begin{minipage}{.44\textwidth}
+\begin{lstlisting}
+julia> @benchmark SparseArrays.dot($a, $b)
+BenchmarkTools.Trial: 
+  memory estimate:  0 bytes
+  allocs estimate:  0
+  --------------
+  minimum time:     94.537 μs (0.00% GC)
+  median time:      96.959 μs (0.00% GC)
+  mean time:        98.188 μs (0.00% GC)
+  maximum time:     189.291 μs (0.00% GC)
+  --------------
+  samples:          10000
+  evals/sample:     1
+
+julia> out! = SparseArrays.dot(a, b)
+25.19659286755114
+
+julia> @benchmark (~dot)($(GVar(out!, 1.0)), $(GVar.(a)), $(GVar.(b)))
+BenchmarkTools.Trial:   #$ TODO: remove this comment
+  memory estimate:  2.17 KiB
+  allocs estimate:  2
+  --------------
+  minimum time:     151.392 μs (0.00% GC)
+  median time:      153.153 μs (0.00% GC)
+  mean time:        155.884 μs (0.00% GC)
+  maximum time:     270.534 μs (0.00% GC)
+  --------------
+  samples:          10000
+  evals/sample:     1
+\end{minipage}
+\end{lstlisting}
+
+Here, we turn off the invertibility check off to achieve best performance.
+One can always turn off this check after the debugging.
+It is also possible to implement sparse matrix multiplication and other operations reversiblly.
+
 \subsection{Unitary Matrices}\label{sec:umm}
 A unitary matrices features uniform eigenvalues and reversibility. It is widely used as an approach to ease the gradient exploding and vanishing problem~\cite{Arjovsky2015,Wisdom2016,Li2016} and the memory wall problem~\cite{Luo2019}.
 One of the simplest way to parametrize a unitary matrix is representing a unitary matrix as a product of two-level unitary operations~\cite{Li2016}. A real unitary matrix of size $N$ can be parametrized compactly by $N(N-1)/2$ rotation operations~\cite{Li2013}
