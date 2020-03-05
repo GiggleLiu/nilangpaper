@@ -1036,7 +1036,7 @@ The Zygote benchmark considers both forward pass and backward pass.
 Tapenade \blue{needs your effort, @MLS}
 
 \subsection{Sparse Matrices}
-Source to souce automatic differentiation is very useful in differentiating sparse matrices. Sparse matrices can not easily benefit generic definition of dense matrix backward rules, because generic rules does not keep the sparse structure.
+Source to souce automatic differentiation is very useful in differentiating sparse matrices. Sparse matrices can not easily benefit generic backward rules that defined for dense matrix, because generic rules does not keep the sparse structure.
 
 Here, we show a simple example that uses reversible programming to differentiate the
 Frobenius dot/inner product between two sparse matrices that defined as \texttt{trace(A'B)}.
@@ -1044,11 +1044,14 @@ This code is adapted from the irrversbile implementation in Julia package \textt
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
-@i function dot(r::T, A::SparseMatrixCSC{T},B::SparseMatrixCSC{T}) where {T}
+@i function dot(r::T, A::SparseMatrixCSC{T},
+        B::SparseMatrixCSC{T}) where {T}
     m ← size(A, 1)
     n ← size(A, 2)
     @invcheckoff branch_keeper ← zeros(Bool, 2*m)
-    @safe size(B) == (m,n) || throw(DimensionMismatch("matrices must have the same dimensions"))
+    @safe size(B) == (m,n) || 
+        throw(DimensionMismatch(
+        "matrices must have the same dimensions"))
     @invcheckoff @inbounds for j = 1:n
         ia1 ← A.colptr[j]
         ib1 ← B.colptr[j]
@@ -1063,7 +1066,8 @@ This code is adapted from the irrversbile implementation in Julia package \textt
                 r += A.nzval[ia]' * B.nzval[ib]
             end
             # b move -> true, a move -> false
-            branch_keeper[i] ⊻= ia == ia2-1 || ra > rb
+            branch_keeper[i] ⊻= ia == ia2-1 ||
+                ra > rb
             ra → A.rowval[ia]
             rb → B.rowval[ib]
             if (branch_keeper[i], ~)
@@ -1075,7 +1079,8 @@ This code is adapted from the irrversbile implementation in Julia package \textt
 
         ~@inbounds for i=1:ia2-ia1+ib2-ib1-1
             # b move -> true, a move -> false
-            branch_keeper[i] ⊻= ia == ia2-1 || A.rowval[ia] > B.rowval[ib]
+            branch_keeper[i] ⊻= ia == ia2-1 ||
+                    A.rowval[ia] > B.rowval[ib]
             if (branch_keeper[i], ~)
                 ib += identity(1)
             else
@@ -1110,7 +1115,8 @@ BenchmarkTools.Trial:
 julia> out! = SparseArrays.dot(a, b)
 25.19659286755114
 
-julia> @benchmark (~dot)($(GVar(out!, 1.0)), $(GVar.(a)), $(GVar.(b)))
+julia> @benchmark (~dot)($(GVar(out!, 1.0)),
+        $(GVar.(a)), $(GVar.(b)))
 BenchmarkTools.Trial:   #$ TODO: remove this comment
   memory estimate:  2.17 KiB
   allocs estimate:  2
