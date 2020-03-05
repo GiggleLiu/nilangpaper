@@ -249,8 +249,11 @@ Back propagating a general program using source code transformation just makes t
     We tackle this problem by writting a program reversibly. Reversibility has been used in reduce the memory allocations in machine learning models such as recurrent neural networks~\cite{MacKay2018}, Hyperparameter learning~\cite{Maclaurin2015} and residual neural networks~\cite{Behrmann2018}, where information buffer~\cite{Maclaurin2015} and reversible activation functions~\cite{Gomez2017,Jacobsen2018} are used to decrease the memory usage.
     Our approach makes reversibility a language feature hence is more general purposed.
     We develop an embedded domain-specific language (eDSL) NiLang in Julia language~\cite{Bezanson2012,Bezanson2017} that implements reversible programming.~\cite{Perumalla2013,Frank2017}. This eDSL provides a macro to generate reversible functions that can be used by other programs. One can write reversible control flows, instructions and memory managements inside this macro.
+We choose Julia as the host language for multiple purposes. Julia is a popular language for scientific programming. Its meta programming and its package for pattern matching MLStyle~\cite{MLStyle} allow us to define an eDSL conveniently. Its type inference and just in time compiling can remove most overheads introduced in our eDSL, providing a reasonable performance. Most importantly, its multiple dispatch provides the polymorphism that will be used in our autodiff engine.
+In the past, we see a lot of implementations of AD languages work as an indepedant language.
+However, we wish our eDSL can benefit people in Julia community directly.
 
-In history, there have been some prototypes of reversible languages like Janus~\cite{Lutz1986}, R (not the popular one)~\cite{Frank1997}, Erlang~\cite{Lanese2018} and object-oriented ROOPL~\cite{Haulund2017}. % These languages have reversible control flow that allows user to input an additional postcondition in control flows to help programs run backward.
+There haven't been any reversible eDSL in Julia before, but there have been many prototypes of reversible languages like Janus~\cite{Lutz1986}, R (not the popular one)~\cite{Frank1997}, Erlang~\cite{Lanese2018} and object-oriented ROOPL~\cite{Haulund2017}. % These languages have reversible control flow that allows user to input an additional postcondition in control flows to help programs run backward.
     In the past, the primary motivation of studying reversible programming is to support reversible devices~\cite{Frank1999} like adiabatic complementary metal–oxide–semiconductor (CMOS)~\cite{Koller1992}, molecular mechanical computing system~\cite{Merkle2018} and superconducting system~\cite{Likharev1977,Semenov2003}.
     %These devices either implements reversible logical gates or is able to recover signal energy, where the latter is also called generalized reversible computing. 
     Reversible computing are more energy efficient from information and entropy's perspective, or by the Landauer's principle~\cite{Landauer1961}.
@@ -310,9 +313,9 @@ Here, it is worth noticing that \texttt{+=} and \texttt{-=} are not exactly reve
 
 \subsection{NiLang's Reversible IR}
 In the last subsection, we have reviewed basic building blocks of a typical reversible language. In order to insert the code of obtaining gradients into the reversed program, the reversible language design should have related abstraction power.
-It can be achieved by utilizing the multiple dispatch of Julia by defining a new elementary type and dispatch.
-ForwardDiff
-NiLang is an eDSL in Julia. We choose Julia as the host language for multiple purposes. Julia's meta programming and its package for pattern matching MLStyle.jl~\cite{MLStyle} allow us to define an eDSL conveniently. Meanwhile, the type inference and just in time compiling can remove most overheads introduced in our eDSL, providing a reasonable performance. Most importantly, the multiple dispatch provides the polymorphism that will be used in our autodiff engine.
+It can be achieved by utilizing the multiple dispatch of Julia.
+We can wrap a number with a special type with gradient field called \texttt{GVar} and dispatch it to instructions that update gradient fields for it.
+Similar design is called \texttt{Dual} number in the tangent mode AD package ForwardDiff~\cite{Revels2016}.
 
 The main feature of NiLang is contained in a single macro \texttt{@i} that compiles a reversible function.
 The allowed statements in this eDSL are shown in \App{app:grammar}.
@@ -350,11 +353,11 @@ end
 \end{lstlisting}
 \end{minipage}
 
-Macro \texttt{@i} generates three functions \texttt{f}, \texttt{$\sim$f} and \texttt{NiLangCore.isreversible}. \texttt{f} and \texttt{$\sim$f} are a pair of functions that reverse to each other, where \texttt{$\sim$f} is an callable of type \texttt{Inv\{typeof(f)\}}.
-In the body of \texttt{f}, \texttt{NiLangCore.wrap\_tuple} is used to unify output data types, it will wrap any non-tuple variable to a tuple.
-The outputs of \texttt{SWAP} are assigned back to its input variables, in other words, a function modifies inputs inplace.
+Macro \texttt{@i} generates three functions \texttt{f}, \texttt{$\sim$f} and \texttt{NiLangCore.isreversible}. \texttt{f} and \texttt{$\sim$f} are a pair of functions that are reversbile to each other, where \texttt{$\sim$f} is an callable of type \texttt{Inv\{typeof(f)\}}.
+In the body of \texttt{f}, \texttt{NiLangCore.wrap\_tuple} is used to unify output data types to tuples.
+The outputs of \texttt{SWAP} are assigned back to its input variables, in other words, it simulates a function that modifies inputs inplace.
 At the end this function, this macro attaches a return statement that returns all input variables.
-\texttt{NiLangCore.isreversible} is a function to mark the reversibility trait of \texttt{f}.
+Finally, it defines \texttt{NiLangCore.isreversible} for \texttt{f} to mark it as reversible.
 %The generated functions will be compiled to reversible ``instructions'', these instructions are closed under the inverse operation ``$\sim$''. Hence all functions defined in NiLang are also closed under ``$\sim$'' operations.
 
 To understand the design of reversibility, we first introduce a reversible IR that plays a central role in NiLang.
@@ -394,16 +397,15 @@ Any statement is this IR has a unique inverse as shown in \Tbl{tbl:revstatements
             \bottomrule
         \end{tabularx}
     }
-    \caption{A collection of reversible statements.
+    \caption{A collection of reversible statements, where left side and right side are reversible to each other.
     ``.'' is the symbol for broadcasting magic in Julia,
     ``$\sim$'' is the symbol for reversing a statement or a function.
-    \texttt{<...>} represents a non-keyword, 
-    where \texttt{<pre>} stands for precondition, 
+    \texttt{<pre>} stands for precondition, 
     \texttt{<post>} stands for postcondition,
     \texttt{<args>...} stands for the argument list of a function,
     \texttt{<stmts>} stands for statement,
     \texttt{<exprs>} stands for expression,
-    \texttt{<T1>} and \texttt{<T2>} stand for types and the reset are variables.
+    \texttt{<T1>} and \texttt{<T2>} stand for types.
 }\label{tbl:revstatements},
 \end{minipage}
 \end{table}
@@ -416,8 +418,8 @@ Any statement is this IR has a unique inverse as shown in \Tbl{tbl:revstatements
 %A postcondition is a boolean expression that being evaluated after the body expressions being executed.
 ``\texttt{$\leftarrow$}'' and ``\texttt{$\rightarrow$}'' are symbols for memory allocation and deallocation, one can input them by typing ``$\backslash$leftarrow'' and ``$\backslash$rightarrow'' respectively followed by a Tab key in a Julia editor or REPL.
 ``\texttt{begin <stmts> end}'' is the block statement in Julia, it represents a code block.
-It can be inverted by reversing the order of \texttt{<stmts>} as well as each element in it.
-The conditional expression in \texttt{if} or \texttt{while} statements is a tuple of precondition and postcondition.
+It can be inverted by reversing the order as well as each element in it.
+A \texttt{if} or \texttt{while} statement is similar to its native Julia counterpart except the conditional expression in statements is a tuple of precondition and postcondition.
 %\texttt{<a> $\leftarrow$ <expr>} binds variable \texttt{<a>} to an initial value specified by \texttt{<expr>}. Its inverse \texttt{<a> $\rightarrow$ <expr>} deallocates the variable \texttt{<a>}. Before deallocating the variable, the program checks that the its value is the same as the value of \texttt{<expr>}, otherwise throws an \texttt{InvertibilityError}.
 %A function call in NiLang supports Julia's broadcasting magic, a function defined on scalars can be broadcasted to vectors by adding a ``.'' after the function call.
 %\texttt{$\rightarrow$} will be added automatically.
@@ -478,7 +480,7 @@ The following example shows how an \texttt{if} statement is transformed in this 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
 julia> MacroTools.prettify(
-       @code_interpret if (pre, post)
+       @code_julia if (pre, post)
            z += x * y
        else
            z += x / y
