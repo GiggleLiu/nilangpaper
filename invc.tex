@@ -699,70 +699,9 @@ julia> a, b, y
 \end{minipage}
 
 Here, since $J(\ominus(*)) = J(\oplus(*))^{-1}$, consecutively applying them will restore the gradient fields of all variables.
-The implementation of Algorithm \ref{alg:ad} is so short that we present the function definition as follows.
-
-\begin{minipage}{.44\textwidth}
-\begin{lstlisting}
-@i function (g::Grad)(args...; kwargs...)
-    @safe @assert count(x -> x isa Loss, args) == 1
-    iloss ← 0
-    @routine for i=1:length(args)
-        if (tget(args,i) isa Loss, iloss==i)
-            iloss += identity(i)
-            (~Loss)(tget(args,i))
-        end
-    end
-
-    g.f(args...; kwargs...)
-    GVar.(args)
-    grad(tget(args,iloss)) += identity(1.0)
-    (~g.f)(args...; kwargs...)
-
-    ~@routine
-end
-\end{lstlisting}\label{lst:ad}
-\end{minipage}
-
-The program first checks variables contain exactly one \texttt{Loss}, where \texttt{Loss} is a reversible wrapper used to mark the loss variable. 
-Then we locates the loss variable as \texttt{iloss} and use \texttt{$\sim$Loss} unwraps the loss variable. After computing the forward pass and backward pass, \texttt{$\sim$@routine} uncomputes the ancilla \texttt{iloss} and returns the location information to the loss variable.
-Here, \texttt{tget(args, i)} returns the $i$-th element of a tuple. We forbid tuple indexing deliberately in order to avoid possible ambiguity in supporting array indexing.
-
-The overhead of using \texttt{GVar} type is negligible thanks to Julia's multiple-dispatch and type inference. Let us consider a simple example that accumulates $1.0$ to a target variable $x$ for $n$ times.
+The overhead of using \texttt{GVar} type is negligible thanks to Julia's multiple-dispatch and type inference.
 
 \blue{Grammarly here!}
-
-\begin{minipage}{.44\textwidth}
-\begin{lstlisting}
-julia> using NiLang, NiLang.AD, BenchmarkTools
-
-julia> @i function prog(x, one, n::Int)
-           for i=1:n
-               x += identity(one)
-           end
-       end
-
-julia> @benchmark prog'(Loss(0.0), 1.0, 10000)
-BenchmarkTools.Trial: 
-  memory estimate:  1.05 KiB
-  allocs estimate:  39
-  --------------
-  minimum time:     35.838 μs (0.00% GC)
-  median time:      36.055 μs (0.00% GC)
-  mean time:        36.483 μs (0.00% GC)
-  maximum time:     185.973 μs (0.00% GC)
-  --------------
-  samples:          10000
-  evals/sample:     1
-\end{lstlisting}
-\end{minipage}
-
-\begin{figure}
-    \centerline{\includegraphics[width=0.9\columnwidth,trim={0 0cm 0 0},clip]{images/fig3.pdf}}
-    \caption{The time to obtain gradient as function of loop size. $\times n$ in legend represents a rescaling of time.}\label{fig:benchmark}
-\end{figure}
-We implement the same function with TensorFlow, PyTorch and Zygote for comparison. The code could be found in our paper's GitHub repository~\cite{benchmark}. Benchmark results on CPU Intel(R) Xeon(R) CPU E5-2680 v4 @ 2.40GHz are shown in \Fig{fig:benchmark}.
-One can see that the NiLang implementation is unreasonably fast, it is approximately two times the forward pass written in native Julia code.
-Reversible programming is not always as fast as its irreversible counterparts. In practical applications, a reversible program may have memory or computation overhead. We will discuss the details of time and space trade off in \Sec{sec:timespace}.
 
 \subsection{Second-order gradient}
 Second-order gradients can be obtained in two different approaches.
@@ -1026,7 +965,9 @@ We have different source to source automatic differentiation implementations of 
             \bottomrule
         \end{tabularx}
     }
-    \caption{Time and space used in computing the gradients of Bessel functions $J_2(1.0)$.}\label{tbl:besselj}
+    \caption{Time and space used in computing the gradients of Bessel functions $J_2(1.0)$.
+    The CPU device is Intel(R) Xeon(R) CPU E5-2680 v4 @ 2.40GHz and the GPU device is Nvidia Titan V.
+    }\label{tbl:besselj}
 \end{minipage}
 \end{table}
 
@@ -1038,7 +979,7 @@ It is even faster than manually derived gradients
     J_{\nu}'(z) = \frac{J_{\nu-1} - J_{\nu+1}}{2}
 \end{equation}
 NiLang.AD is the reversible differential programming implementation, it considers only the backward pass.
-The benchmark of its GPU version is estimated on Nvidia Titan V by broadcasting the gradient function on CUDA array of size $2^17$ and take average.
+The GPU version benchmark is estimated by broadcasting the gradient function on CUDA array of size $2^17$ and take average.
 The Zygote benchmark considers both forward pass and backward pass.
 Tapenade \blue{needs your effort, @MLS}
 
