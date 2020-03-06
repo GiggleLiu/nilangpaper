@@ -73,12 +73,9 @@ end
     @invcheckoff res ← bessel_kernel(CUDA(), 256)(out!, v, z; ndrange=length(out!))
     @safe wait(res)
     @invcheckoff res → (~bessel_kernel)(CUDA(), 256)(out!, v, z; ndrange=length(out!))
+    # shorthand -
+    # @launchkernel CUDA() 256 length(out!) bessel_kernel(out!, v, z)
 end
-
-#@i function cbefunc(out!, v::Integer, z)
-#    @invcheckoff res ← bessel_kernel(CPU(), 2)(out!, v, z; ndrange=length(out!))
-#    @invcheckoff res → (~bessel_kernel)(CPU(), 2)(out!, v, z; ndrange=length(out!))
-#end
 
 N = 4096
 T = Float32
@@ -88,4 +85,5 @@ befunc(out!, 2, z)
 out_g = GVar.(out!, CuArray(ones(T, N)))
 z_g = GVar.(z)
 (~befunc)(out_g, 2, z_g)
+using BenchmarkTools
 @benchmark CuArrays.@sync (~befunc)($out_g, 2, $z_g)

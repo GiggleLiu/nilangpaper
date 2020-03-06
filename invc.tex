@@ -511,7 +511,8 @@ The compiler translates the instruction according to \Tbl{tbl:interp} and adds \
 So far, the language design is not too different from a traditional reversible language. To implement the adjoint mode AD, we introduce types and dataviews.
 The type that used in the reversible context is just a normal Julia type with an extra requirement of having reversible constructors.
 The inverse of a constructor is called a ``destructor'', which unpacks data and deallocates derived fields.
-Data packing is implemented by reinterpreting the \texttt{new} function in Julia. For example,
+A reversbile constructor is implemented by reinterpreting the \texttt{new} function in Julia.
+Creating a new object is similar to creasting an ancilla. Let's consider the following statement.
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
@@ -519,8 +520,8 @@ Data packing is implemented by reinterpreting the \texttt{new} function in Julia
 \end{lstlisting}
 \end{minipage}
 
-Here, the ``$\leftarrow$'' statement followed by a \texttt{new} function is treated specially that it deallocates \texttt{g}. This makes sense because the output of \texttt{new} keeps all information in input argument list.
-Its inverse is
+It works just like an ancilla, except it deallocates \texttt{g} directly at the same time.
+This makes sense because \texttt{new} is special that the its output keeps all information of its arguments, all input variables that does not appear in the output can be discard safely. Its inverse is
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
@@ -528,8 +529,8 @@ Its inverse is
 \end{lstlisting}
 \end{minipage}
 
-It unpacks \texttt{x} and allocates a new ancilla \texttt{g}.
-The following example shows how to define as reversible type \texttt{GVar}.
+It unpacks structure \texttt{x} and assign fields to corresponding variables in argument list.
+The following example shows a non-complete definition the reversible type \texttt{GVar}.
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
@@ -567,8 +568,9 @@ julia> (~GVar)(GVar([0.5, 0.6]))
 \end{lstlisting}
 \end{minipage}
 
-This piece of code is copied from the autodiff submodule of NiLang. \texttt{GVar} is a type used to store gradient information of a variable.
-Here, we put \texttt{@i} macro before both \texttt{struct} and \texttt{function} statements. The ones before functions mark reversible functions, while the one before \texttt{struct} keyword is used to handle the function scope issue. It moves \texttt{$\sim$GVar} functions outside of this type definition.
+\texttt{GVar} has two fields, they correspond to the value and gradient of a variable.
+Here, we put \texttt{@i} macro before both \texttt{struct} and \texttt{function} statements.
+The ones before functions generates forward and backward functions, while the one before \texttt{struct} moves \texttt{$\sim$GVar} functions to the outside of the type definition, otherwise the inverse function will be ignored by Julia compiler.
 
 The reversible cast between two types can be defined conveniently with the macro \texttt{@icast}.
 
