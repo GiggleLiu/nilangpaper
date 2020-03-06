@@ -78,7 +78,7 @@ end
 @i function ifactorial(out!, n::Int)
     out! += identity(1)
     @invcheckoff for i=1:n
-        MULINT(out!, i)
+        mulint(out!, i)
     end
 end
 
@@ -97,7 +97,7 @@ end
         anc5 ← zero(z)
 
         halfz += z / 2
-        halfz_power_nu += halfz ^ Float32(ν)
+        halfz_power_nu += CUDAnative.pow(halfz, ν)
         halfz_power_2 += halfz ^ 2
         ifactorial(fact_nu, ν)
 
@@ -133,41 +133,14 @@ end
 end
 
 
-#y, x = 0.0, 1.0
-#y_out = ibesselj(y, 2, x)[1]
-using BenchmarkTools
-#@benchmark ibesselj($y, 2, $x)
-#@benchmark (~ibesselj)($(GVar(y_out, 1.0)), 2, $(GVar(1.0, 0.0)))
-
-a = CuArray(ones(128))
-out! = CuArray(zeros(128))
+N = 4096
+T = Float32
+a = CuArray(ones(T, N))
+out! = CuArray(zeros(T, N))
 out! = ibesselj(out!, 2, a)[1]
 a_g = GVar.(a)
-out_g! = GVar.(out!, CuArray(ones(128)))
+out_g! = GVar.(out!, CuArray(ones(T, N)))
 (~ibesselj)(out_g!, 2, a_g)
 
-using CUDAnative, CuArrays, GPUArrays
-function sq_kernel(out!, x)
-    i = (blockIdx().x-1) * blockDim().x + threadIdx().x
-    v = 3f0
-    @inbounds out![i] += x[i] ^ v
-    return nothing
-end
-
-function sqfunc(out!::CuVector, z::CuVector)
-   XY = GPUArrays.thread_blocks_heuristic(length(out!))
-   @cuda threads=XY[1] blocks=XY[2] sq_kernel(out!, z)
-end
-
-# this fail
-sqfunc(randn(Float32,128) |> CuArray, randn(Float32,128) |> CuArray)
-
-
-function sq_kernel(out!, x)
-    i = (blockIdx().x-1) * blockDim().x + threadIdx().x
-    @inbounds out![i] += x[i] ^ 3
-    return nothing
-end
-
-# this work
-sqfunc(randn(Float32,128) |> CuArray, randn(Float32,128) |> CuArray)
+using BenchmarkTools
+@benchmark CuArrays.@sync (~ibesselj)($out_g!, 2, $a_g)
