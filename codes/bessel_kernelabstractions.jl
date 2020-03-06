@@ -82,10 +82,6 @@ end
 
 N = 4096
 T = Float32
-# this fail
-#sqfunc(out!, z, v)
-#(~sqfunc)(out!, z, v)
-#NOTE: float32 will fail this function
 out! = zeros(T,N) |> CuArray
 z = ones(T,N) |> CuArray
 befunc(out!, 2, z)
