@@ -614,7 +614,7 @@ The assignments in lines 4 and 5 are straightforward.
 We call a bijection of a field of an object a ``dataview'' of this object, it is directly modifiable in NiLang.
 The definition of dataview can be found in \App{app:grammar}.
 
-\section{Automatic differentiation}\label{sec:bp}
+\section{Reversible automatic differentiation}\label{sec:bp}
 
 Local Jacobians and Hessians for basic instructions used in this section could be found in \App{app:jacobians}.
 
@@ -762,7 +762,15 @@ where the second term with $\frac{\partial \vx^L}{\partial{b}}$ vanishes natural
 
 \section{Examples}\label{sec:example}
 
-\subsection{Bessel function}\label{sec:bessel}
+In this section, we introduce several examples.
+We will discuss the first example, the first kind Bessel function, in most detail.
+We compare the difference between the irreversible and reversible implementations of this function, as well as the difference between normal computational graph and memory oriented computational graph.
+Then we show how to obtain first and second order gradients automatically in the reversible AD framework.
+We benchmark different source to source AD implementations of the Bessel function.
+Then we show how to differentiate sparse matrix operations, unitary matrix multiplication and QR decomposition.
+Finally, we show how to solve the graph embedding problem variationally with trust region Newton method, a second order optimizer that requires Hessians.
+
+\subsection{The first kind Bessel function}\label{sec:bessel}
 An Bessel function of the first kind of order $\nu$ can be computed using Taylor expansion
 \begin{equation}
     J_\nu(z) = \sum\limits_{n=0}^{\infty} \frac{(z/2)^\nu}{\Gamma(k+1)\Gamma(k+\nu+1)} (-z^2/4)^{n}
@@ -786,8 +794,8 @@ end
 \end{minipage}
 
 This computational process could be diagrammatically represented as a DAG as show in \Fig{fig:cgraphs}(\subref{fig:computational-graph}).
-In this diagram, the data is represented as an edge, it connects at most two nodes, one generates this data and one consumes it as an input parameter.
-Computational graph is more likely a mathematical expression, it can not describe inplace functions or control flows conveniently because it does not have the concept of memory.
+In this diagram, the data is represented as an edge. It connects at most two nodes, one generates this data and one consumes it.
+Computational graph is more likely a mathematical expression, it can not describe inplace functions or control flows conveniently because it does not have the notation for memory and loops.
 %\begin{figure*}
     %\centerline{\includegraphics[width=0.8\textwidth,trim={0cm 6cm 0 0},clip]{images/computational_graph.pdf}}
     %\caption{Traditional computational graph for the reversible first kind Bessel function. Where a vertex (circle) is an operation and a directed edge is a variable. The gray region is the body of while loop.}\label{fig:computational-graph}
@@ -810,7 +818,8 @@ Computational graph is more likely a mathematical expression, it can not describ
 \end{figure*}
 
 In the following, we introduce the reversible implementation and the memory oriented computational graph.
-Intuitively, one needs an increasing size of tape to cache the intermediate state, since one can not release state $s_{n-1}$ directly after computing $s_n$~\cite{Perumalla2013}.
+The above bessel function contains a loop with irreversible ``\texttt{*=}'' operation inside.
+Intuitively, consequtive multiplication requires an increasing size of tape to cache the intermediate state $s_n$, since one can not release state $s_{n-1}$ directly after computing $s_n$~\cite{Perumalla2013}.
 To reduce the memory allocation without increasing the time complexity of program, we introduce the following reversible approximate multiplier
 
 \begin{minipage}{.44\textwidth}
@@ -823,12 +832,14 @@ end
 \end{lstlisting}
 \end{minipage}
 
-Here, the definition of \texttt{SWAP} instruction can be found in \App{app:instr}, $\texttt{anc!} \approx 0$ is a \textit{dirty ancilla}.
+Here, instruction \texttt{SWAP} exchanges values of two variables, $\texttt{anc!} \approx 0$ is a \textit{dirty ancilla}.
 Line 2 computes the result and accumulates it to the dirty ancilla, we get an approximately correct output in \texttt{anc!}.
-Line 3``uncomputes'' \texttt{out!} approximately by using the information stored in \texttt{anc!}, leaving a dirty zero state in register \texttt{out!}.
+Line 3 uncompute \texttt{out!} approximately by using the information stored in \texttt{anc!}, leaving a dirty zero state in register \texttt{out!}.
 Line 4 swaps the contents in \texttt{out!} and \texttt{anc!}.
 Finally, we have an approximately correct output and a dirtier ancilla.
-With this multiplier, we implementation $J_\nu$ as follows.
+This ``approximate uncomputing'' trick can be extensively used in practise. It mitigated the artificial irreversibility brought by the number system that we have adopted at the cost of output precision.
+The reason why this  trick works here lies in the fact that from the mathematic perspective the state in $n$th step $\{s_n, z\}$ contains the same amount of information as its previous state  $\{s_{n-1}, z\}$ except some special points, it is highly possible to find an equation to uncompute the previous state from the current state.
+With this approximate multiplier, we implement $J_\nu$ as follows.
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
@@ -876,24 +887,24 @@ end
 @i function ifactorial(out!, n)
     out! += identity(1)
     for i=1:n
-        MULINT(out!, i)
+        mulint(out!, i)
     end
 end
 \end{lstlisting}
 \end{minipage}
 
-Here, only a constant number of ancillas are used in this implementation, while the algorithm complexity does not increase comparing to its irreversible counterpart.
-ancilla \texttt{anc4} plays the role of \textit{dirty ancilla} in multiplication, it is uncomputed rigorously in the uncomputing stage.
-The reason why the ``approximate uncomputing'' trick works here lies in the fact that from the mathematic perspective the state in $n$th step $\{s_n, z\}$ contains the same amount of information as the state in the $n-1$th step $\{s_{n-1}, z\}$ except some special points, it is highly possible to find an equation to uncompute the previous state from the current state.
-This trick can be used extensively in many other application. It mitigated the artificial irreversibility brought by the number system that we have adopt at the cost of precision.
+Here, only a constant number of ancillas are used, while the time complexity does not increase comparing to its irreversible counterpart.
+Ancilla \texttt{anc4} plays the role of \textit{dirty ancilla} in multiplication, it is uncomputed rigorously in the uncomputing stage marked by \texttt{$\sim$@routine}.
 %The \texttt{while} statement takes two conditions, the precondition and postcondition. Precondition \texttt{val(anc1) > atol} indicates when to break the forward pass and postcondition \texttt{iplus != 0} indicates when to break the backward pass.
 
 This reversible program can be diagramatically represented as a memory oriented computational graph as show in \Fig{fig:cgraphs} (\subref{fig:datagraph}).
-The key difference is we adopt a variable centric view, while a variable can be used by multiple operations.
-If a function uses a variable but does not change the contents of it, we call this variable a control parameter in this function. It is represented as a dot in the graph. Otherwise if it is changed, it is represented as a square.
-This diagram can be used to analyse uncomputable variables. In this example routine ``B'' changes \texttt{anc2}, \texttt{anc3} and \texttt{anc5}.
+In this graph, a variable is a vertical line, a function is a parallel line.
+The key difference to traditional computational graph is it adopts a variable centric view.
+A variable can be used by multiple functions, i.e. it is a hypergraph rather than a simple graph.
+If a function uses a variable but does not change the contents in it, we call this variable a control parameter of this function and put a dot at the cross. Otherwise if the content is changed, we put a square.
+This diagram can be used to analyse uncomputable variables. In this example routine ``B'' uses \texttt{hz\_2}, \texttt{$\nu$} and \texttt{k} as control parameters, and changes the contents in \texttt{anc2}, \texttt{anc3} and \texttt{anc5}.
 while the following operation \texttt{imul} does not change these variables.
-Hence we can apply the inverse routine \texttt{$\sim$B} to safely restore contents \texttt{anc2}, \texttt{anc3} and \texttt{anc5}, this is what we called compute-copy-uncompute paradigm.
+Hence we can apply the inverse routine \texttt{$\sim$B} to safely restore contents in \texttt{anc2}, \texttt{anc3} and \texttt{anc5}, this is what people called compute-copy-uncompute paradigm.
 %After computation, values of \texttt{z} and \texttt{$\nu$} are not changed, while a pre-emptied \texttt{out!} is changed to the desired output.
 %The whole function can be represented as
 %\begin{figure}[htp]
@@ -1546,8 +1557,6 @@ The list of instructions implemented in NiLang
             ${\rm SWAP}(a, b)$ & $b, a$\\
             ${\rm ROT}(a, b, \theta)$ & $a \cos\theta - b\sin\theta, b \cos\theta + a\sin\theta, \theta$\\
             ${\rm IROT}(a, b, \theta)$ & $a \cos\theta + b\sin\theta, b \cos\theta - a\sin\theta, \theta$\\
-            ${\rm MULINT}(a, b)$ & $a * b, b$\\
-            ${\rm DIVINT}(a, b)$ & $a / b, b$\\
             $y \pluseq a^\wedge b$ & $y+a^b, a, b$\\
             $y \pluseq \exp(x)$ & $y+e^x, x$\\
             $y \pluseq \log(x)$ & $y+\log x, x$\\
@@ -1559,7 +1568,7 @@ The list of instructions implemented in NiLang
             \bottomrule
         \end{tabularx}
     }
-    \caption{A collection of reversible instructions, ``.'' is the broadcasting operations in Julia. The second argument of \texttt{MULINT} and \texttt{DIVINT} should be a nonzero integer.}\label{tbl:revinstructions}
+    \caption{A collection of reversible instructions, ``.'' is the broadcasting operations in Julia.}\label{tbl:revinstructions}
 \end{minipage}
 \end{table}
 
@@ -1870,8 +1879,8 @@ Variance and mean value from squared values `sqv`.
     sqmean += mean! ^ 2
     var! -= identity(sqmean)
     sqmean -= mean! ^ 2
-    MULINT(var!, length(sqv))
-    DIVINT(var!, length(sqv)-1)
+    mulint(var!, length(sqv))
+    divint(var!, length(sqv)-1)
 end
 \end{lstlisting}
 \end{minipage}

@@ -20,7 +20,7 @@ end
 
 Reversible multiplication.
 """
-@i function imul(out!, x, anc!)
+@i @inline function imul(out!, x, anc!)
     anc! += out! * x
     out! -= anc! / x
     SWAP(out!, anc!)
@@ -33,13 +33,10 @@ end
 end
 
 @i function ifactorial(out!, n::Int)
-    anc1 ← one(out!)
-    anc2 ← zero(out!)
-    @routine for i=1:n
-        imul(anc1, i, anc2)
+    out! += identity(1)
+    @routine @invcheckoff for i=1:n
+        mulint(out!, i)
     end
-    out! += identity(anc1)
-    ~@routine
 end
 
 @i function ibesselj(out!, ν, z; atol=1e-8)
@@ -82,6 +79,7 @@ end
 
 using ForwardDiff
 using ForwardDiff: Dual
+
 
 ForwardDiff.derivative(x->besselj(2, x), 1.0)
 ibesselj(ForwardDiff.Dual(0.0, 0.0), 2, ForwardDiff.Dual(1.0, 1.0))

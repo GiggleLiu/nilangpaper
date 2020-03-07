@@ -669,4 +669,41 @@ class PLT(object):
             plt.text(-1.3, 0, "(a)", fontsize=14)
             plt.text(4.7, 0, "(b)", fontsize=14)
 
+    def fig7(self, tp='pdf'):
+        data = np.loadtxt("../codes/bench_graphembedding.dat")/1000
+        with DataPlt(filename="fig7.%s"%tp, figsize=(10,4)) as dp:
+            ax = plt.subplot(131)
+            xs = np.arange(1,11)
+            plt.ylabel(r"time/$\mu$s")
+            cornertex("(a)", ax)
+            plt.plot(xs, data[:,0])
+            plt.plot(xs, data[:,1])
+            plt.plot(xs, data[:,4])
+            plt.xlim(1, 10)
+            plt.ylim(0, 30)
+            plt.legend(["NiLang (Call)", "NiLang (UnCall)", "Julia"], fontsize=12, loc="upper right")
+            plt.xlabel("dimension")
+            ax = plt.subplot(132)
+            cornertex("(b)", ax)
+            plt.plot(xs, data[:,2])
+            plt.plot(xs, data[:,5])
+            plt.xlim(1, 10)
+            plt.legend(["NiLang", "ForwardDiff"], fontsize=12, loc="upper right")
+
+            plt.ylim(0, 1000)
+            plt.xlabel("dimension")
+            plt.ticklabel_format(axis="y", style="sci", scilimits=(0,0))
+
+            ax = plt.subplot(133)
+            cornertex("(c)", ax)
+            plt.plot(xs, data[:,3])
+            plt.plot(xs, data[:,6])
+            plt.legend(["NiLang", "ForwardDiff"], fontsize=12, loc="upper right")
+            plt.xlim(1, 10)
+            plt.ylim(0, 50000)
+            plt.xlabel("dimension")
+            #plt.yticks([1e4*i for i in range(1,6)], [r"$%s \times 10^4$"%i for i in range(1,6)], fontsize=12)
+            plt.ticklabel_format(axis="y", style="sci", scilimits=(0,0))
+            plt.tight_layout()
+
 fire.Fire(PLT())
