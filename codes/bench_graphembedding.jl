@@ -1,6 +1,8 @@
 using NiLang, NiLang.AD
 import ForwardDiff
 using ForwardDiff: Dual
+using Random
+Random.seed!(2)
 
 # bonds of a petersen graph
 const L1 = [(1, 6), (2, 7), (3, 8), (4, 9), (5, 10),
@@ -142,7 +144,7 @@ for k=1:10
     suite["ForwardDiff"]["Hessian"][k] = @benchmarkable ForwardDiff.hessian(loss, $(randn(k, 10)))
 end
 
-res = run(suite; samples=1000)
+res = run(suite; seconds=100, samples=1000)
 
 function analyze_res(res)
     times = zeros(10, 7)
@@ -153,7 +155,9 @@ function analyze_res(res)
                 k += 1
                 for i=1:10
                     @show lang, term
+                    @show res[lang][term][i].times[1:10]
                     times[i,k] = minimum(res[lang][term][i].times)
+                    @show times[i,k]
                 end
             end
         end
