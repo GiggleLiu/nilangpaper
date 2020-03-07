@@ -142,7 +142,7 @@ for k=1:10
     suite["ForwardDiff"]["Hessian"][k] = @benchmarkable ForwardDiff.hessian(loss, $(randn(k, 10)))
 end
 
-res = run(suite; samples=10)
+res = run(suite; samples=1000)
 
 function analyze_res(res)
     times = zeros(10, 7)
