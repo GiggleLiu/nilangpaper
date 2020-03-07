@@ -712,13 +712,7 @@ one obtains one row/column of the Hessian matrix straightforward.
 We will show an example of using forward differentiating in Newton trust region optimization in \Sec{sec:graph}.
 
 \subsubsection{Adjoint differentiating the adjoint program}\label{sec:simplehessian}
-Back propagating first-order gradients is also widely used to obtain the second-order gradients. Suppose the function space is closed under gradient operation, one can obtain higher-order gradients by recursively differentiating lower order gradient functions without defining new backward rules.
-\begin{figure}[h]
-    \centerline{\includegraphics[width=\columnwidth,trim={0 1cm 0cm 1cm},clip]{images/simplehessian.pdf}}
-    \caption{Data flow in obtaining second-order gradients with the recursive differentiation approach. Annotations on lines are data types used in the computation.}\label{fig:simplehessian}
-\end{figure}
-
-\Fig{fig:simplehessian} shows the data flow in the four passes of computing Hessian. The first two passes obtains the gradients. Before entering the third pass, the program wraps each field in \texttt{GVar} with another layer of \texttt{GVar}. Then we pick a variable $x_i$ and add $1$ to the gradient field of its gradient \texttt{grad(grad($x_i$))} in order to compute the $i$-th row of Hessian. Before entering the final pass, the \texttt{$\sim$GVar} is called. We can not unwrap \texttt{GVar} directly because although the values of gradients have been uncomputed to zero, the gradient fields of gradients may be nonzero. Instead, we use \texttt{Partial\{:x\}(obj)} to take field \texttt{x} of an object without erasing memory. By repeating the above procedure for different $x_i$, one can obtains the full Hessian matrix.
+Back propagating first-order gradients is also widely used to obtain the second-order gradients. Suppose the function space is closed under gradient operation, one can obtain higher-order gradients by recursively differentiating lower order gradient functions without defining new backward rules. An example is shown in \App{app:hessian}.
 
 \subsubsection{Hessian propagation}\label{sec:taylor}
 It is also possible to back-propagate Hessians directly~\cite{Martens2012} using the relation
@@ -916,51 +910,19 @@ Hence we can apply the inverse routine \texttt{$\sim$B} to safely restore conten
     %\caption{Data oriented computational graph for the reversible first kind Bessel function. Circles connected by vertical lines are variables, while boxes and dots connected by parallel lines are operations. A dot on a line represents a control parameter while a box represents a mutable parameter. Annotations $\#1, \#2, \ldots$ are used the mark the positions of variables in the argument list. The gray box represents the body of a while loop, where a precondition and postcondition are positioned on top and bottom of this box.}\label{fig:datagraph}
 %\end{figure*}
 
-To obtain gradients, one can wrap the variable \texttt{out!} with \texttt{Loss} and feed it into \texttt{ibesselj\textquotesingle}
+One can obtain gradient of this function by calling \texttt{ibesselj\textquotesingle}
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
 julia> out!, x = 0.0, 3.0
 (0.0, 3.0)
 
-julia> ibesselj'(Loss(out!), 2, x)
-(Loss(GVar(0.0, 1.0)), 2, GVar(3.0, 0.0149981304))
+julia> ibesselj'(Val(1), out!, 2, x)
+(GVar(0.0, 1.0), 2, GVar(3.0, 0.0149981304))
 \end{lstlisting}
 \end{minipage}
 
-Here, \texttt{ibesselj\textquotesingle} is a callable instance of type \texttt{Grad\{typeof(ibesselj)\}}. Its implementation is shown in \Sec{sec:jacobian}. This function itself is reversible and differentiable, one can back-propagate this function to obtain Hessians as introduced in \Sec{sec:simplehessian}. In NiLang, it is implemented as \texttt{hessian\_repeat}.
-
-\begin{minipage}{.44\textwidth}
-\begin{lstlisting}
-julia> hessian_repeat(ibesselj, (Loss(out!), 2, x))
-3×3 Array{Float64,2}:
- 0.0  0.0   0.0    
- 0.0  0.0   0.0    
- 0.0  0.0  -0.27505
-\end{lstlisting}
-\end{minipage}
-
-%The loss variable is specified by a wrapper \texttt{Loss}, notice we don't distinguish input and output in reversible programming.
-%The gradient function is implemented reversibally so that the gradient field of output can be differentiated again to obtain Hessians as shown in \Fig{fig:simplehessian}.
-
-To obtain Hessians, we can also use the Hessian propagation approach as introduced in \Sec{sec:taylor}.
-
-\begin{minipage}{.44\textwidth}
-\begin{lstlisting}
-julia> ibesselj''(Loss(out!), 2, x)
-(Loss(BeijingRing{Float64}(0.0, 1.0, 1)), 2, 
-BeijingRing{Float64}(3.0, 0.014998134978750133, 2))
-
-julia> collect_hessian()
-2×2 Array{Float64,2}:
- 0.0   0.0    
- 0.0  -0.27505
-\end{lstlisting}
-\end{minipage}
-
-\texttt{ibesselj\textquotesingle\textquotesingle} computes the second-order gradients. It wraps variables with type \texttt{BeijingRing}~\footnote{When people ask for the location in Beijing, they will start by asking which ring it is? We use the similar approach to locate the elements of Hessian matrix.} in the backward pass. \texttt{BeijingRing} records Jacobians and Hessians for a variable, where Hessians are stored in a global storage.
-Whenever an $n$-th variable or ancilla is created, we push a ring of size $2n-1$ to a global tape. Whenever an ancilla is deallocated, we pop a ring from the top. The $n$-th ring stores Hessian elements $H_{i\leq n,n}$ and $H_{n,i<n}$.% We didn't use the symmetry relation $H_{i,j} = H_{j,i}$ to save memory here in order to simplify the implementation of backward rules described in the right most panel of \Fig{fig:ad}.
-The final result can be collected by calling \texttt{collect\_hessian()}, which will read out the Hessian matrix that stored in the global storage.
+See \App{app:hessian} for alternative approaches to obtain its Hessian.
 
 \subsubsection{Benchmark}
 We have different source to source automatic differentiation implementations of the first type Bessel function benchmarked and show the results below.
@@ -985,6 +947,7 @@ We have different source to source automatic differentiation implementations of 
     }
     \caption{Time and space used in computing the gradients of Bessel functions $J_2(1.0)$.
     The CPU device is Intel(R) Xeon(R) CPU E5-2680 v4 @ 2.40GHz and the GPU device is Nvidia Titan V.
+    The GPU time is estimated by broadcasting the gradient function on CUDA array of size $2^{17}$ and take average.
     }\label{tbl:besselj}
 \end{minipage}
 \end{table}
@@ -997,15 +960,13 @@ It is even faster than manually derived gradients
     J_{\nu}'(z) = \frac{J_{\nu-1} - J_{\nu+1}}{2}
 \end{equation}
 NiLang.AD is the reversible differential programming implementation, it considers only the backward pass.
-The GPU version benchmark is estimated by broadcasting the gradient function on CUDA array of size $2^17$ and take average.
 The Zygote benchmark considers both forward pass and backward pass.
 Tapenade \blue{needs your effort, @MLS}
 
 \subsection{Sparse Matrices}
-Source to source automatic differentiation is very useful in differentiating sparse matrices. Sparse matrices can not easily benefit generic backward rules that defined for dense matrix, because generic rules does not keep the sparse structure.
+Source to source automatic differentiation is very useful in differentiating sparse matrices. It is a well known problem that sparse matrix operations can not benefit directly from generic backward rules that defined for dense matrix, because generic rules does not keep the sparse structure.
 
-Here, we show a simple example that uses reversible programming to differentiate the
-Frobenius dot/inner product between two sparse matrices that defined as \texttt{trace(A'B)}.
+In the following, we will show reversible AD can differentiate the Frobenius dot product between two sparse matrices with state of the art performance. Here, the Frobenius dot product is defined as \texttt{trace(A'B)}.
 This code is adapted from the irreversible implementation in Julia package \texttt{SparseArrays}.
 
 \begin{minipage}{.44\textwidth}
@@ -2015,6 +1976,49 @@ julia> (~rfibn)(rfibn(0, 100)...)
 \end{minipage}
 
 This examplifies how an addition postcondition provided by user can help reversing a control flow without caching controls.
+
+\section{Alternative approaches to Obtain Hessian}\label{app:hessian}
+Here, \texttt{ibesselj\textquotesingle} is a callable instance of type \texttt{Grad\{typeof(ibesselj)\}}. The first parameters \texttt{Val(1)} specifies the position of loss in argument list. This function itself is reversible and differentiable, hence one can back-propagate this function to obtain Hessians as introduced in \Sec{sec:simplehessian}. In NiLang, it is implemented as \texttt{hessian\_backback}.
+
+\begin{minipage}{.44\textwidth}
+\begin{lstlisting}
+julia> hessian_backback(ibesselj, (out!, 2, x); iloss=1)
+3×3 Array{Float64,2}:
+ 0.0  0.0   0.0    
+ 0.0  0.0   0.0    
+ 0.0  0.0  -0.27505
+\end{lstlisting}
+\end{minipage}
+
+\begin{figure}[h]
+    \centerline{\includegraphics[width=\columnwidth,trim={0 1cm 0cm 1cm},clip]{images/simplehessian.pdf}}
+    \caption{Data flow in obtaining second-order gradients with the recursive differentiation approach. Annotations on lines are data types used in the computation.}\label{fig:simplehessian}
+\end{figure}
+
+\Fig{fig:simplehessian} shows the data flow in the four passes of computing Hessian. The first two passes obtains the gradients. Before entering the third pass, the program wraps each field in \texttt{GVar} with another layer of \texttt{GVar}. Then we pick a variable $x_i$ and add $1$ to the gradient field of its gradient \texttt{grad(grad($x_i$))} in order to compute the $i$-th row of Hessian. Before entering the final pass, the \texttt{$\sim$GVar} is called. We can not unwrap \texttt{GVar} directly because although the values of gradients have been uncomputed to zero, the gradient fields of gradients may be nonzero. Instead, we use \texttt{Partial\{:x\}(obj)} to take field \texttt{x} of an object without erasing memory. By repeating the above procedure for different $x_i$, one can obtains the full Hessian matrix.
+
+
+%The loss variable is specified by a wrapper \texttt{Loss}, notice we don't distinguish input and output in reversible programming.
+%The gradient function is implemented reversibally so that the gradient field of output can be differentiated again to obtain Hessians as shown in \Fig{fig:simplehessian}.
+
+To obtain Hessians, we can also use the Hessian propagation approach as introduced in \Sec{sec:taylor}.
+
+\begin{minipage}{.44\textwidth}
+\begin{lstlisting}
+julia> ibesselj''(out!, 2, x; iloss=1)
+(Loss(BeijingRing{Float64}(0.0, 1.0, 1)), 2, 
+BeijingRing{Float64}(3.0, 0.014998134978750133, 2))
+
+julia> collect_hessian()
+2×2 Array{Float64,2}:
+ 0.0   0.0    
+ 0.0  -0.27505
+\end{lstlisting}
+\end{minipage}
+
+\texttt{ibesselj\textquotesingle\textquotesingle} computes the second-order gradients. It wraps variables with type \texttt{BeijingRing}~\footnote{When people ask for the location in Beijing, they will start by asking which ring it is? We use the similar approach to locate the elements of Hessian matrix.} in the backward pass. \texttt{BeijingRing} records Jacobians and Hessians for a variable, where Hessians are stored in a global storage.
+Whenever an $n$-th variable or ancilla is created, we push a ring of size $2n-1$ to a global tape. Whenever an ancilla is deallocated, we pop a ring from the top. The $n$-th ring stores Hessian elements $H_{i\leq n,n}$ and $H_{n,i<n}$.% We didn't use the symmetry relation $H_{i,j} = H_{j,i}$ to save memory here in order to simplify the implementation of backward rules described in the right most panel of \Fig{fig:ad}.
+The final result can be collected by calling \texttt{collect\_hessian()}, which will read out the Hessian matrix that stored in the global storage.
 
 
 \end{document}
