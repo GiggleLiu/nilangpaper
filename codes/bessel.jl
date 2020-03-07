@@ -42,20 +42,20 @@ end
     ~@routine
 end
 
-@i function ibessel(out!, ν, z; atol=1e-8)
-    k ← 0
-    fact_nu ← zero(ν)
-    halfz ← zero(z)
-    halfz_power_nu ← zero(z)
-    halfz_power_2 ← zero(z)
-    out_anc ← zero(z)
-    anc1 ← zero(z)
-    anc2 ← zero(z)
-    anc3 ← zero(z)
-    anc4 ← zero(z)
-    anc5 ← zero(z)
+@i function ibesselj(out!, ν, z; atol=1e-8)
+    @routine @invcheckoff begin
+        k ← 0
+        fact_nu ← zero(ν)
+        halfz ← zero(z)
+        halfz_power_nu ← zero(z)
+        halfz_power_2 ← zero(z)
+        out_anc ← zero(z)
+        anc1 ← zero(z)
+        anc2 ← zero(z)
+        anc3 ← zero(z)
+        anc4 ← zero(z)
+        anc5 ← zero(z)
 
-    @routine begin
         halfz += z / 2
         halfz_power_nu += halfz ^ ν
         halfz_power_2 += halfz ^ 2
@@ -80,13 +80,27 @@ end
     ~@routine
 end
 
+using ForwardDiff
+using ForwardDiff: Dual
+
+ForwardDiff.derivative(x->besselj(2, x), 1.0)
+ibesselj(ForwardDiff.Dual(0.0, 0.0), 2, ForwardDiff.Dual(1.0, 1.0))
+using BenchmarkTools
+function btest(v, z)
+    y, _, x = ibesselj(Dual(0.0, 0.0), 2, Dual(z, 1.0))
+    ibesselj(GVar(y, one(y)), 2, GVar(z, zero(y)))
+end
+
+@benchmark btest(2, 1.0)
+
 #y, x = Fixed43(0.0), Fixed43(3.0)
+x = 1.0
 NiLang.AD.set_ringtype!(typeof(x))
 
-y, x = 0.0, 3.0
+y, x = 0.0, 1.0
 ibessel'(Loss(y), 2, x)
 
-simple_hessian(ibessel, (Loss(y), 2, x))
+hessian_repeat(ibessel, (Loss(y), 2, x))
 
 ibessel''(Loss(y), 2, x)
 collect_hessian()

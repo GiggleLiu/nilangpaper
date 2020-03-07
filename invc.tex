@@ -704,49 +704,56 @@ The overhead of using \texttt{GVar} type is negligible thanks to Julia's multipl
 \blue{Grammarly here!}
 
 \subsection{Second-order gradient}
-Second-order gradients can be obtained in two different approaches.
-\subsubsection{Back propagating first-order gradients}\label{sec:simplehessian}
-Back propagating the first-order gradients is the most widely used approach to obtain the second-order gradients. Suppose the function space is closed under gradient operation, one can obtain higher-order gradients by recursively differentiating lower order gradient functions without defining new backward rules.
+Second-order gradients can be obtained in three different approaches, forward differentiating the adjoint program, adjoint differentiating the adjoint program and Hessian propagation.
+\subsubsection{Forward differentiating the adjoint program}\label{sec:dualhessian}
+Combining the adjoint program in NiLang with dual numbers is a simple yet efficient way to obtain Hessians.
+By wrapping the elementary type with \texttt{Dual} that defined in package ForwardDiff~\cite{Revels2016} and throwing it into the gradient program defined in NiLang,
+one obtains one row/column of the Hessian matrix straightforward.
+We will show an example of using forward differentiating in Newton trust region optimization in \Sec{sec:graph}.
+
+\subsubsection{Adjoint differentiating the adjoint program}\label{sec:simplehessian}
+Back propagating first-order gradients is also widely used to obtain the second-order gradients. Suppose the function space is closed under gradient operation, one can obtain higher-order gradients by recursively differentiating lower order gradient functions without defining new backward rules.
 \begin{figure}[h]
     \centerline{\includegraphics[width=\columnwidth,trim={0 1cm 0cm 1cm},clip]{images/simplehessian.pdf}}
-    \caption{Data flow in obtaining the second-order gradient with the recursive differentiation approach. Annotations on lines are data types used in the computation.}\label{fig:simplehessian}
+    \caption{Data flow in obtaining second-order gradients with the recursive differentiation approach. Annotations on lines are data types used in the computation.}\label{fig:simplehessian}
 \end{figure}
 
 \Fig{fig:simplehessian} shows the data flow in the four passes of computing Hessian. The first two passes obtains the gradients. Before entering the third pass, the program wraps each field in \texttt{GVar} with another layer of \texttt{GVar}. Then we pick a variable $x_i$ and add $1$ to the gradient field of its gradient \texttt{grad(grad($x_i$))} in order to compute the $i$-th row of Hessian. Before entering the final pass, the \texttt{$\sim$GVar} is called. We can not unwrap \texttt{GVar} directly because although the values of gradients have been uncomputed to zero, the gradient fields of gradients may be nonzero. Instead, we use \texttt{Partial\{:x\}(obj)} to take field \texttt{x} of an object without erasing memory. By repeating the above procedure for different $x_i$, one can obtains the full Hessian matrix.
 
 \subsubsection{Hessian propagation}\label{sec:taylor}
-A probably more efficient approach is back-propagating Hessians directly~\cite{Martens2012} using the relation
+It is also possible to back-propagate Hessians directly~\cite{Martens2012} using the relation
 \begin{align}
     \begin{split}
         &H^{\out}_{\vx^{L'},\vx^{L''}} = \mathbf{0},\\
         &H^{\out}_{\vx^{i-1},\vx^{i-1'}} = J^{\vx^i}_{\vx^{i-1}} H^{\out}_{\vx^i, \vx^{i'}} J^{\vx^{i'}}_{\vx^{i-1'}} + J^{\out}_{\vx^i} H^{\vx^i}_{\vx^{i-1}, \vx^{i-1'}}.
     \end{split}
 \end{align}
-Here, the Hessian tensor $H^{\out}_{\vx^{i-1},\vx^{i-1'}}$ is rank three, where the top index is often taken as a scalar and omitted.
+Here, the Hessian is represented as a tensor $H^{\out}_{\vx^{i-1},\vx^{i-1'}}$ of rank three.
 In tensor network diagram, the above equation can be represented as the right panel of \Fig{fig:ad}.
-Hessian propagation is a special case of Taylor propagation.
+The advantange of using Hessian propagation is it can be generalized to Taylor propagation in the future.
 With respect to the order of gradients, Taylor propagation is exponentially more efficient in obtaining higher-order gradients than differentiating lower order gradients recursively. %The later requires traversing the computational graph repeatedly.
 %In JAX~\cite{Bettencourt2019}, in order to support Taylor propagation, the propagation rules for part of primitives should be manually defined.
-Comparing with operator overloading, source to source automatic differentiation has the advantage of having very limited primitives, exhausted implementation of Hessian propagation is possible.
+Comparing with operator overloading, source to source automatic differentiation has the advantage of having very limited primitives, exhausted support to Hessian propagation is possible.
 An example to obtain Hessians is provided in \Sec{sec:bessel}.
 
 \subsection{Gradient on ancilla problem}
 In this section, we introduced an easily overlooked problem in our reversible AD framework.
 An ancilla sometimes can carry a nonzero gradient when it is going to be deallocated. As a result, even if an ancilla can be uncomputed rigorously in the original program, its \texttt{GVar} wrapped version is not necessarily safely deallocated.
 In NiLang, we simply ``drop'' the gradient field of ancillas instead of raising an error.
-In the following, we justify our approach by proving the following theorem
+In the following, we justify our decision by proving the following theorem
 \begin{theorem}
-    Deallocating an ancilla with emptied value field and nonzero gradient field does not harm the reversibility of a function.
+    Deallocating an ancilla with constant value field and nonzero gradient field does not harm the reversibility of a function.
 \end{theorem}
 \begin{proof}
-    Consider a reversible function $\vx^i, b = f_i(\vx^{i-1}, a)$, where $a$ and $b$ are the input and output values of an ancilla. Since the ancilla is emptied for any input $\vx^{i-1}$, we have
+    Consider a reversible function $\vx^i, b = f_i(\vx^{i-1}, a)$, where $a$ and $b$ are the input and output values of an ancilla.
+    Since both $a$, $b$ are constants that are indepedent of input $\vx^{i-1}$, we have
 \begin{align}
     \frac{\partial b}{\partial \vx^{i-1}} = \mathbf{0}.
 \end{align}
 %Suppose in the backward pass, we discard the gradient field of $b$.
 %So the question becomes does \texttt{grad(b)} have effect on the $\vx$?
-Since the gradient fields are derived from the value fields of variables, discarding gradients should not have any effect to the \texttt{value} fields.
-    The rest is to show $\texttt{grad(b)} \equiv \frac{\partial \vx^L}{\partial{b}}$ does appear in the backward rule of this function. It can be seen from the back-propagation rule 
+Discarding gradients should not have any effect to the \texttt{value} fields of outputs.
+    The key is to show $\texttt{grad(b)} \equiv \frac{\partial \vx^L}{\partial{b}}$ does appear in the \texttt{grad} fields of the output. It can be seen from the back-propagation rule 
 \begin{equation}
     \frac{\partial \vx^L}{\partial \vx^{i-1}} = \frac{\partial \vx^L}{\partial \vx^i}\frac{\partial \vx^i}{\partial \vx^{i-1}} + \frac{\partial \vx^L}{\partial b}\frac{\partial b}{\partial \vx^{i-1}},
 \end{equation}
