@@ -1348,6 +1348,20 @@ In each training, we fixed two of the vertices and train the rest, otherwise the
 The training employs the Adam optimizer with a learning rate $0.01$~\cite{Kingma2014}, a $10000$ steps training costs less than 1 second on a laptop. For $k=5$, we can get a loss close to machine precision with high probability, while for $k < 5$, the loss is always much higher than $0$.
 From the solution, it is easy to verify $l_2/l_1 = \sqrt{2}$.
 
+\subsubsection{Benchmark}
+Since the ForwardDiff itself provides the Hessian for users. It is interesting to benchmark how much performance can we get by forward differentiating an adjoint program than adjoint differentiating an adjoint program.
+
+\begin{figure}
+    \centerline{\includegraphics[width=0.8\columnwidth,trim={0 0 0 0},clip]{images/fig7.pdf}}
+    \caption{The time used to (a) call/uncall, (b) compute gradients and (c) compute Hessians.}\label{fig:invtrain}
+\end{figure}
+
+The benchmark uses the same setup as above.
+In this application, the number of input parameters scales as $10 \times k$, where $k$ is the mebeding dimension of the graph.
+First, we see the reversible program is slower than native Julia program by a factor of $\sim2$.
+However, the reversible program shows advantage in obtaining gradients when the dimension $k > 2$. The larger the number of input, the more advantage of adjoint mode AD due to the linear overhead in tangent mode AD.
+The same reason applies for computing Hessians, the mixed mode AD gives better performance when $k > 2$ comparing with pure tangent mode AD.
+
 \section{Discussion and outlook}\label{sec:discussion}
 In this paper, we show a program on an reversible Turing machine can be differentiated to any order reliably and efficiently without sophisticated designs to memorize computational graph and intermediate states. 
 We introduce a reversible Julia eDSL NiLang that implements a reversible AD. In a reversible programming language, we proposed to use ``approximate uncomputing'' trick to avoid the overhead of a reversible program in many practical cases.
