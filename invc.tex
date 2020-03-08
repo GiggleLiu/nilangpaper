@@ -194,7 +194,7 @@
 \affiliation{MLS's affiliations here}
 
 \begin{abstract}
-    This paper considers the source to source automatic differentiation (AD) in a reversible language. We start by reviewing why adjoint mode AD is hard for traditional machine learning frameworks. Then we propose a solution to existing issues by writing a program reversibly. We developed a reversible eDSL NiLang in Julia that can differentiate a general program while being compatible with Julia's ecosystem. It can generate efficient backward rules with reasonable time and memory efficiency. We demonstrate its power by generating the backward rules for Bessel function, sparse matrix dot product, unitary matrix multiplication, and QR decomposition. We also use it to generate efficient Hessian to solve a graph embedding problem efficiently. Finally, we will discuss the challenges that we face towards rigorous reversible programming, mainly from the instruction and hardware perspective.
+    This paper considers the source-to-source automatic differentiation (AD) in a reversible language. We start by reviewing why adjoint mode AD is hard for traditional machine learning frameworks. Then we propose a solution to existing issues by writing a program reversibly. We developed a reversible eDSL NiLang in Julia that can differentiate a general program while being compatible with Julia's ecosystem. It can generate efficient backward rules with reasonable time and memory efficiency. We demonstrate its power by generating the backward rules for Bessel function, sparse matrix dot product, unitary matrix multiplication, and QR decomposition. We also use it to generate efficient Hessian to solve a graph embedding problem efficiently. Finally, we will discuss the challenges that we face towards rigorous reversible programming, mainly from the instruction and hardware perspective.
 \end{abstract}
 
 
@@ -243,7 +243,7 @@ However, implementing adjoint mode AD is harder than implementing its tangent mo
     %As the reverse mode AD 
 In both machine learning and scientific computation, memory management in AD is becoming a wall~\cite{Luo2019} that limiting the scale of many applications.
 In many deep learning models like recurrent neural network~\cite{Lipton2015} and residual neural networks~\cite{He2016}, the depth can reach several thousand, where the memory is often the bottleneck of these programs. The memory wall problem is even more severe when one runs the application on GPU. The computational power of an Nvidia V100 GPU can reach 100 TFLOPS, comparable to a small cluster. However, its memory is only 32GB.
-Back propagating a general program using source code transformation makes the case worse because the memory consumption of the program is typically scales as $O(T)$, where $T$ is the runtime of the program. It is nearly impossible to automatically generate the backward rule for SVD with state of the art performance. A better solution to memory management must be found to make source to source AD practical.
+Back propagating a general program using source code transformation makes the case worse because the memory consumption of the program is typically scales as $O(T)$, where $T$ is the runtime of the program. It is nearly impossible to automatically generate the backward rule for SVD with state of the art performance. A better solution to memory management must be found to make source-to-source AD practical.
 %We don't need extra effort to learn meta parameters.~\cite{} Neural ODE is much easier to design~\cite{Chen2018}.
 
     We tackle this problem by writing a program reversibly. Reversibility has been used in reducing the memory allocations in machine learning models such as recurrent neural networks~\cite{MacKay2018}, Hyperparameter learning~\cite{Maclaurin2015} and residual neural networks~\cite{Behrmann2018}, where information buffer~\cite{Maclaurin2015} and reversible activation functions~\cite{Gomez2017,Jacobsen2018} are used to decrease the memory usage.
@@ -721,7 +721,7 @@ In the tensor network diagram, the above equation can be represented as the righ
 The advantage of using Hessian propagation is that it can be generalized to Taylor propagation in the future.
 Concerning the order of gradients, Taylor propagation is exponentially more efficient in obtaining higher-order gradients than differentiating lower-order gradients recursively. %The later requires traversing the computational graph repeatedly.
 %In JAX~\cite{Bettencourt2019}, in order to support Taylor propagation, the propagation rules for part of primitives should be manually defined.
-Comparing with operator overloading, source to source automatic differentiation has the advantage of having very limited primitives, exhausted support to Hessian propagation is possible.
+Comparing with operator overloading, source-to-source automatic differentiation has the advantage of having very limited primitives, exhausted support to Hessian propagation is possible.
 An example to obtain Hessians is provided in \Sec{sec:bessel}.
 
 \subsection{Gradient on ancilla problem}
@@ -754,17 +754,14 @@ where the second term with $\frac{\partial \vx^L}{\partial{b}}$ vanishes natural
 
 In this section, we introduce several examples.
 We will discuss the first example, the first kind Bessel function, in most detail.
-We compare the difference between the irreversible and reversible implementations of this function, as well as the difference between normal computational graph and memory oriented computational graph.
+We compare the difference between the irreversible and reversible implementations of this function, as well as the difference between regular computational graph and memory oriented computational graph.
 Then we show how to obtain first and second-order gradients automatically in the reversible AD framework.
-We benchmark different source to source AD implementations of the Bessel function.
-Then we show how to differentiate sparse matrix operations, unitary matrix multiplication and QR decomposition.
-Finally, we show how to solve the graph embedding problem variationally with trust region Newton method, a second-order optimizer that requires Hessians.
-
-Instructions used in this section as well as their backward rules could be found in \App{app:instr}.
-\textbf{For someone who want to try these examples, please paste functions defined in \App{app:functions} into a Julia REPL or editor}.
+We benchmark different source-to-source AD implementations of the Bessel function.
+Then we show how to differentiate sparse matrix operations, unitary matrix multiplication, and QR decomposition.
+Finally, we show how to solve the graph embedding problem variati
 
 \subsection{The first kind Bessel function}\label{sec:bessel}
-An Bessel function of the first kind of order $\nu$ can be computed using Taylor expansion
+A Bessel function of the first kind of order $\nu$ can be computed using Taylor expansion
 \begin{equation}
     J_\nu(z) = \sum\limits_{n=0}^{\infty} \frac{(z/2)^\nu}{\Gamma(k+1)\Gamma(k+\nu+1)} (-z^2/4)^{n}
 \end{equation}
@@ -787,8 +784,8 @@ end
 \end{minipage}
 
 This computational process could be diagrammatically represented as a DAG as show in \Fig{fig:cgraphs}(\subref{fig:computational-graph}).
-In this diagram, the data is represented as an edge. It connects at most two nodes, one generates this data and one consumes it.
-Computational graph is more likely a mathematical expression, it can not describe inplace functions or control flows conveniently because it does not have the notation for memory and loops.
+In this diagram, the data is represented as an edge. It connects at most two nodes. One generates this data, and one consumes it.
+A computational graph is more likely a mathematical expression, and it can not describe inplace functions or control flows conveniently because it does not have the notation for memory and loops.
 %\begin{figure*}
     %\centerline{\includegraphics[width=0.8\textwidth,trim={0cm 6cm 0 0},clip]{images/computational_graph.pdf}}
     %\caption{Traditional computational graph for the reversible first kind Bessel function. Where a vertex (circle) is an operation and a directed edge is a variable. The gray region is the body of while loop.}\label{fig:computational-graph}
@@ -798,22 +795,21 @@ Computational graph is more likely a mathematical expression, it can not describ
     \begin{subfigure}[t]{0.53\textwidth}
         \centering
         \includegraphics[width=\columnwidth,trim={0 4cm 0 0cm},clip]{images/computational_graph.pdf}
-        \caption{Where a vertex (circle) is an operation and a directed edge is a variable. The gray region is the body of while loop. The while loop is unrolled.}\label{fig:computational-graph}
+        \caption{Where a vertex (circle) is an operation, and a directed edge is a variable. The gray region is the body of the while loop. The while loop is unrolled.}\label{fig:computational-graph}
     \end{subfigure}%
     \begin{subfigure}[t]{0.47\textwidth}
         \centering
         \includegraphics[width=\columnwidth,trim={0 1cm 0 0cm},clip]{images/fig4.pdf}
-        \caption{Vertical lines are variables, boxes and dots connected by parallel lines are operations. A dot represents using a variable as control while a box represents mutating a variable. 
-        %Annotations $\#1, \#2, \ldots$ are used the mark the positions of variables in the argument list. 
-        The gray box represents the body of a while loop, where a precondition and postcondition are positioned on top and bottom of this box.}\label{fig:datagraph}
+        \caption{Vertical lines are variables, boxes, and dots connected by parallel lines are operations. A dot represents using a variable as control while a box represents mutating a variable. 
+        The gray box represents the body of a while loop. A precondition and postcondition are positioned on its top and bottom.}\label{fig:datagraph}
     \end{subfigure}
     \caption{The comparison between (a) tranditional and (b) memory oriented computational graph of the first kind Bessel function.}\label{fig:cgraphs}
 \end{figure*}
 
 In the following, we introduce the reversible implementation and the memory oriented computational graph.
-The above bessel function contains a loop with irreversible ``\texttt{*=}'' operation inside.
+The above Bessel function contains a loop with irreversible ``\texttt{*=}'' operation inside.
 Intuitively, consequtive multiplication requires an increasing size of tape to cache the intermediate state $s_n$, since one can not release state $s_{n-1}$ directly after computing $s_n$~\cite{Perumalla2013}.
-To reduce the memory allocation without increasing the time complexity of program, we introduce the following reversible approximate multiplier
+To reduce the memory allocation without increasing the time complexity of the program, we introduce the following reversible approximate multiplier.
 
 \begin{minipage}{.44\textwidth}
     \begin{lstlisting}[numberstyle=\scriptsize\color{gray},numbers=left,numbersep=8pt]
@@ -826,12 +822,12 @@ end
 \end{minipage}
 
 Here, instruction \texttt{SWAP} exchanges values of two variables, $\texttt{anc!} \approx 0$ is a \textit{dirty ancilla}.
-Line 2 computes the result and accumulates it to the dirty ancilla, we get an approximately correct output in \texttt{anc!}.
+Line 2 computes the result and accumulates it to the dirty ancilla, and we get an approximately correct output in \texttt{anc!}.
 Line 3 uncompute \texttt{out!} approximately by using the information stored in \texttt{anc!}, leaving a dirty zero state in register \texttt{out!}.
 Line 4 swaps the contents in \texttt{out!} and \texttt{anc!}.
 Finally, we have an approximately correct output and a dirtier ancilla.
-This ``approximate uncomputing'' trick can be extensively used in practice. It mitigated the artificial irreversibility brought by the number system that we have adopted at the cost of output precision.
-The reason why this  trick works here lies in the fact that from the mathematics perspective the state in $n$th step $\{s_n, z\}$ contains the same amount of information as its previous state  $\{s_{n-1}, z\}$ except some special points, it is highly possible to find an equation to uncompute the previous state from the current state.
+The ``approximate uncomputing'' trick can be extensively used in practice. It mitigated the artificial irreversibility brought by the number system that we have adopted at the cost of output precision.
+The reason why this trick works here lies in the fact that from the mathematics perspective the state in $n$th step $\{s_n, z\}$ contains the same amount of information as its previous state  $\{s_{n-1}, z\}$ except some particular points, it is highly possible to find an equation to uncompute the previous state from the current state.
 With this approximate multiplier, we implement $J_\nu$ as follows.
 
 \begin{minipage}{.44\textwidth}
@@ -879,15 +875,15 @@ end
 \end{lstlisting}
 \end{minipage}
 
-Here, the definition of \texttt{ifactorial} could be found in appendix. Only a constant number of ancillas are used, while the time complexity does not increase comparing to its irreversible counterpart.
+Here, the definition of \texttt{ifactorial} could be found in the appendix. Only a finite number of ancillas used, while the time complexity does not increase compared to its irreversible counterpart.
 Ancilla \texttt{anc4} plays the role of \textit{dirty ancilla} in multiplication, it is uncomputed rigorously in the uncomputing stage marked by \texttt{$\sim$@routine}.
 %The \texttt{while} statement takes two conditions, the precondition and postcondition. Precondition \texttt{val(anc1) > atol} indicates when to break the forward pass and postcondition \texttt{iplus != 0} indicates when to break the backward pass.
 
 This reversible program can be diagrammatically represented as a memory oriented computational graph as show in \Fig{fig:cgraphs} (\subref{fig:datagraph}).
-In this graph, a variable is a vertical line, a function is a parallel line.
-The key difference to traditional computational graph is it adopts a variable oriented view.
-A variable can be used by multiple functions, i.e. it is a hypergraph rather than a simple graph.
-If a function uses a variable but does not change the contents in it, we call this variable a control parameter of this function and put a dot at the cross. Otherwise if the content is changed, we put a square.
+In this graph, a variable is a vertical line, while a function is a parallel line.
+The critical difference to the traditional computational graph is that it adopts a variable oriented view.
+A variable can be accessed by multiple functions. Hence it represents a hypergraph rather than a simple graph.
+If a function uses a variable but does not change the contents in it, we call this variable a control parameter of this function and put a dot at the cross. Otherwise, if the content is changed, we put a square.
 This diagram can be used to analyse uncomputable variables. In this example routine ``B'' uses \texttt{hz\_2}, \texttt{$\nu$} and \texttt{k} as control parameters, and changes the contents in \texttt{anc2}, \texttt{anc3} and \texttt{anc5}.
 while the following operation \texttt{imul} does not change these variables.
 Hence we can apply the inverse routine \texttt{$\sim$B} to safely restore contents in \texttt{anc2}, \texttt{anc3} and \texttt{anc5}, this is what people called compute-copy-uncompute paradigm.
@@ -902,7 +898,7 @@ Hence we can apply the inverse routine \texttt{$\sim$B} to safely restore conten
     %\caption{Data oriented computational graph for the reversible first kind Bessel function. Circles connected by vertical lines are variables, while boxes and dots connected by parallel lines are operations. A dot on a line represents a control parameter while a box represents a mutable parameter. Annotations $\#1, \#2, \ldots$ are used the mark the positions of variables in the argument list. The gray box represents the body of a while loop, where a precondition and postcondition are positioned on top and bottom of this box.}\label{fig:datagraph}
 %\end{figure*}
 
-One can obtain gradient of this function by calling \texttt{ibesselj\textquotesingle}
+One can obtain gradients of this function by calling \texttt{ibesselj\textquotesingle}.
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
@@ -915,7 +911,7 @@ julia> ibesselj'(Val(1), out!, 2, x)
 \end{minipage}
 
 Here, \texttt{ibesselj\textquotesingle} is a callable instance of type \texttt{Grad\{typeof(ibesselj)\}}. The first parameters \texttt{Val(1)} specifies the position of loss in argument list. 
-The Hessian can be obtained by feeding dual numbers into this gradient function.
+The Hessian can be obtained by feeding dual-numbers into this gradient function.
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
@@ -936,12 +932,12 @@ julia> grad(hxx).partials[1]
 \end{minipage}
 
 Here, the gradient field of \texttt{hxx} is defined as $\frac{\partial {\rm out!}}{\partial x}$, which is a Dual number.
-It has a field partials that stores the derivative with respect to \texttt{x}.
+It has a field partials that store the derivative for \texttt{x}.
 It corresponds to the Hessian $\frac{\partial{\rm out!}^2}{\partial x^2}$ that we need.
 See \App{app:hessian} for alternative approaches to obtain its Hessian.
 
 \subsubsection{Benchmark}
-We have different source to source automatic differentiation implementations of the first type Bessel function and show the benchmarks below.
+We have different source-to-source automatic differentiation implementations of the first type Bessel function and show the benchmarks below.
 \begin{table}[h!]\centering
 \begin{minipage}{\columnwidth}
 \ra{1.3}
@@ -961,28 +957,27 @@ We have different source to source automatic differentiation implementations of 
             \bottomrule
         \end{tabularx}
     }
-    \caption{Time and space used in computing the gradients of Bessel functions $J_2(1.0)$.
-    The CPU device is Intel(R) Xeon(R) CPU E5-2680 v4 @ 2.40GHz and the GPU device is Nvidia Titan V.
-    The GPU time is estimated by broadcasting the gradient function on CUDA array of size $2^{17}$ and take average.
-    }\label{tbl:besselj}
+    \caption{Time and space used in computing the gradients of Bessel function $J_2(1.0)$.
+    The CPU device is Intel(R) Xeon(R) CPU E5-2680 v4 @ 2.40GHz, and the GPU device is Nvidia Titan V.
+    The GPU time is estimated by broadcasting the gradient function on CUDA array of size $2^{17}$ and take the average.}\label{tbl:besselj}
 \end{minipage}
 \end{table}
 
-In \Tbl{tbl:besselj}, Julia is the CPU time used for running the irreversible forward program, it is the baseline for benchmarking.
-NiLang (call/uncall) is the time of reversible call or uncall, both of them are 2.8 times slower than its irreversible counterpart. Here, we have remove the reversibility check, otherwise it will take more time than this. One can always turn off this check after ruling out possible bugs.
-ForwardDiff gives the best performance, it is even faster than manually derived gradients
+In \Tbl{tbl:besselj}, Julia is the CPU time used for running the irreversible forward program. It is the baseline for benchmarking.
+NiLang (call/uncall) is the time of reversible call or uncall. Both of them are 2.8 times slower than its irreversible counterpart. Here, we have removed the reversibility check. Otherwise, it will take more time than this. One can always turn off this check after ruling out possible bugs.
+ForwardDiff gives the best performance, and it is even faster than manually derived gradients
 \begin{equation}
     J_{\nu}'(z) = \frac{J_{\nu-1} - J_{\nu+1}}{2}.
 \end{equation}
 Except the effient implementation, its high performance also lies in the fact that this functions is suited for tangent mode AD which has only one input.
-NiLang.AD represents the reversible AD in NiLang, it takes 12.3 times the original program, which is still is much faster than naive checkpointing.
-In Zygote, the memory allocation on heap is 13.47KB, they are not all for checkpointing. Some of them are related to type instability, where Julia compiler fails to infer types.
-Using closure to handle checkpointing can induce poor performance, because external type instability sometimes can propagate to interior.
+NiLang.AD represents the reversible AD in NiLang, and it takes 12.3 times the original program, which is still is much faster than naive checkpointing.
+In Zygote, the memory allocation on the heap is 13.47KB. They are not all for checkpointing. Some of them are related to type instability, where Julia compiler fails to infer types.
+Using closure to handle checkpointing can induce poor performance because external type instability sometimes can propagate to the interior.
 NiLang uses uncomputing to manage memory rather than closure, which does not frequently involve external variables in the function.
 Hence it is more friendly to type inference in Julia compiler.
 Tapenade \blue{needs your effort, @MLS}
 We also include a CUDA benchmark. Our reversible programming is compatible with CUDA programming so that the differentiable kernel can be executed on GPU.
-For people who are interested in CUDA programming, we prepared another example in \App{app:cuda} which implements a differentiable quantum simulation kernel on GPU.
+For people who are interested in CUDA programming, we prepared another example in \App{app:cuda}, which implements a differentiable quantum simulation kernel on GPU.
 So far, the generated backward rule faces the shared write problem, which requires further investigation.
 
 \subsection{Sparse Matrices}
@@ -1376,7 +1371,7 @@ As the baseline, (a) shows the time for computing the 0th-order gradient, or the
 The same reason applies for computing Hessians, the mixed mode AD gives better performance when $k \geq 3$ comparing with pure tangent mode AD.
 
 \section{Discussion and outlook}\label{sec:discussion}
-In this paper, we show how to realize a reversible programming eDSL and how to implement source to source adjoint mode AD on top of it.
+In this paper, we show how to realize a reversible programming eDSL and how to implement source-to-source adjoint mode AD on top of it.
 It give user more flexibility to trade off memory and computing time comparing with traditional checkpointing.
 The Julia impelmentation NiLang gives a state of the art performance and memory efficiency in obtaining first and second-order gradients in applications including first type Bessel function, sparse matrix manipulation, linear algebra functions and a practical, the application graph embedding problem.
 %In a reversible programming language, we proposed to use ``approximate uncomputing'' trick to avoid the overhead of a reversible program in many practical cases.
@@ -1506,7 +1501,7 @@ These improvements needs participation of people from multiple fields.
 
 \section{acknowledgments}
 Jin-Guo Liu thank Lei Wang for motivating the project with possible applications reversible integrator, normalizing flow and neural ODE.
-Marisa Kiresame and Xiu-Zhe Luo for discussion on the implementation details of source to source automatic differentiation,
+Marisa Kiresame and Xiu-Zhe Luo for discussion on the implementation details of source-to-source automatic differentiation,
 Shuo-Hui Li for helpful discussion on differential geometry.
 Tong Liu and An-Qi Chen for helpful discussion on quantum adders and multipliers.
 Yin-Bo Ma for correcting typos by submitting pull requests.
