@@ -710,10 +710,12 @@ class PLT(object):
 
     def fig8(self, tp='pdf'):
         data = np.loadtxt("../codes/bench_graphembedding.dat")/1000
-        with DataPlt(filename="fig7.%s"%tp, figsize=(6,6)) as dp:
+        plt.rcParams['xtick.labelsize'] = 14
+        plt.rcParams['ytick.labelsize'] = 14
+        with DataPlt(filename="fig7.%s"%tp, figsize=(7,6)) as dp:
             ax1 = plt.subplot(311)
             xs = np.arange(1,11)
-            plt.ylabel(r"time/$\mu$s")
+            plt.ylabel(r"Time/$\mathbf{\mu}$s")
             cornertex("(a)", ax1)
             plt.plot(xs, data[:,0])
             plt.plot(xs, data[:,1])
@@ -728,7 +730,7 @@ class PLT(object):
             plt.plot(xs, data[:,5])
             plt.legend(["NiLang", "ForwardDiff"], fontsize=12, loc="upper left", bbox_to_anchor=(1, 1), frameon=False)
             plt.xticks([])
-            plt.ylabel(r"time/$\mu$s")
+            plt.ylabel(r"Time/$\mathbf{\mu}$s")
 
             plt.ylim(0, 200)
 
@@ -736,12 +738,12 @@ class PLT(object):
             cornertex("(c)", ax3)
             plt.plot(xs, data[:,3]/1000)
             plt.plot(xs, data[:,6]/1000)
-            plt.legend(["NiLang", "ForwardDiff"], fontsize=12, loc="upper left", bbox_to_anchor=(1, 1), frameon=False)
+            plt.legend(["NiLang + ForwardDiff", "ForwardDiff"], fontsize=12, loc="upper left", bbox_to_anchor=(1, 1), frameon=False)
             plt.ylim(0, 50)
             plt.xlim(1, 10)
-            plt.ylabel(r"time/ms")
-            plt.xlabel("dimension")
-            plt.xticks([1, 5, 10])
+            plt.ylabel(r"Time/ms")
+            plt.xlabel("Dimension (k)")
+            plt.xticks([1, 4, 7, 10])
             #plt.yticks([1e4*i for i in range(1,6)], [r"$%s \times 10^4$"%i for i in range(1,6)], fontsize=12)
             #plt.ticklabel_format(axis="y", style="sci", scilimits=(0,0))
             plt.tight_layout(w_pad=-0.1)

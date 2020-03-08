@@ -22,12 +22,13 @@
     \bnfprod{KwArg}{\bnftd{ident} \bnfsp \bnftd{=} \bnfsp \bnftd{$JuliaExpr$}}\\
     \bnfprod{KwArgs}{\bnfts{[} \bnfpn{KwArgs} \bnfsp \bnftd{,}\bnfts{]} \bnfsp \bnfpn{KwArg}}\\
     \bnfprod{CallStmt}{\bnftd{$JuliaExpr$} \bnfsp \bnftd{(} \bnfsp \bnfts{[} \bnfpn{DataViews}\bnfts{]} \bnfsp \bnfts{[} \bnftd{;} \bnfsp \bnfpn{KwArgs}\bnfts{]} \bnfsp \bnftd{)}}\\
-    \bnfprod{Constant}{\bnftd{num} \bnfor \bnftd{$\pi$}}\\
+    \bnfprod{Constant}{\bnftd{num} \bnfor \bnftd{$\pi$} \bnfor \bnftd{true} \bnfor \bnftd{false}}\\
     \bnfprod{InstrBinOp}{\bnftd{+=} \bnfor \bnftd{-=} \bnfor \bnftd{$\veebar$=}}\\
     \bnfprod{InstrTrailer}{\bnfts{[} \bnftd{.}\bnfts{]} \bnfsp \bnftd{(} \bnfsp \bnfts{[} \bnfpn{DataViews}\bnfts{]} \bnfsp \bnftd{)}}\\
     \bnfprod{InstrStmt}{\bnfpn{DataView} \bnfsp \bnfpn{InstrBinOp} \bnfsp \bnftd{ident} \bnfsp \bnfts{[} \bnfpn{InstrTrailer}\bnfts{]}}\\
     \bnfprod{RevStmt}{\bnftd{$\sim$} \bnfsp \bnfpn{Stmt}}\\
     \bnfprod{AncillaStmt}{\bnftd{ident} \bnfsp \bnftd{$\leftarrow$} \bnfsp \bnftd{$JuliaExpr$}}\\
+    \bnfmore{\bnfor \bnftd{ident} \bnfsp \bnftd{$\rightarrow$} \bnfsp \bnftd{$JuliaExpr$}}\\
     \bnfprod{TypecastStmt}{\bnftd{(} \bnfsp \bnftd{$JuliaExpr$} \bnfsp \bnftd{=>} \bnfsp \bnftd{$JuliaExpr$} \bnfsp \bnftd{)} \bnfsp \bnftd{(} \bnfsp \bnftd{ident} \bnfsp \bnftd{)}}\\
     \bnfprod{@routine}{\bnftd{@routine} \bnfsp \bnftd{ident} \bnfsp \bnfpn{Stmt}}\\
     \bnfprod{@safe}{\bnftd{@safe} \bnfsp \bnftd{$JuliaExpr$}}\\

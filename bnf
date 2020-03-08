@@ -39,7 +39,7 @@ KwArgs : [KwArgs ','] KwArg ;
 
 CallStmt : <$JuliaExpr$> '(' [DataViews] [';' KwArgs] ')';
 
-Constant : <num> | '$\pi$';
+Constant : <num> | '$\pi$' | 'true' | 'false';
 
 InstrBinOp : '+=' | '-=' | '$\\veebar$=';
 
