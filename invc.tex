@@ -914,7 +914,7 @@ One can obtain gradient of this function by calling \texttt{ibesselj\textquotesi
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
-julia> out!, x = 0.0, 3.0
+julia> out!, x = 0.0, 1.0
 (0.0, 3.0)
 
 julia> ibesselj'(Val(1), out!, 2, x)
@@ -922,10 +922,24 @@ julia> ibesselj'(Val(1), out!, 2, x)
 \end{lstlisting}
 \end{minipage}
 
+The Hessian can be obtained by feeding dual numbers into this gradient function.
+
+\begin{minipage}{.44\textwidth}
+\begin{lstlisting}
+julia> using ForwardDiff: Dual
+julia> _, hxout!, _, hxx = ibesselj'(Val(1), 
+        Dual(out!, zero(out!)), 2, Dual(x, one(x)))
+julia> grad(hxx).partials[1]
+\end{lstlisting}
+\end{minipage}
+
+Here, the gradient field of \texttt{hxx} is defined as $\frac{\partial {\rm out!}}{\partial x}$, which is a Dual number.
+It has a field partials that stores the derivative with respect to \texttt{x}.
+It corresponds to the Hessian $\frac{\partial{\rm out!}^2}{\partial x^2}$ that we need.
 See \App{app:hessian} for alternative approaches to obtain its Hessian.
 
 \subsubsection{Benchmark}
-We have different source to source automatic differentiation implementations of the first type Bessel function benchmarked and show the results below.
+We have different source to source automatic differentiation implementations of the first type Bessel function and show the benchmarks below.
 \begin{table}[h!]\centering
 \begin{minipage}{\columnwidth}
 \ra{1.3}
@@ -934,10 +948,10 @@ We have different source to source automatic differentiation implementations of 
             & \textbf{Tangent/Adjoint} & \textbf{$T_{\rm min}$/ns} & Space/KB\\
             \hline
             Julia & - & 22 & 0\\
-            NiLang & - & 59 & 0\\
+            NiLang (call/uncall) & - & 61 & 0\\
             ForwardDiff & Tangent & 35 & 0\\
             Manual & Adjoint & 83 & 0\\
-            NiLang.AD & Adjoint & 213 & 0\\
+            NiLang.AD & Adjoint & 271 & 0\\
             NiLang.AD (GPU) & Adjoint & 1.4 & 0\\
             Zygote & Adjoint & 31201 & 13.47\\
             Tapenade & Adjoint & ? & ?\\
@@ -952,15 +966,15 @@ We have different source to source automatic differentiation implementations of 
 \end{minipage}
 \end{table}
 
-Julia is the CPU time used for running the irreversible forward program, is the baseline of benchmarking.
-NiLang is the reversible implementation, it is 2.7 times slower than its irreversible counterpart. Here, we have remove the reversibility check.
-ForwardDiff gives the best performance because it is designed for functions with single input.
-It is even faster than manually derived gradients
+In \Tbl{tbl:besselj}, Julia is the CPU time used for running the irreversible forward program, it is the baseline for benchmarking.
+NiLang (call/uncall) is the time of reversible call or uncall, both of them are 2.8 times slower than its irreversible counterpart. Here, we have remove the reversibility check, otherwise it will take more time than this.
+ForwardDiff gives the best performance, it is even faster than manually derived gradients
 \begin{equation}
-    J_{\nu}'(z) = \frac{J_{\nu-1} - J_{\nu+1}}{2}
+    J_{\nu}'(z) = \frac{J_{\nu-1} - J_{\nu+1}}{2}.
 \end{equation}
-NiLang.AD is the reversible differential programming implementation, it considers only the backward pass.
-The Zygote benchmark considers both forward pass and backward pass.
+Except an effient implementation, its high performance also lies in the fact that this functions is suited for tangent mode AD which has single input.
+NiLang.AD represents the reversible AD in NiLang, it takes 12.3 times the original program. Still, it is much faster than naive checkpointing.
+In Zygote, the memory allocation are not all from checkpointing. Some of them are related to type instability. It uses closure to handle checkpointing, where external type instability will cause type instability of interia.
 Tapenade \blue{needs your effort, @MLS}
 
 \subsection{Sparse Matrices}
@@ -1326,6 +1340,8 @@ The same reason applies for computing Hessians, the mixed mode AD gives better p
 \section{Discussion and outlook}\label{sec:discussion}
 In this paper, we show a program on an reversible Turing machine can be differentiated to any order reliably and efficiently without sophisticated designs to memorize computational graph and intermediate states. 
 We introduce a reversible Julia eDSL NiLang that implements a reversible AD. In a reversible programming language, we proposed to use ``approximate uncomputing'' trick to avoid the overhead of a reversible program in many practical cases.
+NiLang uses uncomputing to manage memory rather than closure, which does not frequently involve external variables in the function.
+Hence it is more friendly to type inference in Julia compiler. This explains why it performs so good in many cases.
 
 In the following, we discussed some practical issues about reversible programming, and several future directions to go.
 %Notablely, we introduce the concept of ``arithematic uncomputing'' to reduce the overhead of recursive reversible algorithms.
