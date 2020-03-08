@@ -748,8 +748,6 @@ Discarding gradients should not have any effect on the \texttt{value} fields of 
 where the second term with $\frac{\partial \vx^L}{\partial{b}}$ vanishes naturally.
 \end{proof}
 
-\blue{Grammarly here!}
-
 \section{Examples}\label{sec:example}
 
 In this section, we introduce several examples.
@@ -1507,7 +1505,7 @@ The authors are supported by the National Natural Science Foundation of China un
 
 \section{NiLang Grammar}\label{app:grammar}
 
-To define a reversible function one can use ``@i'' plus a normal function definition like bellow
+To define a reversible function one can use ``@i'' plus a standard function definition like bellow
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}[basicstyle=\small\ttfamily,columns=fullflexible]
@@ -1528,8 +1526,8 @@ The following is a list of terminologies used in the definition of grammar
     \item $JuliaExpr$, native Julia expression
     \item $[$ $]$,  zero or one repetitions.
 \end{itemize}
-Here, all $JuliaExpr$ should be pure, otherwise the reversibility is not guaranteed.
-Dataview is a view of a data, it can be a bijective mapping of an object, an item of an array or a field of an object.
+Here, all $JuliaExpr$ should be pure. Otherwise, the reversibility is not guaranteed.
+Dataview is a view of data. It can be a bijective mapping of an object, an item of an array, or a field of an object.
 
 \newpage
 
@@ -1540,7 +1538,6 @@ Dataview is a view of a data, it can be a bijective mapping of an object, an ite
 
 \section{Instructions and Backward Rules}\label{app:instr}
 
-The translation of instructions to Julia functions
 \begin{table}[h!]\centering
 \begin{minipage}{\columnwidth}
 \ra{1.3}
@@ -1554,12 +1551,12 @@ The translation of instructions to Julia functions
             \bottomrule
         \end{tabularx}
     }
-    \caption{Instructions and their compilation in NiLang.}\label{tbl:interp}
+    \caption{Instructions, the functions they compile to, and their symbolic representations.}\label{tbl:interp}
 \end{minipage}
 \end{table}
 
 
-The list of instructions implemented in NiLang
+The list of instructions that implemented in NiLang
 \begin{table}[h!]\centering
 \begin{minipage}{\columnwidth}
 \ra{1.3}
@@ -1603,7 +1600,7 @@ We have the following local Jacobians and Hessians on the above instructions.
     &H = \mathbf{0}
 \end{align*}
 
-The inverse is $a \mathrel-= b$, its Jacobian is the inverse of the matrix above
+The inverse is $a \mathrel-= b$, and its Jacobian is the inverse of the matrix above.
 
 \begin{align*}
 J(f^{-1}) = J^{-1} = \left(\begin{matrix}
@@ -1778,9 +1775,9 @@ This algorithm utilizes the self-consistency relation
     \vp_x^* = \parameter(f_r^{-1}(\vy^*, \parameter(f_r(\vx^*, \vp^*_x)))),
 \end{equation}
 
-Similar idea of training by consistency is used in self-consistent meanfield theory~\cite{Michael2003} in physics.
-Finding the self-consistent relation is crucial to a self-consistency based training. Here, the reversibility provides a natural self-consistency relation.
-However, it is not a silver bullet, let's consider the following example
+A similar idea of training by consistency is used in self-consistent mean-field theory~\cite{Michael2003} in physics.
+Finding the self-consistent relation is crucial to self-consistency based training. Here, the reversibility provides a natural self-consistency relation.
+However, it is not a silver bullet; let's consider the following example.
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}[basicstyle=\small\ttfamily,columns=fullflexible]
@@ -1814,7 +1811,7 @@ end
 
 Functions \texttt{f1} and \texttt{f2} computes $f(x, p) = e^{(p+x)} - e^x$ and stores the output in a new memory \texttt{y!}.
 The only difference is \texttt{f2} uncomputes $x$ arithmetically.
-The task of training is to find a $p$ that make the output value equal to target value $1$.
+The task of training is to find a $p$ that makes the output value equal to the target value $1$.
 After $100$ steps, \texttt{f2} runs into the fixed point with $x$ equal to $1$ upto machine precision.
 However, parameters in \texttt{f1} does change at all.
 The training of \texttt{f1} fails because this function actually computes $\texttt{f1}(y, x, p) = y + e^{(p+x)} - e^{x}, x, x+p$, where the training parameter $p$ is completely determined by the parameter space on the output side $x \cup x+p$. As a result, shifting $y$ directly is the only approach to satisfy the consistency relation. On the other side, $\texttt{f2}(y, x, p) = y + e^{(p+x)} - e^x, \tilde{0}, x+p$, the output parameters $\tilde{0} \cup x+p$ can not uniquely determine input parameters $p$ and $x$. Here, we use $\tilde{0}$ to denote the zero with rounding error.
@@ -1839,15 +1836,15 @@ The above example reveals a fact that training impossible when output parameters
     \end{split}
 \end{align}
 The third line uses the bijectivity $S(\vx \cup \vp_x) = S(\vy \cup \vp_y)$.
-This inequality shows that when the parameter space on the output side satisfies $S(\vy | \vp_y) = 0$, i.e. contains all information to determine the output field, the input parameters are also completely determined by this parameter space, hence training can not work.
+This inequality shows that when the parameter space on the output side satisfies $S(\vy | \vp_y) = 0$, i.e., contains all information to determine the output field, and the input parameters are also entirely determined by this parameter space. Hence training can not work.
 \end{proof}
 In the above example, it corresponds to the case $S\left(e^{(x+y)-e^x} | x \cup x + y\right) = 0$ in \texttt{f1}.
-The solution is to remove the information redundancy in output parameter space through uncomputing as shown in \texttt{f2}.
+The solution is to remove the information redundancy in output parameter space through uncomputing, as shown in \texttt{f2}.
 Besides, the Fibonacci example is often used in a reversible language as a tutorial, NiLang implementation could be found in \App{app:fib}.
 
 \section{Functions used in the main text}\label{app:functions}
 
-Functions used in \Sec{sec:example}.
+We list the functions used in \Sec{sec:example} as bellow.
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
@@ -1914,8 +1911,8 @@ end
 %In \texttt{norm2}, we copied \texttt{vec[i]\textquotesingle} to \texttt{anc1} to avoid the same variable appear twice in the argument list of $\oplus(*)$, where the prime represents the adjoint dataview.
 
 \section{CUDA compitibility}\label{app:cuda}
-CUDA programming is playing a more and more important role in high performance computing. In Julia, one can write kernel functions in native Julia language with CUDAnative~\cite{Besard2018}.
-NiLang is compatible with CUDAnative and KernelAbstractions~\cite{KernelAbstractions}, one can write a reversible kernel like the following.
+CUDA programming is playing a more and more significant role in high-performance computing. In Julia, one can write kernel functions in native Julia language with CUDAnative~\cite{Besard2018}.
+NiLang is compatible with CUDAnative and KernelAbstractions~\cite{KernelAbstractions}, and one can write a reversible kernel like the following.
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
@@ -1940,8 +1937,8 @@ end
 \end{minipage}
 
 This kernel function simulates the SWAP gate in quantum computing.
-Here, one must use the macro \texttt{@invcheckoff} to turn off the reversibility checks. It is necessary because the possible error thrown in a kernel function can not be handled properly on a CUDA kernel.
-One can launch this kernel function to GPUs with a single macro \texttt{@cuda} as show in the following using case.
+Here, one must use the macro \texttt{@invcheckoff} to turn off the reversibility checks. It is necessary because the possible error thrown in a kernel function can not be handled on a CUDA kernel.
+One can launch this kernel function to GPUs with a single macro \texttt{@cuda}, as shown in the following using case.
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
@@ -1969,7 +1966,7 @@ julia> instruct!(CuArray(randn(8)),
 \end{lstlisting}
 \end{minipage}
 
-One can also write kernels with KernelAbstaction, it solves many compatibility issues that related to different function calls on GPU and CPU.
+One can also write kernels with KernelAbstaction. It solves many compatibility issues that related to different function calls on GPU and CPU.
 
 
 \begin{minipage}{.44\textwidth}
@@ -1990,8 +1987,9 @@ end
 \end{minipage}
 
 We can use the macro \texttt{@launchkernel} to launch a kernel.
-The first parameter is a device, the second parameter is the block size,
-the thrid parameter is the number of threads.
+The first parameter is a device.
+The second parameter is the block size,
+The third parameter is the number of threads.
 The last parameter is a kernel function call to be launched.
 
 \begin{minipage}{.44\textwidth}
@@ -2048,7 +2046,7 @@ end
 \end{lstlisting}
 \end{minipage}
 
-The time complexity of this recursive algorithm is exponential to input \texttt{n}. It is also possible to write a reversible linear time for loop algorithm.
+The time complexity of this recursive algorithm is exponential to input \texttt{n}. It is also possible to write a reversible linear time with for loops.
 A slightly non-trivial task is computing the first Fibonacci number that greater or equal to a certain number $z$, where a \texttt{while} statement is required.
 
 \begin{minipage}{.44\textwidth}
@@ -2083,10 +2081,10 @@ julia> (~rfibn)(rfibn(0, 100)...)
 \end{lstlisting}
 \end{minipage}
 
-This examplifies how an addition postcondition provided by user can help reversing a control flow without caching controls.
+This example shows how an addition postcondition provided by the user can help to reverse a control flow without caching controls.
 
 \section{Alternative approaches to Obtain Hessian}\label{app:hessian}
-This function itself is reversible and differentiable, hence one can back-propagate this function to obtain Hessians as introduced in \Sec{sec:simplehessian}. In NiLang, it is implemented as \texttt{hessian\_backback}.
+This function itself is reversible and differentiable. Hence one can back-propagate this function to obtain Hessians as introduced in \Sec{sec:simplehessian}. In NiLang, it is implemented as \texttt{hessian\_backback}.
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
