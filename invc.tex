@@ -981,8 +981,8 @@ For people who are interested in CUDA programming, we prepared another example i
 So far, the generated backward rule faces the shared write problem, which requires further investigation.
 
 \subsection{Sparse Matrices}
-Source to source automatic differentiation is very useful in differentiating sparse matrices. It is a well known problem that sparse matrix operations can not benefit directly from generic backward rules that defined for dense matrix, because generic rules does not keep the sparse structure.
-In the following, we will show reversible AD can differentiate the Frobenius dot product between two sparse matrices with a state of the art performance. Here, the Frobenius dot product is defined as \texttt{trace(A'B)}.
+Source to source automatic differentiation is useful in differentiating sparse matrices. It is a well-known problem that sparse matrix operations can not benefit directly from generic backward rules that defined for dense matrix because general rules do not keep the sparse structure.
+In the following, we will show that reversible AD can differentiate the Frobenius dot product between two sparse matrices with a state of the art performance. Here, the Frobenius dot product is defined as \texttt{trace(A'B)}.
 This following reversible implementation is adapted from the irreversible implementation in Julia package \texttt{SparseArrays}.
 
 \begin{minipage}{.44\textwidth}
@@ -1040,7 +1040,7 @@ end
 
 With simple adaptation, the code becomes reversible.
 Here, the key point is using a \texttt{branch\_keeper} vector to cache branch decisions.
-In the following example, we compare the time used in forward pass and backward pass.
+In the following example, we compare the time used in the forward pass and backward pass.
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
@@ -1082,14 +1082,14 @@ BenchmarkTools.Trial:   #$ TODO: remove this comment
 \end{lstlisting}
 \end{minipage}
 
-The time used for computing backward pass costs is approximately 1.6 times the Julia's native forward pass.
+The time used for computing backward pass costs is approximately 1.6 times Julia's native forward pass.
 Here, we have turned off the reversibility check off to achieve better performance.
 By writing sparse matrix multiplication and other sparse matrix operations reversibly,
 we will have a differentiable sparse matrix library with proper performance.
 
 \subsection{Unitary Matrices}\label{sec:umm}
-A unitary matrices features uniform eigenvalues and reversibility. It is widely used as an approach to ease the gradient exploding and vanishing problem~\cite{Arjovsky2015,Wisdom2016,Li2016} and the memory wall problem~\cite{Luo2019}.
-One of the simplest way to parametrize a unitary matrix is representing a unitary matrix as a product of two-level unitary operations~\cite{Li2016}. A real unitary matrix of size $N$ can be parametrized compactly by $N(N-1)/2$ rotation operations~\cite{Li2013}
+A unitary matrix features uniform eigenvalues and reversibility. It is widely used as an approach to ease the gradient exploding and vanishing problem~\cite{Arjovsky2015,Wisdom2016,Li2016} and the memory wall problem~\cite{Luo2019}.
+One of the simplest ways to parametrize a unitary matrix is representing a unitary matrix as a product of two-level unitary operations~\cite{Li2016}. A real unitary matrix of size $N$ can be parametrized compactly by $N(N-1)/2$ rotation operations~\cite{Li2013}
 \begin{align}
     {\rm ROT}(a!, b!, \theta)  = \left(\begin{matrix}
         \cos(\theta) & - \sin(\theta)\\
@@ -1155,7 +1155,7 @@ julia> x
 \end{minipage}
 
 In the above testing code, \texttt{test\textquotesingle} attaches a gradient field to each element of \texttt{x}. \texttt{$\sim$test\textquotesingle} is the inverse program that erase the gradient fields.
-Notably, this reversible implementation costs zero memory allocation although it changes the target variables inplace.
+Notably, this reversible implementation costs zero memory allocation, although it changes the target variables inplace.
 
 %It implements the backward rule of a \texttt{ROT} instruction
 %\begin{align}
@@ -1168,7 +1168,7 @@ Notably, this reversible implementation costs zero memory allocation although it
 
 \subsection{QR decomposition}
 
-Let's consider a naive implementation of QR decomposition from scratch.
+Let us consider a naive implementation of QR decomposition from scratch.
 We admit this implementation is just a proof of principle which does not consider reorthogonalization and other practical issues.
 
 \begin{minipage}{.44\textwidth}
@@ -1215,9 +1215,8 @@ end
 
 Here, in order to avoid frequent uncomputing, we allocate ancillas \texttt{ri} and \texttt{anc\_dot} as vectors.
 The expression in $\sim$ is used to uncompute \texttt{ri}, \texttt{anc\_dot} and \texttt{anc\_norm}.
-%\texttt{R[col, col] += anc\_norm${}^\wedge$0.5} is a ternary instruction, whose backward rule is defined in NiLang.
 \texttt{dot} and \texttt{norm2} are reversible functions to compute dot product and vector norm.
-One can easily check the correctness of the gradient function
+One can easily quickly the correctness of the gradient function
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
@@ -1236,17 +1235,15 @@ true
 \end{minipage}
 
 Here, the loss function \texttt{test1} is defined as the sum of the output unitary matrix \texttt{q}. The \texttt{check\_grad} function is a gradient checker function defined in module NiLang.AD.
-%It should be possible to define other linear algebra functions reversiblly too. We leave this future projects.
 
 \subsection{Solving a graph embedding problem}\label{sec:graph}
-Graph embedding has an interesting application of finding a representation for an order parameter~\cite{Takahashi2020} in condensed matter physics.
+Graph embedding can be used to find representation for an order parameter~\cite{Takahashi2020} in condensed matter physics.
 \Ref{Takahashi2020} considers a problem of finding the minimum Euclidean space dimension $k$ that a Petersen graph can fit into, with extra requirements that the distance between a pair of connected vertices has the same value $l_1$, the distance between a pair of disconnected vertices has the same value $l_2$ and $l_2 > l_1$.
-The Petersen graph is 10 vertices graph as shown in \Fig{fig:petersen}.
-\begin{figure}
+The Petersen graph is ten vertices graph, as shown in \Fig{fig:petersen}.\begin{figure}
     \centerline{\includegraphics[width=0.6\columnwidth,trim={0 1cm 0 0},clip]{images/petersen.pdf}}
     \caption{The Petersen graph with 10 vertices and 15 edges.}\label{fig:petersen}
 \end{figure}
-Let's denote the set of connected and disconnected vertex pairs as $L_1$ and $L_2$ respectively. This problem can be variationally solved by differential programming by designing the following loss.
+Let us denote the set of connected and disconnected vertex pairs as $L_1$ and $L_2$, respectively. This problem can be variationally solved by differential programming by designing the subsequent loss.
 \begin{align}
     \begin{split}
         \mathcal{L} &= \Var({\rm dist}(L_1)) + \Var({\rm dist}(L_2)) \\
@@ -1255,7 +1252,7 @@ Let's denote the set of connected and disconnected vertex pairs as $L_1$ and $L_
 \end{align}
 The first line is a summation of distance variances in two sets of vertex pairs, where $\Var{X}$ means taking the variance of samples in $X$.
 The second line is used to guarantee $l_2 > l_1$, where $\overline{X}$ means taking the average of samples in $X$.
-Its reversible implementation is shown bellow.
+Its reversible implementation is shown below.
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
@@ -1350,7 +1347,7 @@ end
 \end{minipage}
 
 We repeat the training for each dimension $k$ from $1$ to $10$ and search for possible solutions by variationally optimizing the positions of vertices.
-In each training, we fixed two of the vertices and train the rest, otherwise the program will find the trivial solution with overlapped vertices. 
+In each training, we fix two of the vertices and train the rest. Otherwise, the program will find the trivial solution with overlapped vertices. 
 For $k=5$, we can get a loss close to machine precision with high probability, while for $k < 5$, the loss is always much higher than $0$.
 From the solution, it is easy to see $l_2/l_1 = \sqrt{2}$ is the solution.
 For $k=5$, an Adam optimizer with a learning rate $0.01$~\cite{Kingma2014} requires $\sim2000$ steps training.
@@ -1358,31 +1355,31 @@ The trust region Newton's method converges much faster, which requires $\sim 20$
 Although training time is comparable, the converged precision of the later is much better.
 
 \subsubsection{Benchmark}
-Since the ForwardDiff itself provides the Hessian for users. It is interesting to benchmark how much performance can we get by forward differentiating an adjoint program than forward differentiating an forward AD program.
+Since the ForwardDiff itself provides the Hessian for users. It is interesting to benchmark how much performance we can get by forward differentiating an adjoint program than forward differentiating a forward AD program.
 \begin{figure}
     \centerline{\includegraphics[width=\columnwidth,trim={0 0 0 0},clip]{images/fig7.pdf}}
     \caption{The time used to (a) call/uncall, (b) compute gradients and (c) compute Hessians.}\label{fig:bench-embedding}
 \end{figure}
 The benchmark is on GPU, which uses the same setup as previous benchmarks.
-In this application, the number of input parameters scales as $10 \times k$, where $k$ is the mebeding dimension of the graph.
+In this application, the number of input parameters scales as $10 \times k$, where $k$ is the embedding dimension of the graph.
 In \Fig{fig:bench-embedding}, we show the the performance of different implementations by varying the dimension $k$.
 As the baseline, (a) shows the time for computing the 0th-order gradient, or the function call. We have reversible and irreversible implementations, where the reversible program is slower than the irreversible native Julia program by a factor of $\sim2$.
-(b) shows the time for computing first-order gradients. The reversible program shows advantage in obtaining gradients when the dimension $k \geq 3$. The larger the number of input, the more advantage it shows due to the linear overhead in tangent mode AD.
-The same reason applies for computing Hessians, the mixed mode AD gives better performance when $k \geq 3$ comparing with pure tangent mode AD.
+(b) shows the time for computing the first-order gradients. The reversible program shows the advantage of obtaining gradients when the dimension $k \geq 3$. The larger the number of inputs, the more advantage it shows due to the overhead proportional to input size in tangent mode AD.
+The same reason applies to compute Hessians. The mixed-mode AD gives better performance when $k \geq 3$ comparing with pure tangent mode AD.
 
 \section{Discussion and outlook}\label{sec:discussion}
 In this paper, we show how to realize a reversible programming eDSL and how to implement source-to-source adjoint mode AD on top of it.
-It give user more flexibility to trade off memory and computing time comparing with traditional checkpointing.
-The Julia impelmentation NiLang gives a state of the art performance and memory efficiency in obtaining first and second-order gradients in applications including first type Bessel function, sparse matrix manipulation, linear algebra functions and a practical, the application graph embedding problem.
+It gives the user more flexibility to tradeoff memory and computing time comparing with traditional checkpointing.
+The Julia implementation NiLang gives a state of the art performance and memory efficiency in obtaining first and second-order gradients in applications including first type Bessel function, sparse matrix manipulation, linear algebra functions and a practical, the application graph embedding problem.
 %In a reversible programming language, we proposed to use ``approximate uncomputing'' trick to avoid the overhead of a reversible program in many practical cases.
 
 In the following, we discussed some practical issues about reversible programming, and several future directions to go.
 %Notablely, we introduce the concept of ``arithematic uncomputing'' to reduce the overhead of recursive reversible algorithms.
 
 \subsection{Time Space Tradeoff}\label{sec:timespace}
-In history, there has been many discussions about time-space trade off on a reversible Turing machine (RTM).
-In the simplest g-segment trade off scheme~\cite{Bennett1989,Levine1990}, a RTM model has either a space overhead that proportional to computing time $T$ or a computational overhead that sometimes can be exponential comparing with a irreversible counter part.
-This result stops many people from taking reversible computing as a serious high performance computing scheme.
+In history, there have been many discussions about time-space tradeoff on a reversible Turing machine (RTM).
+In the most straightforward g-segment tradeoff scheme~\cite{Bennett1989,Levine1990}, an RTM model has either a space overhead that proportional to computing time $T$ or a computational overhead that sometimes can be exponential to the program size comparing with an irreversible counterpart.
+This result stops many people from taking reversible computing seriously as a high-performance computing scheme.
 In the following, we try to convince the readers that the overhead of reversible computing is not as terrible as people thought.
 %we have
 %\begin{align}
@@ -1396,29 +1393,26 @@ In the following, we try to convince the readers that the overhead of reversible
 The overhead of reversing a program is bounded the checkpointing~\cite{Chen2016} strategy used in a traditional machine learning package that memorizes inputs of primitives because similar strategy can also be used in reversible programming.~\cite{Perumalla2013}
 % Memorizing the inputs always make a primitive reversible since it does not discard any information.
 %For deep neural networks, people used checkpointing trick to trade time with space~\cite{Chen2016}. This trick is also widely used in reversible programming~\cite{Perumalla2013}. 
-Reversible programming simply provides more alternatives to reduce the overhead.
+Reversible programming provides more alternatives to reduce the overhead.
 %For inplace functions, especially those reversible functions. Reversible programming AD is sometimes more memory efficient. Comparing with logging computational graph.
 %Second, many computational overheads come from of the irreversibility of \texttt{/=} and \texttt{*=} operations. This part is not fundamental because reversible floating point instructions have already been designed~\cite{Nachtigal2010,Nachtigal2011}. Using reversible floating point instructions may significant decrease the computation time and memory usage of a RTM.
 %Even in current stage, 
-For example, accumulation is reversible, it does not require checkpointing.
-The checkpointing in many iterative algorithms can often be avoided with ``arithmetic uncomputing'' trick without sacrificing reversibility as shown in the \texttt{ibesselj} example in \Sec{sec:bessel}.
+For example, accumulation is reversible, and it does not require checkpointing.
+The checkpointing in many iterative algorithms can often be avoided with the ``arithmetic uncomputing'' trick without sacrificing reversibility, as shown in the \texttt{ibesselj} example in \Sec{sec:bessel}.
 % We will review this point in \Sec{sec:hardware}.
 
-As shown in \Fig{fig:ccu}, clever compiling based on memory oriented computational graph can also be used to help user trade off between time and space.
+As shown in \Fig{fig:ccu}, clever compiling based on memory oriented computational graph can also be used to help user tradeoff between time and space.
 Often, when we define a new reversible function, we allocate some ancillas at the beginning of the function and deallocate them through uncomputing at the end.
-The overhead comes from the uncomputing, in the worst case, the time used for uncomputing can be the same as the forward pass.
+The overhead comes from the uncomputing. In the worst case, the time used for uncomputing can be the same as the forward pass.
 In a hierarchical design, uncomputing can appear in every layer of abstraction. To quantify the overhead of uncomputing, we introducing the term program granularity as bellow.
 \begin{definition}[program granularity]
-    The log ratio between the execution time of a reversible program and its irreversible counter part.
-    %\begin{equation}
-        %\log_2 \frac{Time(T)}{T}.
-    %\end{equation}
+    The log-ratio between the execution time of a reversible program and its irreversible counterpart.
 \end{definition}
 The computing time increases exponentially as the granularity increases.
 A cleverer compilation of a program can reduce the granularity by merging the uncomputing statements to avoid repeated efforts.
 
-At last, making reversible programming an eDSL rather than an independent language allows flexible choices between reversibility and computational overhead. For example, in order to deallocate the memory that stores gradients in a reversible language, one has to uncompute the whole process of obtaining them.
-As an eDSL, one can just deallocate the memory irreversibly outside the scope of a reversible program, i.e. trade energy with time.
+At last, making reversible programming an eDSL rather than an independent language allows flexible choices between reversibility and computational overhead. For example, to deallocate the memory that stores gradients in a reversible language, one has to uncompute the whole process of obtaining them.
+As an eDSL, one has an alternative to deallocate the memory irreversibly outside the scope of a reversible program, i.e., trade energy with time.
 
 
 %One should notice the memory advantage of reversible programming to machine learning does comes from reversibility itself, but from a better data tracking strategy inspired from invertible programming.
@@ -1434,31 +1428,31 @@ In the future, it can be compiled to reversible instructions~\cite{Vieri1999} an
 %For example, the control flow defined in this NiLang can be compiled to reversible instructions like reversible \texttt{goto} instruction, where
 %the target instruction can be a \texttt{comefrom} instruction that specifing the postcondition.
 However, arithmetic instructions should be redesigned to support better reversible programs.
-The major obstacle to exact reversibility programming is current floating point adders and multipliers used in our computing devices are not exactly reversible.
-There are proposals of reversible floating point adders and multipliers~\cite{Nachtigal2010,Nachtigal2011,Nguyen2013,Hner2018}, however these designs require allocating garbage bits in each operation.
+The major obstacle to exact reversibility programming is the current floating-point adders and multipliers used in our computing devices are not exactly reversible.
+There are proposals of reversible floating -oint adders and multipliers~\cite{Nachtigal2010,Nachtigal2011,Nguyen2013,Hner2018}. However these designs require allocating garbage bits in each operation.
 %, which is not too different from the information buffer approach~\cite{Maclaurin2015}.
 %In other words, to represent a 64 bit floating point number requires more than 64 bits in storage. Reversible multiplier is also possible in similar approach.~\cite{Nachtigal2010} 
 %With floating point numbers, rigorous reversible arithematic designs without using information buffer or garbage qubits is nearly impossible.
 Alternatives include fixed point numbers~\cite{FixedPointNumbers} and logarithmic numbers~\cite{Taylor1988,LogarithmicNumbers}, where logarithmic number system is reversible under \texttt{*=} and \texttt{/=}.
 We also need instructions like \texttt{comefrom} as a partener of \texttt{goto}.
-Many people know \texttt{comefrom} from the joke~\cite{COMEFROM}~\footnote{I heard this joke from Damian Steiger when we were discussing his quantum simulation paper~\cite{Haner2017}, he never thought his paper can be cited like this.} to complaint people who use \texttt{goto} frequently.
+Many people know \texttt{comefrom} from the joke~\cite{COMEFROM}~\footnote{I heard this joke from Damian Steiger when we were discussing his quantum simulation paper~\cite{Haner2017}.} to complaint people who use \texttt{goto} frequently.
 It turns out to be necessary for compiling a reversible program.
 
 %Reversible programming is not nessesarily related to reversible hardwares.
 %Reversible programs is a subset of irreversible programs, hence can be simulated efficiently on traditional CMOS devices~\cite{Vieri1999}.
 %Reversible programming just provides an alternative to execute on an energy efficient reversible hardwares.
-Reversible instructions can be executed on an energy-efficient reversible hardware.
-In the introduction, we mentioned several reversible hardwares. A reversible hardware can be devices supporting reversible gates like the Toffoli gate and the Fredkin gate, or devices like an adiabatic CMOS with the ability to recover signal energy. The latter is known as the generalized reversible computing.~\cite{Frank2005,Frank2017b}
+Reversible instructions can be executed on energy-efficient reversible hardware.
+In the introduction, we mentioned several reversible hardware. Reversible hardware can be devices supporting reversible gates like the Toffoli gate and the Fredkin gate, or devices like an adiabatic CMOS with the ability to recover signal energy. The latter is known as the generalized reversible computing.~\cite{Frank2005,Frank2017b}
 It is already a better choice as the computing device in a spacecraft~\cite{Debenedictis2017}.
-Since reversible programming is a very suited platform for differential programming, building an energy-efficient artificial intelligence (AI) coprocessors would be a very promising direction to go too.
+Since reversible programming is an exceptional platform for differential programming, building an energy-efficient artificial intelligence (AI) coprocessors would be a promising direction to go too.
 %Since reversible computing is mainly driven by quantum computing in recent years.
 %In the following, we comment briefly on quantum devices.
 
 The development of reversible compiling theory can be benefit quantum compiling directly.
 It bridges classical computing and quantum computing.
 Building a universal quantum computer~\cite{Nielsen2002} is difficult. 
-The difficulty lies in the fact that it is extremely hard to protect a quantum state.
-Unlike a classical state, an quantum state is can not be cloned, meanwhile, it losses information by interacting with the environment.
+The difficulty lies in the fact that it is hard to protect a quantum state.
+Unlike a classical state, a quantum state can not be cloned. Meanwhile, it loses information by interacting with the environment.
 %These two facts underlines the simulation nature of quantum devices.
 %Although there are proposals about quantum random access memory~\cite{Giovannetti2008}, they are difficult to implement, and are known to have many caveats~\cite{Aaronson2015}.
 %In the era of noisy intermediate sized quantum devices, more and more people are switching to classical-quantum hybrid devices, where a quantum device plays the role of a programmable simulator.
@@ -1467,49 +1461,43 @@ Classical reversible computing does not enjoy the quantum advantage, nor the qua
 %On the other side, the irreversibility is rare, it can come from interacting with classical devices. Irreversible processes include decaying, qubit state resetting, measurements and classical feed backs to quantum devices. These are typically harder to implement on a quantum device.
 %Given the fundamental limitations of quantum decoherence and non-cloning and the reversible nature of microscopic world.
 It is technically more smooth to have a reversible computing device to bridge the gap between classical devices and universal quantum computing devices.
-By introducing entanglement little by little, we can accelerate some basic components in reversible computing. For example, quantum Fourier transformation provides an interesting alternative to the reversible adders and multipliers by introducing the CPHASE quantum gate.~\cite{RuizPerez2017}
+By introducing entanglement little by little, we can accelerate some elementary components in reversible computing. For example, quantum Fourier transformation provides an alternative to the reversible adders and multipliers by introducing the CPHASE quantum gate.~\cite{RuizPerez2017}
 Currently, most quantum programming language preassumes a classical coprocessor and use classical control flows~\cite{Svore2018} in universal quantum computing.
-However, we believe reversible compiling technologies including reversible control flows are also very important to a universal quantum computer.
+However, we believe reversible compiling technologies, including reversible control flows, are also very important to a universal quantum computer.
 
 \subsection{Outlook}\label{sec:outlook}
 
 We can use NiLang to solve many existing issues related to AD.
-We can use it to generate AD rules for existing machine learning packages like Zygote~\cite{Innes2019}, KNet~\cite{KNet} and Flux~\cite{Innes2018a}.
-Many backward rule for sparse arrays and linear algebra operations have not been defined yet in these packages.
-We can also use the flexible time-space trade off in reversible programming to overcome the memory wall problem in some applications.
-A successful related example is the memory efficient domain-specific AD engine in quantum simulator Yao~\cite{Luo2019}.
-This domain-specific AD engine is written in a reversible style and solved the memory bottleneck in variational quantum simulations. It also gives hitherto the best performance in differentiating quantum circuit parameters.
-Similarity, we can write memory efficient normalizing flow~\cite{Kobyzev2019} with NiLang. Normalizing flow is a successful class of generative model in both computer vision~\cite{Kingma2018} and quantum physics~\cite{Dinh2016,Li2018}, where its building block bijector is reversible.
-We can use similar idea to differentiate reversible integrators~\cite{Hut1995, Laikov2018}.
-With reversible integrators, it should be possible to rewrite the control system in robotics~\cite{Giftthaler2017} in a reversible style, where scalars are first class citizen rather than tensors.
-Writing a control program reversibly should boost the training performance a lot.
+We can use it to generate AD rules for existing machine learning packages like Zygote~\cite{Innes2019}, KNet~\cite{KNet}, and Flux~\cite{Innes2018a}.
+Many backward rules for sparse arrays and linear algebra operations have not been defined yet in these packages.
+We can also use the flexible time-space tradeoff in reversible programming to overcome the memory wall problem in some applications.
+A successful, related example is the memory-efficient domain-specific AD engine in quantum simulator Yao~\cite{Luo2019}.
+This domain-specific AD engine is written in a reversible style and solved the memory bottleneck in variational quantum simulations. It also gives so far the best performance in differentiating quantum circuit parameters.
+Similarly, we can write memory-efficient normalizing flow~\cite{Kobyzev2019} with NiLang. Normalizing flow is a successful class of generative models in both computer vision~\cite{Kingma2018} and quantum physics~\cite{Dinh2016,Li2018}, where its building block bijector is reversible.
+We can use a similar idea to differentiate reversible integrators~\cite{Hut1995, Laikov2018}.
+With reversible integrators, it should be possible to rewrite the control system in robotics~\cite{Giftthaler2017} in a reversible style, where scalar is a first-class citizen rather than tensor.
+Writing a reversible control program should boost training performance.
 Reversibility is also a valuable resource for training.
 We show the potential of self-consistent training in \App{sec:train}.
 
 To solve the above problems better, people can improve reversible programming from multiple perspectives.
-First, we need a better compiler that suited for compiling reversible programs. It can decrease the uncomputing overheads automatically for us.
-Then, we need a number system to avoid rounding errors. Currently, we can simulate rigorous reversible arithmetics with the julia fixed point number package~\cite{FixedPointNumbers,LogarithmicNumbers}. More efficient fixed point or log number operations requires instruction level design.
-Finally, the improvement from the hardware level will arm reversible differential programming with energy efficiency, which is also very important to help variational programming to solving practical issues better. For example, we can build an energy-efficient AI chip in our cellular phone with reversible computing devices.
+First, we need a better compiler suited for compiling reversible programs. It can decrease the uncomputing overheads automatically for us.
+Then, we need a number system to avoid rounding errors. Currently, we can simulate rigorous reversible arithmetics with the fixed-point number package~\cite{FixedPointNumbers,LogarithmicNumbers}. A more efficient fixed point or log number operations requires instruction-level design.
+Finally, the improvement from the hardware level will arm reversible differential programming with energy efficiency, which is also very important to help variational programming to solve practical issues better. For example, we can build an energy-efficient AI chip in our cellular phone with reversible computing devices.
 %There are also some known issues to be solved like the type inference problem, we have listed some of them on GitHub.
 %NiLang also need better type inference support. Current type inference assumes the variable types not changed by a function, which is not true.
 %The type cast rule of a reversible function should be recorded somewhere to help type inference.
-These improvements needs participation of people from multiple fields.
+These improvements need the participation of people from multiple fields.
 
 % By porting a quantum simulator. 
 %it is interesting to see how quantum simulator can improve the instruction design. Notice a quantum fourier transformation (QFT) based quantum adder and multiplier is sometimes more efficient than a classical adder~\cite{Haener2018} \blue{Is this true?}.
 %This could be used to reduce the momory cost in normalizing flow, time-reversible integrator, recurrent neural network and residual neural network.
 
 \section{acknowledgments}
-Jin-Guo Liu thank Lei Wang for motivating the project with possible applications reversible integrator, normalizing flow and neural ODE.
+Jin-Guo Liu thank Lei Wang for motivating the project with possible applications reversible integrator, normalizing flow, and neural ODE.
 Marisa Kiresame and Xiu-Zhe Luo for discussion on the implementation details of source-to-source automatic differentiation,
-Shuo-Hui Li for helpful discussion on differential geometry.
-Tong Liu and An-Qi Chen for helpful discussion on quantum adders and multipliers.
-Yin-Bo Ma for correcting typos by submitting pull requests.
-Chris Rackauckas for helpful discussion on reversible integrator.
-Mike Innes for reviewing the comments about Zygote.
-Jun Takahashi for discussion about the graph embedding problem.
-Simon Byrne and Chen Zhao for helpful discussion on floating point and logarithmic numbers.
-The authors are supported by the National Natural Science Foundation of China under the Grant No.~11774398, the Strategic Priority Research Program of Chinese Academy of Sciences Grant No.~XDB28000000.
+Shuo-Hui Li for helpful discussion on differential geometry, Tong Liu and An-Qi Chen for helpful discussion on quantum adders and multipliers, Yin-Bo Ma for correcting typos by submitting pull requests, Chris Rackauckas for helpful discussion on reversible integrator, Mike Innes for reviewing the comments about Zygote, Jun Takahashi for discussion about the graph embedding problem, Simon Byrne and Chen Zhao for helpful discussion on floating-point and logarithmic numbers.
+The authors are supported by the National Natural Science Foundation of China under Grant No.~11774398, the Strategic Priority Research Program of Chinese Academy of Sciences Grant No.~XDB28000000.
 
 \bibliographystyle{apsrev4-1}
 \bibliography{invc}
