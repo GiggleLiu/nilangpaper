@@ -269,39 +269,36 @@ There have not been any reversible eDSL in Julia before, but there have been man
     In the appendix, we show the grammar of NiLang and other technical details.
 
 
-\blue{Grammarly here!}
-
 \section{Language design}\label{sec:lang}
 
-    \subsection{Introductions to reversible language design}\blue{how about now? feel free to comment more}
-    \violet{Add more introduction to reversible programming}
-    In a modern programming language, functions are pushed to a global stack for scheduling. The memory layout of a function consists of input arguments, a function frame with information like the return address and saved memory segments, local variables, and working stack. After the call, the function clears these run-time information, only stores the return value. In the reversible programming, this kind of design is no longer the best practice. One can not discard input variables and local variables easily after a function call, since discarding information may ruin reversibility. For this reason, reversible functions are very different from irreversible ones from multiple perspectives.
+    \subsection{Introductions to reversible language design}
+    In a modern programming language, functions are pushed to a global stack for scheduling. The memory layout of a function consists of input arguments, a function frame with information like the return address and saved memory segments, local variables, and working stack. After the call, the function clears run-time information, only stores the return value. In reversible programming, this kind of design is no longer the best practice. One can not discard input variables and local variables easily after a function call, since discarding information may ruin reversibility. For this reason, reversible functions are very different from irreversible ones from multiple perspectives.
 
 \subsubsection{Memory management}
-    The key difference between reversible and irreversible memory management is the content of a variable that going to be discarded in a reversible program must be known.
+    The critical difference between reversible and irreversible memory management is the content of a variable that is going to be discarded in a reversible program must be known.
     We denote the allocation of a zero emptied memory as \texttt{x $\leftarrow$ 0}, and the corresponding deallocation as \texttt{x $\rightarrow$ 0}.
     A variable $x$ can be allocated and deallocated in a local scope, which is called an ancilla.
-    It can also be push to a stack and used later with a pop statement.
-    This stack is similar to a traditional stack except it zero-clears the variable after pushing and presupposes the variable being zero-cleared before popping.
+    It can also be pushed to a stack and used later with a pop statement.
+    This stack is similar to a traditional stack, except it zero-clears the variable after pushing and presupposes the variable being zero-cleared before popping.
 \begin{figure}
     \centerline{\includegraphics[width=\columnwidth,trim={0 1cm 0 0cm},clip]{images/fig6.pdf}}
     \caption{Data oriented computational graph that shows the compute-copy-uncompute paradigm. Circles connected by vertical lines are variables, where double lines represents multiple variables. Boxes and dots connected by parallel lines are operations. A dot on a line represents a control parameter while a box represents a mutable parameter.
     }\label{fig:ccu}
 \end{figure}
 
-Knowing the contents in the memory when deallocating is not easy, hence Charles H. Bennett introduced the famous compute-copy-uncompute paradigm~\cite{Bennett1973}.
-In order to show how reversible memory manage works, we introduce the memory oriented computational graph as shown in \Fig{fig:ccu}.
-Notations are highly inspired by quantum circuit representations. A vertical line is a variable, it can be used by multiple operations. Hence it is a hypergraph rather than a simple graph like DAG. When a variable is used by a function, depending on whether its value is changed by this function or not, we put a box or a dot at the cross respectively.
-Let's consider the example program shown in panel (a). The subrogram in dashed box \texttt{X} is executed on space $x_{1\colon3}$ to compute desired result, which we call the computing stage. In the copying stage, the contents in $x_3$ is read out to a pre-emptied memory $x_4$ through addition operation $\oplus$, this is the piece of information that we care.
+Knowing the contents in the memory when deallocating is not easy. Hence Charles H. Bennett introduced the famous compute-copy-uncompute paradigm~\cite{Bennett1973}.
+In order to show how reversible memory manage works, we introduce the memory oriented computational graph, as shown in \Fig{fig:ccu}.
+Notations are highly inspired by quantum circuit representations. A vertical line is a variable, and it can be used by multiple operations. Hence it is a hypergraph rather than a simple graph like DAG. When a variable is used by a function, depending on whether its value is changed, we put a box or a dot at the cross.
+Let us consider the example program shown in panel (a). The subprogram in dashed box \texttt{X} is executed on space $x_{1\colon3}$ to compute the desired result, which we call the computing stage. In the copying stage, the content in $x_3$ is read out to a pre-emptied memory $x_4$ through addition operation $\oplus$, and this is the piece of information that we care.
 Since this copy operation does not change contents of $x_{1\colon3}$, we can use the inverse operation \texttt{$\sim$X} to undo all the changes to these registers. If a variable in $x_{1\colon3}$ is initialized as a known value like $0$, now it can be deallocated since its value is known again.
 If this subroutine of generating $x_4$ is used in another program as shown in \Fig{fig:ccu} (b), $x_4$ can be uncomputed by the reversing the whole subroutine in panel (a).
-The interesting fact is, both $X$ and $\sim X$ are executed twice in this program, which looks like unnecessary. We can of cause cancel a pair of $X$ and $\sim X$ (the gray boxes), by doing this, we are not allowed to deallocate the memory $x_{1\colon3}$ during computing $f(x_4)$, i.e. additional space is required. The trade off between space and time will be discussed in detail in \Sec{sec:timespace}.
+The interesting fact is, both $X$ and $\sim X$ are executed twice in this program, which looks like unnecessary. We can, of cause cancel a pair of $X$ and $\sim X$ (the gray boxes). By doing this, we are not allowed to deallocate the memory $x_{1\colon3}$ during computing $f(x_4)$, i.e., additional space is required. The tradeoff between space and time will be discussed in detail in \Sec{sec:timespace}.
 
 \subsubsection{Control flows}
-The reversible \texttt{if} statement is shown in \Fig{fig:controlflow} (a). It contains two conditions, a precondition and a postcondition. The precondition decides which branch to enter in the forward execution, while the postcondition decides which branch to enter in the backward execution. After executing the specific branch, the program checks the consistency between precondition and postcondition to make sure they are the consistent.
+The reversible \texttt{if} statement is shown in \Fig{fig:controlflow} (a). It contains a precondition and a postcondition. The precondition decides which branch to enter in the forward execution, while the postcondition decides which branch to enter in the backward execution. After executing the specific branch, the program checks the consistency between precondition and postcondition to make sure they are consistent.
 The reversible \texttt{while} statement is shown in \Fig{fig:controlflow} (b). It also has both precondition and postcondition. Before executing the condition expressions, the program preassumes the postcondition is false.
 After each iteration, the program asserts the postcondition to be true. In the reverse pass, we exchange the precondition and postcondition.
-The reversible \texttt{for} statement is similar to irreversible ones except after executing the loop, the program checks the values of these variables to make sure they are not changed. In the reverse pass, we exchange start and stop and inverse the sign of step.
+The reversible \texttt{for} statement is similar to irreversible ones except after executing the loop, and the program checks the values of these variables to make sure they are not changed. In the reverse pass, we exchange \texttt{start} and \texttt{stop} and inverse the sign of \texttt{step}.
 \begin{figure}
     \centerline{\includegraphics[width=0.8\columnwidth,trim={0 0cm 0 0cm},clip]{images/controlflow.pdf}}
     \caption{Flow chart for reversible (a) \texttt{if} statement and (b) \texttt{while} statement. ``stmts'', ``stmts1'' and ``stmts2'' are statements, statements in true branch and statements in false branch respectively. ``pre'' and ``post'' are precondition and postconditions respectively.}\label{fig:controlflow}
@@ -312,17 +309,17 @@ Every arithmetic instruction has a unique inverse that can undo the changes.
 For logical operations, we have \texttt{y $\veebar$= f(args...)} self reversible.
 For other arithmetic operations, we regard \texttt{y += f(args...)} and \texttt{y -= f(args...)} are reversible to each other. Here \texttt{f} can be \texttt{identity}, \texttt{*}, \texttt{/} and \texttt{\^} et. al.
 Besides the above two types of operations, \texttt{SWAP} operation that exchanges the contents in two memory spaces are also widely used in reversible computing systems.
-Here, it is worth noticing that \texttt{+=} and \texttt{-=} are not exactly reversible to each other because floating point number operations have the rounding error. For applications sensitive to rounding errors, we should consider using other number systems, which will be discussed in \Sec{sec:hardware}
+Here, it is worth noticing that \texttt{+=} and \texttt{-=} are not precisely reversible to each other because floating-point number operations have the rounding error. For applications sensitive to rounding errors, we should consider using other number systems, which will be discussed in \Sec{sec:hardware}
 
 \subsection{NiLang's Reversible IR}
-In the last subsection, we have reviewed basic building blocks of a typical reversible language. In order to insert the code of obtaining gradients into the reversed program, the reversible language design should have related abstraction power.
+In the last subsection, we have reviewed the basic building blocks of a typical reversible language. In order to insert the code of obtaining gradients into the reversed program, the reversible language design should have related abstraction power.
 It can be achieved by utilizing the multiple-dispatch of Julia.
-We can wrap a number with a special type with gradient field called \texttt{GVar} and dispatch it to instructions that update gradient fields for it.
+We can wrap a number with a particular type with a gradient field called \texttt{GVar} and dispatch it to instructions that update gradient fields for it.
 Similar design is called \texttt{Dual} number in the tangent mode AD package ForwardDiff~\cite{Revels2016}.
 
 The main feature of NiLang is contained in a single macro \texttt{@i} that compiles a reversible function.
 The allowed statements in this eDSL are shown in \App{app:grammar}.
-The following is a minimal example of compiling a NiLang function to native julia function.
+The following is a minimal example of compiling a NiLang function to native Julia function.
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
@@ -358,14 +355,13 @@ end
 
 Macro \texttt{@i} generates three functions \texttt{f}, \texttt{$\sim$f} and \texttt{NiLangCore.isreversible}. \texttt{f} and \texttt{$\sim$f} are a pair of functions that are reversbile to each other, where \texttt{$\sim$f} is an callable of type \texttt{Inv\{typeof(f)\}}.
 In the body of \texttt{f}, \texttt{NiLangCore.wrap\_tuple} is used to unify output data types to tuples.
-The outputs of \texttt{SWAP} are assigned back to its input variables, in other words, it simulates a function that modifies inputs inplace.
-At the end this function, this macro attaches a return statement that returns all input variables.
+The outputs of \texttt{SWAP} are assigned back to its input variables. In other words, it simulates a function that modifies inputs inplace.
+At the end of this function, this macro attaches a return statement that returns all input variables.
 Finally, it defines \texttt{NiLangCore.isreversible} for \texttt{f} to mark it as reversible.
-%The generated functions will be compiled to reversible ``instructions'', these instructions are closed under the inverse operation ``$\sim$''. Hence all functions defined in NiLang are also closed under ``$\sim$'' operations.
 
 To understand the design of reversibility, we first introduce a reversible IR that plays a central role in NiLang.
 In this IR, a statement can be an instruction, a function call, a control flow, a memory allocation/deallocation, or the inverse statement ``$\sim$''.
-Any statement is this IR has a unique inverse as shown in \Tbl{tbl:revstatements}.
+Any statement is this IR has a unique inverse, as shown in \Tbl{tbl:revstatements}.
 
 \begin{table}[h!]\centering
 \begin{minipage}{\columnwidth}
@@ -422,12 +418,12 @@ Any statement is this IR has a unique inverse as shown in \Tbl{tbl:revstatements
 ``\texttt{$\leftarrow$}'' and ``\texttt{$\rightarrow$}'' are symbols for memory allocation and deallocation, one can input them by typing ``$\backslash$leftarrow'' and ``$\backslash$rightarrow'' respectively followed by a Tab key in a Julia editor or REPL.
 ``\texttt{begin <stmts> end}'' is the block statement in Julia, it represents a code block.
 It can be inverted by reversing the order as well as each element in it.
-A \texttt{if} or \texttt{while} statement is similar to its native Julia counterpart except the conditional expression in statements is a tuple of precondition and postcondition.
+A \texttt{if} or \texttt{while} statement is similar to its native Julia counterpart, except the conditional expression in statements is a tuple of precondition and postcondition.
 %\texttt{<a> $\leftarrow$ <expr>} binds variable \texttt{<a>} to an initial value specified by \texttt{<expr>}. Its inverse \texttt{<a> $\rightarrow$ <expr>} deallocates the variable \texttt{<a>}. Before deallocating the variable, the program checks that the its value is the same as the value of \texttt{<expr>}, otherwise throws an \texttt{InvertibilityError}.
 %A function call in NiLang supports Julia's broadcasting magic, a function defined on scalars can be broadcasted to vectors by adding a ``.'' after the function call.
 %\texttt{$\rightarrow$} will be added automatically.
     %The additional check underlines the difference between the irreversible assign statement and reversible ancilla statement.
-Finally, the special macro \texttt{@safe} allows users to use external statements that do not break reversibility.
+Finally, the macro \texttt{@safe} allows users to use external statements that do not break reversibility.
 For example, one can use \texttt{@safe @show <var>} for debugging.
 
 \subsection{Compiling}
@@ -440,8 +436,7 @@ The compilation of a reversible function contains three stages.
 
 The first stage pre-processes human inputs to a reversible IR.
 The preprocessor expands the symbol ``\texttt{$\sim$}'' in the postcondition field of \texttt{if} statement by copying the precondition, adds missing ancilla ``$\leftarrow$'' statements to ensure ``\texttt{$\leftarrow$}'' and ``\texttt{$\rightarrow$}'' appear in pairs inside a function, a \texttt{while} statement or a \texttt{for} statement, and expands the uncomputing macro \texttt{$\sim$@routine}.
-Since the compmute-copy-uncompute paradigm is extensively used in reversible programming for uncomputing ancillas.
-One can use \texttt{@routine <stmt>} statement to record a statement, and \texttt{$\sim$@routine} to insert \texttt{$\sim$<stmt>} for uncomputing.
+Since the compute-copy-uncompute paradigm is extensively used in reversible programming to uncompute ancillas, one can use \texttt{@routine <stmt>} statement to record a statement, and \texttt{$\sim$@routine} to insert \texttt{$\sim$<stmt>} for uncomputing.
 The following example pre-processes an \texttt{if} statement to the reversible IR.
 
 \begin{minipage}{.44\textwidth}
@@ -483,7 +478,7 @@ julia> NiLangCore.dual_ex(
 \end{lstlisting}
 \end{minipage}
 
-The third stage is translating this IR and its inverse to native Julia code. It explains all functions as inplace and insert codes about reversibility check. At the end of a function definition, it attaches a return statement that returns all input arguments.
+The third stage is translating this IR and its inverse to native Julia code. It explains all functions as inplace and inserts codes about reversibility check. At the end of a function definition, it attaches a return statement that returns all input arguments.
 After this, the function is ready to execute on the host language.
 The following example shows how an \texttt{if} statement is transformed in this stage.
 
@@ -512,10 +507,10 @@ The compiler translates the instruction according to \Tbl{tbl:interp} and adds \
 
 \subsection{Types and Dataviews}
 So far, the language design is not too different from a traditional reversible language. To implement the adjoint mode AD, we introduce types and dataviews.
-The type that used in the reversible context is just a normal Julia type with an extra requirement of having reversible constructors.
+The type used in the reversible context is just a standard Julia type with an additional requirement of having reversible constructors.
 The inverse of a constructor is called a ``destructor'', which unpacks data and deallocates derived fields.
-A reversbile constructor is implemented by reinterpreting the \texttt{new} function in Julia.
-Creating a new object is similar to creasting an ancilla. Let's consider the following statement.
+A reversible constructor is implemented by reinterpreting the \texttt{new} function in Julia.
+Let us consider the following statement.
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
@@ -523,8 +518,8 @@ Creating a new object is similar to creasting an ancilla. Let's consider the fol
 \end{lstlisting}
 \end{minipage}
 
-It works just like an ancilla, except it deallocates \texttt{g} directly at the same time.
-This makes sense because \texttt{new} is special that the its output keeps all information of its arguments, all input variables that does not appear in the output can be discard safely. Its inverse is
+The above statement is similar to allocating an ancilla, except it deallocates \texttt{g} directly at the same time.
+Doing this is proper because \texttt{new} is special that its output keeps all information of its arguments. All input variables that do not appear in the output can be discarded safely. Its inverse is
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
@@ -532,8 +527,8 @@ This makes sense because \texttt{new} is special that the its output keeps all i
 \end{lstlisting}
 \end{minipage}
 
-It unpacks structure \texttt{x} and assign fields to corresponding variables in argument list.
-The following example shows a non-complete definition the reversible type \texttt{GVar}.
+It unpacks structure \texttt{x} and assigns fields to corresponding variables in the argument list.
+The following example shows a non-complete definition of the reversible type \texttt{GVar}.
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
@@ -571,11 +566,11 @@ julia> (~GVar)(GVar([0.5, 0.6]))
 \end{lstlisting}
 \end{minipage}
 
-\texttt{GVar} has two fields, they correspond to the value and gradient of a variable.
+\texttt{GVar} has two fields that correspond to the value and gradient of a variable.
 Here, we put \texttt{@i} macro before both \texttt{struct} and \texttt{function} statements.
-The ones before functions generates forward and backward functions, while the one before \texttt{struct} moves \texttt{$\sim$GVar} functions to the outside of the type definition, otherwise the inverse function will be ignored by Julia compiler.
+The ones before functions generate forward and backward functions, while the one before \texttt{struct} moves \texttt{$\sim$GVar} functions to the outside of the type definition. Otherwise, the inverse function will be ignored by Julia compiler.
 
-Since an operation changes data inplace in NiLang, hence a field of a immutable instance should also be ``modifiable''.
+Since an operation changes data inplace in NiLang, hence a field of an immutable instance should also be `` modifiable''.
 Let us first consider the following example.
 
 \begin{minipage}{.44\textwidth}
@@ -614,7 +609,7 @@ y = res[3]
 The first line \texttt{PlusEq(*)(-arr[3].g, x, y)} computes the output as a tuple of length $3$.
 At lines 2-3, \texttt{chfield(x, Val\{:g\}, val)} modifies the \texttt{g} field of \texttt{x} and \texttt{chfield(x, -, res[1])} returns \texttt{-res[1]}. Here, modifying a field requires the default constructor of a type not overwritten.
 The assignments in lines 4 and 5 are straightforward.
-We call a bijection of a field of an object a ``dataview'' of this object, it is directly modifiable in NiLang.
+We call a bijection of a field of an object a ``dataview'' of this object, and it is directly modifiable in NiLang.
 The definition of dataview can be found in \App{app:grammar}.
 
 \section{Reversible automatic differentiation}\label{sec:bp}
@@ -630,13 +625,11 @@ Consider a computation $\vx^{i-1} = f_{i}^{-1}(\vx^{i})$ in a reversed program, 
     \end{split}\label{eq:jacobian}
 \end{align}
 where $\out$ represents the outputs of the program. In adjoint mode AD, it is a scalar.
-$J^{\out}_{\vx^i} \equiv \frac{\partial \out}{\partial \vx^i}$ is the Jacobian to be propagated, and $J^{\vx^i}_{\vx^{i-1}}$ is the local Jacobian matrix. The Einstein's notation~\cite{Einsum} is used here so that the duplicated index $\vx^{i}$ in the second line is summed over.
-%Tagent mode instruction-level automatic differentiation can be implemented easily in a irreversible language with dual numbers~\cite{Revels2016}.
-%Here we focus on the adjoint mode.
+$J^{\out}_{\vx^i} \equiv \frac{\partial \out}{\partial \vx^i}$ is the Jacobian to be propagated, and $J^{\vx^i}_{\vx^{i-1}}$ is the local Jacobian matrix. Einstein's notation~\cite{Einsum} is used here so that the duplicated index $\vx^{i}$ in the second line is summed over.
 \Eq{eq:jacobian} can be rewritten in the diagram of tensor networks~\cite{Orus2014} as shown in \Fig{fig:ad}.
 \begin{figure}
     \centerline{\includegraphics[width=0.95\columnwidth,trim={0.5cm 1cm 0 1cm},clip]{images/ad.pdf}}
-    \caption{Computational processes in the tensor network diagram, a big circle with three legs represents a Hessian, a small circle with two legs represents a Jacobian. Dangling edges and connected edges stands for unpaired and paired labels respectively in the Einstein's notation. From left to right, the diagrams represent computing, uncomputing, back propagating Jacobians and back propagating Hessians.}\label{fig:ad}
+    \caption{Computational processes in the tensor network diagram, a big circle with three legs represent a Hessian, a small circle with two legs represents a Jacobian. Dangling edges and connected edges stand for unpaired and paired labels, respectively in Einstein's notation. From left to right, the diagrams represent computing, uncomputing, Jacobian propagation, and Hessian propagation.}\label{fig:ad}
 \end{figure}
 The algorithm to compute the adjoint mode AD can be summarized as follows.
 
@@ -652,12 +645,11 @@ The algorithm to compute the adjoint mode AD can be summarized as follows.
 \end{algorithm}
 
 We first compute the results with the forward pass $f(x)$.
-%, where $f$ is not nessesarily implemented reversiblly
 Then we wrap each output with a gradient field. The gradient field is initialized to 1 if the variable is the loss else 0. Then we run the backward pass $f^{-1}(x)$ to update the gradient fields of variables.
 The gradients can be accessed using the $\grad$ dataview of output variables.
 %Its inverse \texttt{$\sim$GVar} deallocates the gradient field safely and returns its value field.  Here, "safely" means before deallocation, the program will check the gradient field to make sure its value is restored to $0$.
 %When an instruction \texttt{instruct} meets a \texttt{GVar}, besides computing its value field $\vvalue(\vy) = \texttt{instruct}(\vvalue(\vx))$, it also updates the gradient field $\grad(\vy) = \left[J^{\vy}_{\vx}\right]^{-1} \grad(\vx)$, where $\left[J^{\vy}_{\vx}\right]^{-1}$ is the Jacobian of $\texttt{instruct}^{-1}$. One can define this gradient function on either \texttt{instruct} or \texttt{instruct${}^{-1}$}.
-The computation of gradients are implemented with multiple-dispatch, that is, when an instruction meets a \texttt{GVar} instance, it calls a different routine. For example, the backward rules for instructions \texttt{$\oplus(*)$} and \texttt{$\ominus(*)$} can be defined by overloading \textbf{either} of them as following.
+The computation of gradients is implemented with multiple-dispatch. That is, when an instruction meets a \texttt{GVar} instance, it calls a different routine. For example, the backward rules for instructions \texttt{$\oplus(*)$} and \texttt{$\ominus(*)$} can be defined by overloading \textbf{either} of them as following.
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}[mathescape=true]
@@ -672,11 +664,11 @@ end
 %Here, we adopt the convention that only variables ended with \texttt{!} will be changed after the function call.
 %This backward rule has been included in NiLang, one can check the gradients by typing in a Julia REPL
 %If one defines the backward rule on \texttt{instruct}, the compiler will generate the backward rule for its inverse \texttt{instruct${}^{-1}$} as the inverse function. This is doable 
-The backward rule defined on $\ominus(*)$ will be used in the back-propagation of $\oplus(*)$.
-The compiler also binds the backward rules on $\oplus(*)$ automatically. This is doable because taking inverse and computing gradients commute to each other~\cite{Mcinerney2015}.
+We use the backward rule defined on $\ominus(*)$ to backpropagate the function $\oplus(*)$.
+Since taking inverse and computing gradients commute to each other~\cite{Mcinerney2015}, the compiler also binds the backward function on $\oplus(*)$ automatically.
 %When gradients are not used anymore, the reversible way to deallocate gradients is uncomputing the whole process of obtaining them.
 %, which increases the hyrachy by 1. Whenever the hyrachy increase by 1, the computational overhead doubles comparing with its irreversible counter part.
-One can check the correctness of this definition easily as follows.
+One can check the correctness of this definition as follows.
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}[mathescape=true]
@@ -706,15 +698,15 @@ The overhead of using \texttt{GVar} type is negligible thanks to Julia's multipl
 
 
 \subsection{Second-order gradient}
-Second-order gradients can be obtained in three different approaches, forward differentiating the adjoint program, adjoint differentiating the adjoint program and Hessian propagation.
+Second-order gradients can be obtained in three different approaches, forward differentiating the adjoint program, adjoint differentiating the adjoint program, and Hessian propagation.
 \subsubsection{Forward differentiating the adjoint program}\label{sec:dualhessian}
-Combining the adjoint program in NiLang with dual numbers is a simple yet efficient way to obtain Hessians.
+Combining the adjoint program in NiLang with dual-numbers is a simple yet efficient way to obtain Hessians.
 By wrapping the elementary type with \texttt{Dual} that defined in package ForwardDiff~\cite{Revels2016} and throwing it into the gradient program defined in NiLang,
 one obtains one row/column of the Hessian matrix straightforward.
-We will show an example of using forward differentiating in Newton trust region optimization in \Sec{sec:graph}.
+We will show an example of using forward differentiating in Newton's trust region optimization in \Sec{sec:graph}.
 
 \subsubsection{Adjoint differentiating the adjoint program}\label{sec:simplehessian}
-Back propagating first-order gradients is also widely used to obtain the second-order gradients. Suppose the function space is closed under gradient operation, one can obtain higher-order gradients by recursively differentiating lower order gradient functions without defining new backward rules. An example is shown in \App{app:hessian}.
+Back propagating first-order gradients is also widely used to obtain the second-order gradients. Suppose the function space is closed under gradient operation, one can obtain higher-order gradients by recursively differentiating lower-order gradient functions without defining new backward rules. An example is shown in \App{app:hessian}.
 
 \subsubsection{Hessian propagation}\label{sec:taylor}
 It is also possible to back-propagate Hessians directly~\cite{Martens2012} using the relation
@@ -725,36 +717,38 @@ It is also possible to back-propagate Hessians directly~\cite{Martens2012} using
     \end{split}
 \end{align}
 Here, the Hessian is represented as a tensor $H^{\out}_{\vx^{i-1},\vx^{i-1'}}$ of rank three.
-In tensor network diagram, the above equation can be represented as the right panel of \Fig{fig:ad}.
-The advantange of using Hessian propagation is it can be generalized to Taylor propagation in the future.
-With respect to the order of gradients, Taylor propagation is exponentially more efficient in obtaining higher-order gradients than differentiating lower order gradients recursively. %The later requires traversing the computational graph repeatedly.
+In the tensor network diagram, the above equation can be represented as the right panel of \Fig{fig:ad}.
+The advantage of using Hessian propagation is that it can be generalized to Taylor propagation in the future.
+Concerning the order of gradients, Taylor propagation is exponentially more efficient in obtaining higher-order gradients than differentiating lower-order gradients recursively. %The later requires traversing the computational graph repeatedly.
 %In JAX~\cite{Bettencourt2019}, in order to support Taylor propagation, the propagation rules for part of primitives should be manually defined.
 Comparing with operator overloading, source to source automatic differentiation has the advantage of having very limited primitives, exhausted support to Hessian propagation is possible.
 An example to obtain Hessians is provided in \Sec{sec:bessel}.
 
 \subsection{Gradient on ancilla problem}
 In this section, we introduced an easily overlooked problem in our reversible AD framework.
-An ancilla sometimes can carry a nonzero gradient when it is going to be deallocated. As a result, even if an ancilla can be uncomputed rigorously in the original program, its \texttt{GVar} wrapped version is not necessarily safely deallocated.
-In NiLang, we simply ``drop'' the gradient field of ancillas instead of raising an error.
+An ancilla can sometimes carry a nonzero gradient when it is going to be deallocated. As a result, even if an ancilla can be uncomputed rigorously in the original program, its \texttt{GVar} wrapped version is not necessarily safely deallocated.
+In NiLang, we drop the gradient field of ancillas instead of raising an error.
 In the following, we justify our decision by proving the following theorem
 \begin{theorem}
     Deallocating an ancilla with constant value field and nonzero gradient field does not harm the reversibility of a function.
 \end{theorem}
 \begin{proof}
     Consider a reversible function $\vx^i, b = f_i(\vx^{i-1}, a)$, where $a$ and $b$ are the input and output values of an ancilla.
-    Since both $a$, $b$ are constants that are indepedent of input $\vx^{i-1}$, we have
+    Since both $a$, $b$ are constants that are indenpedent of input $\vx^{i-1}$, we have
 \begin{align}
     \frac{\partial b}{\partial \vx^{i-1}} = \mathbf{0}.
 \end{align}
 %Suppose in the backward pass, we discard the gradient field of $b$.
 %So the question becomes does \texttt{grad(b)} have effect on the $\vx$?
-Discarding gradients should not have any effect to the \texttt{value} fields of outputs.
+Discarding gradients should not have any effect on the \texttt{value} fields of outputs.
     The key is to show $\texttt{grad(b)} \equiv \frac{\partial \vx^L}{\partial{b}}$ does appear in the \texttt{grad} fields of the output. It can be seen from the back-propagation rule 
 \begin{equation}
     \frac{\partial \vx^L}{\partial \vx^{i-1}} = \frac{\partial \vx^L}{\partial \vx^i}\frac{\partial \vx^i}{\partial \vx^{i-1}} + \frac{\partial \vx^L}{\partial b}\frac{\partial b}{\partial \vx^{i-1}},
 \end{equation}
 where the second term with $\frac{\partial \vx^L}{\partial{b}}$ vanishes naturally.
 \end{proof}
+
+\blue{Grammarly here!}
 
 \section{Examples}\label{sec:example}
 
