@@ -599,7 +599,7 @@ In Julia language, the assign statement above will throw a syntax error because 
 In NiLang, we use the macro \texttt{@assignback} to modify an immutable data directly. It translates the above statement to
 
 \begin{minipage}{.44\textwidth}
-    \begin{lstlisting}[numberstyle=\scriptsize\color{gray},numbers=left,numbersep=8pt]
+\begin{lstlisting}[numberstyle=\scriptsize\color{gray},numbers=left,numbersep=8pt]
 res = (PlusEq(*))(-arr[2].g, x, y)
 arr[2] = chfield(arr[2], Val(:g),
     chfield(arr[2].g, -, res[1]))
@@ -880,11 +880,10 @@ using NiLang, NiLang.AD
     out! += identity(out_anc)
     ~@routine
 end
-
 \end{lstlisting}
 \end{minipage}
 
-Here, only a constant number of ancillas are used, while the time complexity does not increase comparing to its irreversible counterpart.
+Here, the definition of \texttt{ifactorial} could be found in appendix. Only a constant number of ancillas are used, while the time complexity does not increase comparing to its irreversible counterpart.
 Ancilla \texttt{anc4} plays the role of \textit{dirty ancilla} in multiplication, it is uncomputed rigorously in the uncomputing stage marked by \texttt{$\sim$@routine}.
 %The \texttt{while} statement takes two conditions, the precondition and postcondition. Precondition \texttt{val(anc1) > atol} indicates when to break the forward pass and postcondition \texttt{iplus != 0} indicates when to break the backward pass.
 
@@ -912,10 +911,10 @@ One can obtain gradient of this function by calling \texttt{ibesselj\textquotesi
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
 julia> out!, x = 0.0, 1.0
-(0.0, 3.0)
+(0.0, 1.0)
 
 julia> ibesselj'(Val(1), out!, 2, x)
-(GVar(0.0, 1.0), 2, GVar(3.0, 0.0149981304))
+(Val{1}(), GVar(0.0, 1.0), 2, GVar(1.0, 0.2102436158593427))
 \end{lstlisting}
 \end{minipage}
 
@@ -923,10 +922,19 @@ The Hessian can be obtained by feeding dual numbers into this gradient function.
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
+julia> out!, x = 0.0, 1.0
+(0.0, 1.0)
+
+julia> ibesselj'(Val(1), out!, 2, x)
+(Val{1}(), GVar(0.0, 1.0), 2, GVar(1.0, 0.2102436158593427))
+
 julia> using ForwardDiff: Dual
+
 julia> _, hxout!, _, hxx = ibesselj'(Val(1), 
-        Dual(out!, zero(out!)), 2, Dual(x, one(x)))
+        Dual(out!, zero(out!)), 2, Dual(x, one(x)));
+
 julia> grad(hxx).partials[1]
+0.13446683844358093
 \end{lstlisting}
 \end{minipage}
 
@@ -1044,6 +1052,8 @@ In the followin example, we compare the time used in forward pass and backward p
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
+julia> using BenchmarkTools
+
 julia> a = sprand(1000, 1000, 0.01);
 
 julia> b = sprand(1000, 1000, 0.01);
@@ -1125,12 +1135,6 @@ We define the test functions in order to check gradients.
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}[mathescape=true]
-julia> @i function isum(out!, x::AbstractArray)
-           for i=1:length(x)
-               out! += identity(x[i])
-           end
-       end
-
 julia> @i function test!(out!, x!::Vector, θ::Vector)
            umm!(x!, θ)
            isum(out!, x!)
@@ -1147,7 +1151,7 @@ julia> x
  GVar(1.2696579252569677, 1.42868739498625)   
  GVar(0.1083891125379283, 0.2170123344615735) 
 
-julia> @instr (~test!')(out, x, θ)
+julia> @instr (~test!')(Val(1), out, x, θ)
 
 julia> x
 4-element Array{Float64,1}:
@@ -1225,7 +1229,9 @@ One can easily check the correctness of the gradient function
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
-julia> A, q, r = randn(4,4), zero(A), zero(A);
+julia> A  = randn(4,4);
+
+julia> q, r = zero(A), zero(A);
 
 julia> @i function test1(out, q, r, A)
            qr(q, r, A)
@@ -1324,7 +1330,28 @@ One can access the gradient by typing
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
-iloss'(Val(1), 0.0, randn(5, 10))
+julia> embedding_loss'(Val(1), 0.0, randn(5, 10))
+\end{lstlisting}
+\end{minipage}
+
+One can also abtain the Hessian with the following function
+
+\begin{minipage}{.44\textwidth}
+\begin{lstlisting}
+using ForwardDiff: Dual, partials
+
+function get_hessian(params0::AbstractArray{T}) where T
+    N = length(params0)
+    params = Dual.(params0, zero(T))
+    hes = zeros(T, N, N)
+    for i=1:N
+        @inbounds i !== 1 && (params[i-1] = Dual(params0[i-1], zero(T)))
+        @inbounds params[i] = Dual(params0[i], one(T))
+        res = gradient(Val(1), embedding_loss, (Dual(0.0, 0.0), params))[2]
+        hes[:,i] .= vec(partials.(res, 1))
+    end
+    hes
+end
 \end{lstlisting}
 \end{minipage}
 
@@ -1841,8 +1868,15 @@ Besides, the Fibonacci example is often used in a reversible language as a tutor
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
 """
-    ifactorial(out!, n)
+get the summation of an array.
+"""
+@i function isum(out!, x::AbstractArray)
+    for i=1:length(x)
+        out! += identity(x[i])
+    end
+end
 
+"""
 computing factorial.
 """
 @i function ifactorial(out!, n)
@@ -1853,8 +1887,6 @@ computing factorial.
 end
 
 """
-    dot(out!, v1, v2)
-
 dot product.
 """
 @i function dot(out!, v1::Vector{T}, v2) where T
@@ -1864,8 +1896,6 @@ dot product.
 end
 
 """
-    norm2(out!, vec)
-
 squared norm.
 """
 @i function norm2(out!, vec::Vector{T}) where T
@@ -1884,8 +1914,6 @@ In \texttt{norm2}, we copied \texttt{vec[i]\textquotesingle} to \texttt{anc1} to
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
 """
-    var_and_mean_sq(var!, mean!, sqv)
-
 Variance and mean value from squared values `sqv`.
 """
 @i function var_and_mean_sq(var!, mean!, sqv)
@@ -1894,8 +1922,8 @@ Variance and mean value from squared values `sqv`.
         mean! += sqv[i] ^ 0.5
         var! += identity(sqv[i])
     end
-    DIVINT(mean!, length(sqv))
-    DIVINT(var!, length(sqv))
+    divint(mean!, length(sqv))
+    divint(var!, length(sqv))
     sqmean += mean! ^ 2
     var! -= identity(sqmean)
     sqmean -= mean! ^ 2
