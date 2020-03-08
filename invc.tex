@@ -265,7 +265,7 @@ There haven't been any reversible eDSL in Julia before, but there have been many
     In this paper, we first introduce the language design of NiLang in \Sec{sec:lang}.
     In \Sec{sec:bp}, we explain the back-propagation algorithm of Jacobians and Hessians in this eDSL.
     In \Sec{sec:example}, we show several examples including Bessel function, dot product between sparse matrices, unitary matrix multiplication and QR decomposition. We show how to generate first order and second order backward rules for these functions. We also show a practical application that solves the graph embedding problem.
-    In \Sec{sec:discussion}, we discuss several important issues, how time-space tradeoff works, reversible instructions and hardware, and finally, an outlook to some open problems to be solved.
+    In \Sec{sec:discussion}, we discuss several important issues, how time-space  works, reversible instructions and hardware, and finally, an outlook to some open problems to be solved.
     In the appendix, we show the grammar of NiLang and other technical details.
 
 \section{Language design}\label{sec:lang}
@@ -834,8 +834,8 @@ Line 2 computes the result and accumulates it to the dirty ancilla, we get an ap
 Line 3 uncompute \texttt{out!} approximately by using the information stored in \texttt{anc!}, leaving a dirty zero state in register \texttt{out!}.
 Line 4 swaps the contents in \texttt{out!} and \texttt{anc!}.
 Finally, we have an approximately correct output and a dirtier ancilla.
-This ``approximate uncomputing'' trick can be extensively used in practise. It mitigated the artificial irreversibility brought by the number system that we have adopted at the cost of output precision.
-The reason why this  trick works here lies in the fact that from the mathematic perspective the state in $n$th step $\{s_n, z\}$ contains the same amount of information as its previous state  $\{s_{n-1}, z\}$ except some special points, it is highly possible to find an equation to uncompute the previous state from the current state.
+This ``approximate uncomputing'' trick can be extensively used in practice. It mitigated the artificial irreversibility brought by the number system that we have adopted at the cost of output precision.
+The reason why this  trick works here lies in the fact that from the mathematics perspective the state in $n$th step $\{s_n, z\}$ contains the same amount of information as its previous state  $\{s_{n-1}, z\}$ except some special points, it is highly possible to find an equation to uncompute the previous state from the current state.
 With this approximate multiplier, we implement $J_\nu$ as follows.
 
 \begin{minipage}{.44\textwidth}
@@ -887,9 +887,9 @@ Here, the definition of \texttt{ifactorial} could be found in appendix. Only a c
 Ancilla \texttt{anc4} plays the role of \textit{dirty ancilla} in multiplication, it is uncomputed rigorously in the uncomputing stage marked by \texttt{$\sim$@routine}.
 %The \texttt{while} statement takes two conditions, the precondition and postcondition. Precondition \texttt{val(anc1) > atol} indicates when to break the forward pass and postcondition \texttt{iplus != 0} indicates when to break the backward pass.
 
-This reversible program can be diagramatically represented as a memory oriented computational graph as show in \Fig{fig:cgraphs} (\subref{fig:datagraph}).
+This reversible program can be diagrammatically represented as a memory oriented computational graph as show in \Fig{fig:cgraphs} (\subref{fig:datagraph}).
 In this graph, a variable is a vertical line, a function is a parallel line.
-The key difference to traditional computational graph is it adopts a variable centric view.
+The key difference to traditional computational graph is it adopts a variable oriented view.
 A variable can be used by multiple functions, i.e. it is a hypergraph rather than a simple graph.
 If a function uses a variable but does not change the contents in it, we call this variable a control parameter of this function and put a dot at the cross. Otherwise if the content is changed, we put a square.
 This diagram can be used to analyse uncomputable variables. In this example routine ``B'' uses \texttt{hz\_2}, \texttt{$\nu$} and \texttt{k} as control parameters, and changes the contents in \texttt{anc2}, \texttt{anc3} and \texttt{anc5}.
@@ -918,6 +918,7 @@ julia> ibesselj'(Val(1), out!, 2, x)
 \end{lstlisting}
 \end{minipage}
 
+Here, \texttt{ibesselj\textquotesingle} is a callable instance of type \texttt{Grad\{typeof(ibesselj)\}}. The first parameters \texttt{Val(1)} specifies the position of loss in argument list. 
 The Hessian can be obtained by feeding dual numbers into this gradient function.
 
 \begin{minipage}{.44\textwidth}
@@ -980,18 +981,18 @@ ForwardDiff gives the best performance, it is even faster than manually derived 
 Except the effient implementation, its high performance also lies in the fact that this functions is suited for tangent mode AD which has only one input.
 NiLang.AD represents the reversible AD in NiLang, it takes 12.3 times the original program, which is still is much faster than naive checkpointing.
 In Zygote, the memory allocation on heap is 13.47KB, they are not all for checkpointing. Some of them are related to type instability, where Julia compiler fails to infer types.
-Using closure to handle checkpointing can induce poor performance, because external type instability sometimes can propergate to interia.
+Using closure to handle checkpointing can induce poor performance, because external type instability sometimes can propagate to interior.
 NiLang uses uncomputing to manage memory rather than closure, which does not frequently involve external variables in the function.
 Hence it is more friendly to type inference in Julia compiler.
 Tapenade \blue{needs your effort, @MLS}
 We also include a CUDA benchmark. Our reversible programming is compatible with CUDA programming so that the differentiable kernel can be executed on GPU.
-For people insterested in CUDA programming, we prepaired another example in \App{app:cuda} which implements a differentiable quantum simulation kernel on GPU.
+For people who are interested in CUDA programming, we prepared another example in \App{app:cuda} which implements a differentiable quantum simulation kernel on GPU.
 So far, the generated backward rule faces the shared write problem, which requires further investigation.
 
 \subsection{Sparse Matrices}
 Source to source automatic differentiation is very useful in differentiating sparse matrices. It is a well known problem that sparse matrix operations can not benefit directly from generic backward rules that defined for dense matrix, because generic rules does not keep the sparse structure.
 In the following, we will show reversible AD can differentiate the Frobenius dot product between two sparse matrices with a state of the art performance. Here, the Frobenius dot product is defined as \texttt{trace(A'B)}.
-This folloing reversible implementation is adapted from the irreversible implementation in Julia package \texttt{SparseArrays}.
+This following reversible implementation is adapted from the irreversible implementation in Julia package \texttt{SparseArrays}.
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
@@ -1048,7 +1049,7 @@ end
 
 With simple adaptation, the code becomes reversible.
 Here, the key point is using a \texttt{branch\_keeper} vector to cache branch decisions.
-In the followin example, we compare the time used in forward pass and backward pass.
+In the following example, we compare the time used in forward pass and backward pass.
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
@@ -1092,7 +1093,7 @@ BenchmarkTools.Trial:   #$ TODO: remove this comment
 
 The time used for computing backward pass costs is approximately 1.6 times the Julia's native forward pass.
 Here, we have turned off the reversibility check off to achieve better performance.
-By writting sparse matrix multiplication and other sparse matrix operations reversibly,
+By writing sparse matrix multiplication and other sparse matrix operations reversibly,
 we will have a differentiable sparse matrix library with proper performance.
 
 \subsection{Unitary Matrices}\label{sec:umm}
@@ -1334,7 +1335,7 @@ julia> embedding_loss'(Val(1), 0.0, randn(5, 10))
 \end{lstlisting}
 \end{minipage}
 
-One can also abtain the Hessian with the following function
+One can also obtain the Hessian with the following function
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
@@ -1362,7 +1363,7 @@ In each training, we fixed two of the vertices and train the rest, otherwise the
 For $k=5$, we can get a loss close to machine precision with high probability, while for $k < 5$, the loss is always much higher than $0$.
 From the solution, it is easy to see $l_2/l_1 = \sqrt{2}$ is the solution.
 For $k=5$, an Adam optimizer with a learning rate $0.01$~\cite{Kingma2014} requires $\sim2000$ steps training.
-The trust region Newton's method converges much faster, which requies $\sim 20$ computations of Hessians to reach convergence.
+The trust region Newton's method converges much faster, which requires $\sim 20$ computations of Hessians to reach convergence.
 Although training time is comparable, the converged precision of the later is much better.
 
 \subsubsection{Benchmark}
@@ -1374,12 +1375,12 @@ Since the ForwardDiff itself provides the Hessian for users. It is interesting t
 The benchmark is on GPU, which uses the same setup as previous benchmarks.
 In this application, the number of input parameters scales as $10 \times k$, where $k$ is the mebeding dimension of the graph.
 In \Fig{fig:bench-embedding}, we show the the performance of different implementations by varying the dimension $k$.
-As the baseline, (a) shows the time for computing the 0th oder gradient, or the function call. We have reversible and irreversible implementations, where the reversible program is slower than the irreversible native Julia program by a factor of $\sim2$.
+As the baseline, (a) shows the time for computing the 0th order gradient, or the function call. We have reversible and irreversible implementations, where the reversible program is slower than the irreversible native Julia program by a factor of $\sim2$.
 (b) shows the time for computing first order gradients. The reversible program shows advantage in obtaining gradients when the dimension $k \geq 3$. The larger the number of input, the more advantage it shows due to the linear overhead in tangent mode AD.
 The same reason applies for computing Hessians, the mixed mode AD gives better performance when $k \geq 3$ comparing with pure tangent mode AD.
 
 \section{Discussion and outlook}\label{sec:discussion}
-In this paper, we show how to realize a reversible programming eDSL and how to implement source to souce adjoint mode AD on top of it.
+In this paper, we show how to realize a reversible programming eDSL and how to implement source to source adjoint mode AD on top of it.
 It give user more flexibility to trade off memory and computing time comparing with traditional checkpointing.
 The Julia impelmentation NiLang gives a state of the art performance and memory efficiency in obtaining first and second order gradients in applications including first type Bessel function, sparse matrix manipulation, linear algebra functions and a practical, the application graph embedding problem.
 %In a reversible programming language, we proposed to use ``approximate uncomputing'' trick to avoid the overhead of a reversible program in many practical cases.
@@ -1450,7 +1451,7 @@ There are proposals of reversible floating point adders and multipliers~\cite{Na
 Alternatives include fixed point numbers~\cite{FixedPointNumbers} and logarithmic numbers~\cite{Taylor1988,LogarithmicNumbers}, where logarithmic number system is reversible under \texttt{*=} and \texttt{/=}.
 We also need instructions like \texttt{comefrom} as a partener of \texttt{goto}.
 Many people know \texttt{comefrom} from the joke~\cite{COMEFROM}~\footnote{I heard this joke from Damian Steiger when we were discussing his quantum simulation paper~\cite{Haner2017}, he never thought his paper can be cited like this.} to complaint people who use \texttt{goto} frequently.
-It turns out to be nessesary for compiling a reversible program.
+It turns out to be necessary for compiling a reversible program.
 
 %Reversible programming is not nessesarily related to reversible hardwares.
 %Reversible programs is a subset of irreversible programs, hence can be simulated efficiently on traditional CMOS devices~\cite{Vieri1999}.
@@ -1492,7 +1493,7 @@ We can use similar idea to differentiate reversible integrators~\cite{Hut1995, L
 With reversible integrators, it should be possible to rewrite the control system in robotics~\cite{Giftthaler2017} in a reversible style, where scalars are first class citizen rather than tensors.
 Writing a control program reversibly should boost the training performance a lot.
 Reversibility is also a valuable resource for training.
-We show the possiblity of self-consistent training in \App{sec:train}.
+We show the potential of self-consistent training in \App{sec:train}.
 
 To solve the above problems better, people can improve reversible programming from multiple perspectives.
 First, we need a better compiler that suited for compiling reversible programs. It can decrease the uncomputing overheads automatically for us.
@@ -1512,7 +1513,7 @@ Jin-Guo Liu thank Lei Wang for motivating the project with possible applications
 Marisa Kiresame and Xiu-Zhe Luo for discussion on the implementation details of source to source automatic differentiation,
 Shuo-Hui Li for helpful discussion on differential geometry.
 Tong Liu and An-Qi Chen for helpful discussion on quantum adders and multipliers.
-Yin-Bo Ma for correcting typos by submmiting pull requests.
+Yin-Bo Ma for correcting typos by submitting pull requests.
 Chris Rackauckas for helpful discussion on reversible integrator.
 Mike Innes for reviewing the comments about Zygote.
 Jun Takahashi for discussion about the graph embedding problem.
@@ -2022,7 +2023,8 @@ julia> @i function instruct!(state::CuVector,
            mask2 ← 1 << (tget(locs, 2)-1)
            XY ← GPUArrays.thread_blocks_heuristic(
                 length(state))
-           @launchkernel CUDA() 256 length(out!) swap_kernel2(state, mask1, mask2)
+           @launchkernel CUDA() 256 length(out!
+                ) swap_kernel2(state, mask1, mask2)
        end
 
 julia> instruct!(CuArray(randn(8)),
@@ -2105,15 +2107,16 @@ julia> (~rfibn)(rfibn(0, 100)...)
 This examplifies how an addition postcondition provided by user can help reversing a control flow without caching controls.
 
 \section{Alternative approaches to Obtain Hessian}\label{app:hessian}
-Here, \texttt{ibesselj\textquotesingle} is a callable instance of type \texttt{Grad\{typeof(ibesselj)\}}. The first parameters \texttt{Val(1)} specifies the position of loss in argument list. This function itself is reversible and differentiable, hence one can back-propagate this function to obtain Hessians as introduced in \Sec{sec:simplehessian}. In NiLang, it is implemented as \texttt{hessian\_backback}.
+This function itself is reversible and differentiable, hence one can back-propagate this function to obtain Hessians as introduced in \Sec{sec:simplehessian}. In NiLang, it is implemented as \texttt{hessian\_backback}.
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
-julia> hessian_backback(ibesselj, (out!, 2, x); iloss=1)
+julia> hessian_backback(ibesselj, (0.0, 2, 1.0);
+            iloss=1)
 3×3 Array{Float64,2}:
- 0.0  0.0   0.0    
- 0.0  0.0   0.0    
- 0.0  0.0  -0.27505
+ 0.0  0.0  0.0     
+ 0.0  0.0  0.0     
+ 0.0  0.0  0.134467
 \end{lstlisting}
 \end{minipage}
 
@@ -2128,20 +2131,20 @@ To obtain Hessians, we can also use the Hessian propagation approach as introduc
 
 \begin{minipage}{.44\textwidth}
 \begin{lstlisting}
-julia> ibesselj''(out!, 2, x; iloss=1)
-(BeijingRing{Float64}(0.0, 1.0, 1), 2, 
-BeijingRing{Float64}(3.0, 0.014998134978750133, 2))
+julia> hessian_propagate(ibesselj, (0.0, 2, 1.0); iloss=1)
+(BeijingRing{Float64}(0.0, 1.0, 1), 2,
+    BeijingRing{Float64}(1.0, 0.21024361585934268, 2))
 
 julia> collect_hessian()
 2×2 Array{Float64,2}:
- 0.0   0.0    
- 0.0  -0.27505
+ 0.0  0.0     
+ 0.0  0.134467
 \end{lstlisting}
 \end{minipage}
 
 \texttt{ibesselj\textquotesingle\textquotesingle} computes the second-order gradients. It wraps variables with type \texttt{BeijingRing}~\footnote{When people ask for the location in Beijing, they will start by asking which ring it is? We use the similar approach to locate the elements of Hessian matrix.} in the backward pass. \texttt{BeijingRing} records Jacobians and Hessians for a variable, where Hessians are stored in a global storage.
 Whenever an $n$-th variable or ancilla is created, we push a ring of size $2n-1$ to a global tape. Whenever an ancilla is deallocated, we pop a ring from the top. The $n$-th ring stores Hessian elements $H_{i\leq n,n}$ and $H_{n,i<n}$.% We didn't use the symmetry relation $H_{i,j} = H_{j,i}$ to save memory here in order to simplify the implementation of backward rules described in the right most panel of \Fig{fig:ad}.
 The final result can be collected by calling \texttt{collect\_hessian()}, which will read out the Hessian matrix that stored in the global storage.
-
+This method turns out to allocate too much for ancillas, hence is not economic in practice.
 
 \end{document}
