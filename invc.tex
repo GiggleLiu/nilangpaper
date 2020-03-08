@@ -190,9 +190,6 @@
 \author{Taine Zhao}
 \affiliation{Department of Computer Science, University of Tsukuba}
 
-\author{\blue{MLS's name here}}
-\affiliation{MLS's affiliations here}
-
 \begin{abstract}
     This paper considers the source-to-source automatic differentiation (AD) in a reversible language. We start by reviewing why adjoint mode AD is hard for traditional machine learning frameworks. Then we propose a solution to existing issues by writing a program reversibly. We developed a reversible eDSL NiLang in Julia that can differentiate a general program while being compatible with Julia's ecosystem. It can generate efficient backward rules with reasonable time and memory efficiency. We demonstrate its power by generating the backward rules for Bessel function, sparse matrix dot product, unitary matrix multiplication, and QR decomposition. We also use it to generate efficient Hessian to solve a graph embedding problem efficiently. Finally, we will discuss the challenges that we face towards rigorous reversible programming, mainly from the instruction and hardware perspective.
 \end{abstract}
@@ -239,7 +236,7 @@ However, implementing adjoint mode AD is harder than implementing its tangent mo
 
     Source code transformation based AD brings hope to free scientists from deriving backward rules.
     Tools like Tapenade~\cite{Hascoet2013} and Zygote~\cite{Innes2018, Innes2019} generate the adjoint code statically while putting variable on a stack called the Wengert list.
-    However, this approach has its problem too. In traditional AD applications\blue{what is traditional AD applications}, a program that might do billions of computations will as well get a Wengert list in the range of GBs. Frequent caching of data slows down the program significantly, and the memory will become a bottleneck as well.
+    However, this approach has its problem too. In traditional AD applications, a program that might do billions of computations will as well get a Wengert list in the range of GBs. Frequent caching of data slows down the program significantly, and the memory will become a bottleneck as well.
     %As the reverse mode AD 
 In both machine learning and scientific computation, memory management in AD is becoming a wall~\cite{Luo2019} that limiting the scale of many applications.
 In many deep learning models like recurrent neural network~\cite{Lipton2015} and residual neural networks~\cite{He2016}, the depth can reach several thousand, where the memory is often the bottleneck of these programs. The memory wall problem is even more severe when one runs the application on GPU. The computational power of an Nvidia V100 GPU can reach 100 TFLOPS, comparable to a small cluster. However, its memory is only 32GB.
@@ -950,7 +947,7 @@ We have different source-to-source automatic differentiation implementations of 
             NiLang.AD & Adjoint & 271 & 0\\
             NiLang.AD (GPU) & Adjoint & 1.4 & 0\\
             Zygote & Adjoint & 31201 & 13.47\\
-            Tapenade & Adjoint & ? & ?\\
+            %Tapenade & Adjoint & ? & ?\\
             \hline
             \bottomrule
         \end{tabularx}
@@ -973,7 +970,7 @@ In Zygote, the memory allocation on the heap is 13.47KB. They are not all for ch
 Using closure to handle checkpointing can induce poor performance because external type instability sometimes can propagate to the interior.
 NiLang uses uncomputing to manage memory rather than closure, which does not frequently involve external variables in the function.
 Hence it is more friendly to type inference in Julia compiler.
-Tapenade \blue{needs your effort, @MLS}
+%Tapenade \blue{needs your effort, @MLS}
 We also include a CUDA benchmark. Our reversible programming is compatible with CUDA programming so that the differentiable kernel can be executed on GPU.
 For people who are interested in CUDA programming, we prepared another example in \App{app:cuda}, which implements a differentiable quantum simulation kernel on GPU.
 So far, the generated backward rule faces the shared write problem, which requires further investigation.
