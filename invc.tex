@@ -1480,6 +1480,7 @@ We show the potential of self-consistent training in \App{sec:train}.
 
 To solve the above problems better, people can improve reversible programming from multiple perspectives.
 First, we need a better compiler suited for compiling reversible programs. It can decrease the uncomputing overheads automatically for us.
+A better compiler can also help to avoid the problem of shared memory write problem on GPU when computing gradients.
 Then, we need a number system to avoid rounding errors. Currently, we can simulate rigorous reversible arithmetics with the fixed-point number package~\cite{FixedPointNumbers,LogarithmicNumbers}. A more efficient fixed point or log number operations requires instruction-level design.
 Finally, the improvement from the hardware level will arm reversible differential programming with energy efficiency, which is also very important to help variational programming to solve practical issues better. For example, we can build an energy-efficient AI chip in our cellular phone with reversible computing devices.
 %There are also some known issues to be solved like the type inference problem, we have listed some of them on GitHub.
