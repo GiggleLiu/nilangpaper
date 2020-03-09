@@ -191,7 +191,7 @@
 \affiliation{Department of Computer Science, University of Tsukuba}
 
 \begin{abstract}
-    This paper considers the source-to-source automatic differentiation (AD) in a reversible language. We start by reviewing the limitations of traditional AD frameworks. To solve the issues in these frameworks, we developed a reversible eDSL NiLang in Julia that can differentiate a general program while being compatible with Julia's ecosystem. It empowers users the flexibility to tradeoff time, space, and energy so that one can use it to obtain gradients and Hessians ranging for elementary mathematical functions, sparse matrix operations, and linear algebra that are widely used in scientific programming. We demonstrate that a source-to-source AD framework can achieve the state of the art performance by showing and benchmarking several examples. Finally, we will discuss the challenges that we face towards rigorous reversible programming, mainly from the instruction and hardware perspective.
+    This paper considers the source-to-source automatic differentiation (AD) in a reversible language. We start by reviewing the limitations of traditional AD frameworks. To solve the issues in these frameworks, we developed a reversible eDSL NiLang in Julia that can differentiate a general program while being compatible with Julia's ecosystem. It empowers users the flexibility to tradeoff time, space, and energy so that one can use it to obtain gradients and Hessians ranging for elementary mathematical functions, sparse matrix operations, and linear algebra that are widely used in scientific programming. We demonstrate that a source-to-source AD framework can achieve the state-of-the-art performance by showing and benchmarking several examples. Finally, we will discuss the challenges that we face towards rigorous reversible programming, mainly from the instruction and hardware perspective.
 \end{abstract}
 
 
@@ -221,8 +221,8 @@ However, implementing adjoint mode AD is harder than implementing its tangent mo
     Most popular AD implementations in the market are based on operator overloading. These packages provide a finite set of primitive functions with predefined backward rules.
     In Pytorch~\cite{Paszke2017} and Flux~\cite{Innes2018a}, every variable has a tracker field. When applying a predefined primitive function on a variable, the variable's tracker field keeps track of this function as well as data needed in later backpropagation. TensorFlow~\cite{Tensorflow2015} uses a similar approach except it builds a static computational graph as a description of the program before actual computation happens.
     %These packages all prefer tensor types, where the overhead of memory allocations is less significant.
-    In research, people need new primitives frequently. Packages based operator overloading can not cover all the diverse needs in different fields.
-    Then it relies on users to code backward rules manually.
+    In research, people need new primitives frequently. Packages based on operator overloading can not cover all the diverse needs in different fields,
+    hence it relies on users to code backward rules manually.
     For example, in physics, the requirements for AD are quite diverse.
     \begin{enumerate}
         \item We need to differentiate over sparse matrix operations that are important for Hamiltonian engineering~\cite{Xie2020}, like solving dominant eigenvalues and eigenvectors~\cite{Golub2012}.
@@ -240,13 +240,14 @@ However, implementing adjoint mode AD is harder than implementing its tangent mo
     %As the reverse mode AD 
 In both machine learning and scientific computation, memory management in AD is becoming a wall~\cite{Luo2019} that limits the scale of many applications.
 In many deep learning models like recurrent neural network~\cite{Lipton2015} and residual neural networks~\cite{He2016}, the depth can reach several thousand, where the memory is often the bottleneck of these programs. The memory wall problem is even more severe when one runs the application on GPU. The computational power of an Nvidia V100 GPU can reach 100 TFLOPS, comparable to a small cluster. However, its memory is only 32GB.
-Back propagating a general program using source code transformation makes the case worse because the memory consumption of the program typically scales as $O(T)$, where $T$ is the runtime of the program. It is nearly impossible to automatically generate the backward rule for SVD with state of the art performance. A better solution to memory management must be found to make source-to-source AD practical.
+Back propagating a general program using source code transformation makes the case worse because the memory consumption of the program typically scales as $O(T)$,
+where $T$ is the runtime of the program. It is nearly impossible to automatically generate the backward rule for SVD with the state-of-the-art performance. A better solution to memory management must be found to make source-to-source AD practical.
 %We don't need extra effort to learn meta parameters.~\cite{} Neural ODE is much easier to design~\cite{Chen2018}.
 
     We tackle this problem by writing a program reversibly. Reversibility has been used in reducing the memory allocations in machine learning models such as recurrent neural networks~\cite{MacKay2018}, Hyperparameter learning~\cite{Maclaurin2015} and residual neural networks~\cite{Behrmann2018}, where information buffer~\cite{Maclaurin2015} and reversible activation functions~\cite{Gomez2017,Jacobsen2018} are used to decrease the memory usage.
     Our approach makes reversibility a language feature so that it is a more general way of utilizing reversibility.
     We develop an embedded domain-specific language (eDSL) NiLang in Julia language~\cite{Bezanson2012,Bezanson2017} that implements reversible programming.~\cite{Perumalla2013,Frank2017}. This eDSL provides a macro to generate reversible functions that can be used by other programs. One can write reversible control flows, instructions, and memory managements inside this macro.
-We choose Julia as the host language for multiple purposes. Julia is a popular language for scientific programming. Its meta-programming and its package for pattern matching MLStyle~\cite{MLStyle} allow us to define an eDSL conveniently. Its type inference and just in time compiling can remove most overheads introduced in our eDSL, providing a state of the art performance. Most importantly, its multiple-dispatch provides the polymorphism that will be used in our AD engine.
+We choose Julia as the host language for multiple purposes. Julia is a popular language for scientific programming. Its meta-programming and its package for pattern matching MLStyle~\cite{MLStyle} allow us to define an eDSL conveniently. Its type inference and just in time compiling can remove most overheads introduced in our eDSL, providing the state-of-the-art performance. Most importantly, its multiple-dispatch provides the polymorphism that will be used in our AD engine.
 %In the past, we see many implementations of AD languages work as an independent language.
 %However, we hope our eDSL can benefit people in Julia's community directly.
 
@@ -953,7 +954,7 @@ We have different source-to-source automatic differentiation implementations of 
             \bottomrule
         \end{tabularx}
     }
-    \caption{Time and space used in computing the gradients of Bessel function $J_2(1.0)$.
+    \caption{Time and space use in computing the gradients of Bessel function $J_2(1.0)$.
     The CPU device is Intel(R) Xeon(R) CPU E5-2680 v4 @ 2.40GHz, and the GPU device is Nvidia Titan V.
     The GPU time is estimated by broadcasting the gradient function on CUDA array of size $2^{17}$ and taking the average.}\label{tbl:besselj}
 \end{minipage}
@@ -966,10 +967,10 @@ It is even faster than manually derived gradients
 \begin{equation}
     J_{\nu}'(z) = \frac{J_{\nu-1} - J_{\nu+1}}{2}.
 \end{equation}
-Besides the efficient implementation, its high performance also lies in the fact that this functions is suited for tangent mode AD which has only one input.
+Besides the efficient implementation, its high performance also lies in the fact that this function fit for tangent mode AD which has only one input.
 NiLang.AD represents the reversible AD in NiLang, and it takes 12.3 times the original program, which is still much faster than naive checkpointing.
-In ReverseDiff and Zygote, the memory allocation on the heap is 7.3KB and 13.47KB, respectively. They are not all for checkpointing. Some of them are related to type instability, where Julia compiler fails to infer types.
-Using closure to handle checkpointing can induce poor performance because external type instability sometimes can propagate to the interior.
+In Zygote, the memory allocation on the heap is 13.47KB. They are not all for checkpointing. Some of them are related to type instability, where Julia compiler fails to infer types.
+Using closures to handle checkpointing can induce poor performance because external type instability sometimes can propagate to the interior.
 NiLang uses uncomputing to manage memory rather than closure, which does not frequently involve external variables in the function.
 Hence it is more friendly to type inference in Julia compiler.
 %Tapenade \blue{needs your effort, @MLS}
@@ -979,7 +980,7 @@ So far, the generated backward rule faces the shared write problem, which requir
 
 \subsection{Sparse Matrices}
 Source to source automatic differentiation is useful in differentiating sparse matrices. It is a well-known problem that sparse matrix operations can not benefit directly from generic backward rules for dense matrix because general rules do not keep the sparse structure.
-In the following, we will show that reversible AD can differentiate the Frobenius dot product between two sparse matrices with a state of the art performance. Here, the Frobenius dot product is defined as \texttt{trace(A'B)}.
+In the following, we will show that reversible AD can differentiate the Frobenius dot product between two sparse matrices with the state-of-the-art performance. Here, the Frobenius dot product is defined as \texttt{trace(A'B)}.
 This following reversible implementation is adapted from the irreversible implementation in Julia package \texttt{SparseArrays}.
 
 \begin{minipage}{.44\textwidth}
@@ -1368,7 +1369,7 @@ Comparing with other adjoint mode AD packages ReverseDiff and Zygote, NiLang is 
 \section{Discussion and outlook}\label{sec:discussion}
 In this paper, we show how to realize a reversible programming eDSL and how to implement source-to-source adjoint mode AD on top of it.
 It gives the user more flexibility to tradeoff memory and computing time comparing with traditional checkpointing.
-The Julia implementation NiLang gives a state of the art performance and memory efficiency in obtaining first and second-order gradients in applications including first type Bessel function, sparse matrix manipulation, linear algebra functions and a practical, the application graph embedding problem.
+The Julia implementation NiLang gives the state-of-the-art performance and memory efficiency in obtaining first and second-order gradients in applications, including first type Bessel function, sparse matrix manipulations, linear algebra functions and, a practical one, the application graph embedding problem.
 %In a reversible programming language, we proposed to use ``approximate uncomputing'' trick to avoid the overhead of a reversible program in many practical cases.
 
 In the following, we discuss some practical issues about reversible programming, and several future directions to go.
@@ -1399,7 +1400,7 @@ For example, accumulation is reversible, and it does not require checkpointing.
 The checkpointing in many iterative algorithms can often be avoided with the ``arithmetic uncomputing'' trick without sacrificing reversibility, as shown in the \texttt{ibesselj} example in \Sec{sec:bessel}.
 % We will review this point in \Sec{sec:hardware}.
 
-As shown in \Fig{fig:ccu}, clever compiling based on memory oriented computational graph can also be used to help user tradeoff between time and space.
+As shown in \Fig{fig:ccu}, clever compiling based on memory oriented computational graphs can also be used to help user tradeoff between time and space.
 Often, when we define a new reversible function, we allocate some ancillas at the beginning of the function and deallocate them through uncomputing at the end.
 The overhead comes from the uncomputing. In the worst case, the time used for uncomputing can be the same as the forward pass.
 In a hierarchical design, uncomputing can appear in every layer of the abstraction. To quantify the overhead of uncomputing, we introduce the term program granularity as bellow.
@@ -1427,7 +1428,7 @@ In the future, it can be compiled to reversible instructions~\cite{Vieri1999} an
 %the target instruction can be a \texttt{comefrom} instruction that specifing the postcondition.
 However, arithmetic instructions should be redesigned to support better reversible programs.
 The major obstacle to exact reversibility programming is the current floating-point adders and multipliers used in our computing devices are not exactly reversible.
-There are proposals of reversible floating -oint adders and multipliers~\cite{Nachtigal2010,Nachtigal2011,Nguyen2013,Hner2018}. However these designs require allocating garbage bits in each operation.
+There are proposals of reversible floating point adders and multipliers, however these designs require allocating garbage bits in each operation~\cite{Nachtigal2010,Nachtigal2011,Nguyen2013,Hner2018}.
 %, which is not too different from the information buffer approach~\cite{Maclaurin2015}.
 %In other words, to represent a 64 bit floating point number requires more than 64 bits in storage. Reversible multiplier is also possible in similar approach.~\cite{Nachtigal2010} 
 %With floating point numbers, rigorous reversible arithematic designs without using information buffer or garbage qubits is nearly impossible.
@@ -1440,14 +1441,13 @@ It turns out to be necessary for compiling a reversible program.
 %Reversible programs is a subset of irreversible programs, hence can be simulated efficiently on traditional CMOS devices~\cite{Vieri1999}.
 %Reversible programming just provides an alternative to execute on an energy efficient reversible hardwares.
 Reversible instructions can be executed on energy-efficient reversible hardware.
-In the introduction, we mentioned several reversible hardware. Reversible hardware can be devices supporting reversible gates like the Toffoli gate and the Fredkin gate, or devices like an adiabatic CMOS with the ability to recover signal energy. The latter is known as the generalized reversible computing.~\cite{Frank2005,Frank2017b}
+In the introduction, we mentioned several reversible hardware. Reversible hardware can be devices supporting reversible gates like the Toffoli gate and the Fredkin gate, or devices like an adiabatic CMOS with the ability to recover signal energy. The latter is known as the generalized reversible computing~\cite{Frank2005,Frank2017b}.
 It is already a better choice as the computing device in a spacecraft~\cite{Debenedictis2017}.
-Since reversible programming is an exceptional platform for differential programming, building an energy-efficient artificial intelligence (AI) coprocessors would be a promising direction to go too.
+Since reversible programming is an exceptional platform for differential programming, building an energy-efficient artificial intelligence (AI) coprocessors would be also a promising direction.
 %Since reversible computing is mainly driven by quantum computing in recent years.
 %In the following, we comment briefly on quantum devices.
 
-The development of reversible compiling theory can benefit quantum compiling directly.
-It bridges classical computing and quantum computing.
+The development of reversible compiling theory can benefit quantum compiling directly, as it bridges classical computing and quantum computing.
 Building a universal quantum computer~\cite{Nielsen2002} is difficult. 
 The difficulty lies in the fact that it is hard to protect a quantum state.
 Unlike a classical state, a quantum state can not be cloned. Meanwhile, it loses information by interacting with the environment.
@@ -1459,7 +1459,7 @@ Classical reversible computing does not enjoy the quantum advantage, nor the qua
 %On the other side, the irreversibility is rare, it can come from interacting with classical devices. Irreversible processes include decaying, qubit state resetting, measurements and classical feed backs to quantum devices. These are typically harder to implement on a quantum device.
 %Given the fundamental limitations of quantum decoherence and non-cloning and the reversible nature of microscopic world.
 It is technically more smooth to have a reversible computing device to bridge the gap between classical devices and universal quantum computing devices.
-By introducing entanglement little by little, we can accelerate some elementary components in reversible computing. For example, quantum Fourier transformation provides an alternative to the reversible adders and multipliers by introducing the CPHASE quantum gate.~\cite{RuizPerez2017}
+By introducing entanglement little by little, we can accelerate some elementary components in reversible computing. For example, quantum Fourier transformation provides an alternative to the reversible adders and multipliers by introducing the CPHASE quantum gate~\cite{RuizPerez2017}.
 Currently, most quantum programming language preassumes a classical coprocessor and uses classical control flows~\cite{Svore2018} in universal quantum computing.
 However, we believe reversible compiling technologies, including reversible control flows, are also very important to a universal quantum computer.
 
