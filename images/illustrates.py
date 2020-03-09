@@ -10,7 +10,8 @@ class Plt():
     def ad(self, tp="pdf"):
         FSIZE = 14
         FSIZE2 = 14
-        GRAY = "#AAAAAA"
+        #GRAY = "#AAAAAA"
+        GRAY = "none"
         node = NodeBrush("basic", color=GRAY, size="small")
         hnode = NodeBrush("basic", color=GRAY, size="normal")
         local_node = NodeBrush("basic", color='w', size="small")
@@ -51,7 +52,7 @@ class Plt():
             e.head().text("$\mathbf{x}^L$", "bottom", fontsize=FSIZE)
             plt.text(x, -2.0, "uncall", fontsize=FSIZE2, va='center', ha='center')
 
-            # jacobian
+            # Jacobian
             x += 2.0
             n0 = pin >> (x,-1.5)
             n1 = node >> (x,-0.5)
@@ -65,7 +66,7 @@ class Plt():
             n3 = pin >> (x,1.5)
             e = edge1 >> (n2, n3)
             e.text("$\mathbf{x}^{i-1}$", "right", fontsize=FSIZE)
-            plt.text(x, -2.0, "jacobian", fontsize=FSIZE2, va='center', ha='center')
+            plt.text(x, -2.0, "Jacobian", fontsize=FSIZE2, va='center', ha='center')
 
             # Hessian A
             x += 2.2
@@ -93,7 +94,7 @@ class Plt():
 
             x += 0.85
             plt.text(x, 0.0, r"$+$", fontsize=16)
-            plt.text(x, -2.0, "hessian", fontsize=FSIZE2, va='center', ha='center')
+            plt.text(x, -2.0, "Hessian", fontsize=FSIZE2, va='center', ha='center')
 
             # Hessian B
             x += 0.85

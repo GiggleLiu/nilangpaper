@@ -280,7 +280,7 @@ There have not been any reversible eDSL in Julia before, but there have been man
     This stack is similar to a traditional stack, except it zero-clears the variable after pushing and presupposes that the variable being zero-cleared before popping.
 \begin{figure}
     \centerline{\includegraphics[width=\columnwidth,trim={0 1cm 0 0cm},clip]{images/fig6.pdf}}
-    \caption{Data oriented computational graph that shows the compute-copy-uncompute paradigm. Circles connected by vertical lines are variables, where double lines represents multiple variables. Boxes and dots connected by parallel lines are operations. A dot on a line represents a control parameter while a box represents a mutable parameter.
+    \caption{Two computational processes represented in memory oriented computational graph, where (a) is a subprogram in (b). In these graphs, a vertical single line represents one variable, a vertical double line represents multiple variables, and a parallel line represents a function. A dot at the cross represents a control parameter of a function and a box at the cross represents a mutable parameter of a function.
     }\label{fig:ccu}
 \end{figure}
 
@@ -299,7 +299,7 @@ After each iteration, the program asserts the postcondition to be true. In the r
 The reversible \texttt{for} statement is similar to irreversible ones except that after executing the loop, the program checks the values of these variables to make sure they are not changed. In the reverse pass, we exchange \texttt{start} and \texttt{stop} and inverse the sign of \texttt{step}.
 \begin{figure}
     \centerline{\includegraphics[width=0.8\columnwidth,trim={0 0cm 0 0cm},clip]{images/controlflow.pdf}}
-    \caption{Flow chart for reversible (a) \texttt{if} statement and (b) \texttt{while} statement. ``stmts'', ``stmts1'' and ``stmts2'' are statements, statements in true branch and statements in false branch respectively. ``pre'' and ``post'' are precondition and postconditions respectively.}\label{fig:controlflow}
+    \caption{The flow chart for reversible (a) \texttt{if} statement and (b) \texttt{while} statement. ``pre'' and ``post'' represents precondition and postconditions respectively.}\label{fig:controlflow}
 \end{figure}
 
 \subsubsection{Arithmetic instructions}
@@ -395,14 +395,9 @@ Any statement in this IR has a unique inverse, as shown in \Tbl{tbl:revstatement
         \end{tabularx}
     }
     \caption{The collection of reversible statements, where the left side and the right side are reversible to each other.
-    ``.'' is the symbol for broadcasting magic in Julia,
+    ``.'' is the symbol for the broadcasting magic in Julia,
     ``$\sim$'' is the symbol for reversing a statement or a function.
-    \texttt{<pre>} stands for precondition, 
-    \texttt{<post>} stands for postcondition,
-    \texttt{<args>...} stands for the argument list of a function,
-    \texttt{<stmts>} stands for statement,
-    \texttt{<exprs>} stands for expression,
-    \texttt{<T1>} and \texttt{<T2>} stand for types.
+    \texttt{<pre>} stands for precondition, and \texttt{<post>} stands for postcondition
 }\label{tbl:revstatements}
 \end{minipage}
 \end{table}
@@ -627,7 +622,9 @@ $J^{\out}_{\vx^i} \equiv \frac{\partial \out}{\partial \vx^i}$ is the Jacobian t
 \Eq{eq:jacobian} can be rewritten in the diagram of tensor networks~\cite{Orus2014} as shown in \Fig{fig:ad}.
 \begin{figure}
     \centerline{\includegraphics[width=0.95\columnwidth,trim={0.5cm 1cm 0 1cm},clip]{images/ad.pdf}}
-    \caption{Computational processes in the tensor network diagram, a big circle with three legs represent a Hessian, a small circle with two legs represents a Jacobian. Dangling edges and connected edges stand for unpaired and paired labels respectively in Einstein's notation. From left to right, the diagrams represent computing, uncomputing, Jacobian propagation, and Hessian propagation.}\label{fig:ad}
+    \caption{From left to right, the diagrams represent computing, uncomputing, Jacobian propagation, and Hessian propagation in the tensor network diagram.
+    A big circle with three legs represents a Hessian, and a small circle with two legs represents a Jacobian.
+    Dangling edges and connected edges stands for unpaired and paired labels respectively in Einstein's notation.}\label{fig:ad}
 \end{figure}
 The algorithm to compute the adjoint mode AD can be summarized as follows.
 
@@ -639,7 +636,7 @@ The algorithm to compute the adjoint mode AD can be summarized as follows.
         $\vx_k \leftarrow$ \texttt{GVar}($\vx_k$, $\delta_{k, {\rm iloss}}$)\\
     }
     $\vx \leftarrow f^{-1}(\vx)$
-    \caption{Reversible programming AD}\label{alg:ad}
+    \caption{Reversible Automatic Differentiation}\label{alg:ad}
 \end{algorithm}
 
 We first compute the results with the forward pass $f(x)$.
@@ -779,7 +776,7 @@ end
 \end{lstlisting}
 \end{minipage}
 
-This computational process could be diagrammatically represented as a DAG as shown in \Fig{fig:cgraphs}(\subref{fig:computational-graph}).
+This computational process could be diagrammatically represented as a DAG as shown in \Fig{fig:cgraphs} (a).
 In this diagram, the data is represented as an edge. It connects at most two nodes. One generates this data, and one consumes it.
 A computational graph is more likely a mathematical expression, and it can not describe inplace functions or control flows conveniently because it does not have the notation for memory and loops.
 %\begin{figure*}
@@ -788,18 +785,21 @@ A computational graph is more likely a mathematical expression, and it can not d
 %\end{figure*}
 \begin{figure*}[t!]
     \centering
-    \begin{subfigure}[t]{0.53\textwidth}
+    \begin{subfigure}[t]{0.52\textwidth}
         \centering
         \includegraphics[width=\columnwidth,trim={0 4cm 0 0cm},clip]{images/computational_graph.pdf}
-        \caption{Where a vertex (circle) is an operation, and a directed edge is a variable. The gray region is the body of the while loop. The while loop is unrolled.}\label{fig:computational-graph}
+        \caption{}
     \end{subfigure}%
+    ~
     \begin{subfigure}[t]{0.47\textwidth}
         \centering
         \includegraphics[width=\columnwidth,trim={0 1cm 0 0cm},clip]{images/fig4.pdf}
-        \caption{Vertical lines are variables, boxes, and dots connected by parallel lines are operations. A dot represents using a variable as control while a box represents mutating a variable. 
-        The gray box represents the body of a while loop. A precondition and postcondition are positioned on its top and bottom.}\label{fig:datagraph}
+        \caption{}
     \end{subfigure}
-    \caption{The comparison between (a) tranditional and (b) memory oriented computational graph of the first kind Bessel function.}\label{fig:cgraphs}
+    \caption{(a) The traditional computational graph for the irreversible implementation of the first kind Bessel function. A vertex (circle) is an operation, and a directed edge is a variable. The gray regions are the body of the unrolled while loop.
+        (b) The memory oriented computational graph for the reversible implementation of the first kind Bessel function. Notations are explained in \Fig{fig:ccu}.
+    The gray region is the body of a while loop. Its precondition and postcondition are positioned on the top and bottom, respectively.
+    }\label{fig:cgraphs}
 \end{figure*}
 
 In the following, we introduce the reversible implementation and the memory oriented computational graph.
@@ -875,7 +875,7 @@ Here, the definition of \texttt{ifactorial} could be found in the appendix. Only
 Ancilla \texttt{anc4} plays the role of \textit{dirty ancilla} in multiplication, and it is uncomputed rigorously in the uncomputing stage marked by \texttt{$\sim$@routine}.
 %The \texttt{while} statement takes two conditions, the precondition and postcondition. Precondition \texttt{val(anc1) > atol} indicates when to break the forward pass and postcondition \texttt{iplus != 0} indicates when to break the backward pass.
 
-This reversible program can be diagrammatically represented as a memory oriented computational graph as shown in \Fig{fig:cgraphs} (\subref{fig:datagraph}).
+This reversible program can be diagrammatically represented as a memory oriented computational graph as shown in \Fig{fig:cgraphs} (b).
 In this graph, a variable is a vertical line, while a function is a parallel line.
 The critical difference comparing with the traditional computational graph is that it adopts a variable oriented view.
 A variable can be accessed by multiple functions. Hence it represents a hypergraph rather than a simple graph.
@@ -933,7 +933,8 @@ It corresponds to the Hessian $\frac{\partial{\rm out!}^2}{\partial x^2}$ that w
 See \App{app:hessian} for alternative approaches to obtain its Hessian.
 
 \subsubsection{Benchmark}
-We have different source-to-source automatic differentiation implementations of the first type Bessel function and show the benchmarks below.
+We have different source-to-source automatic differentiation implementations of the first type Bessel function and show the benchmarks in \Tbl{tbl:besselj}.
+In the benchmark, the CPU device is Intel(R) Xeon(R) CPU E5-2680 v4 @ 2.40GHz, and the GPU device is Nvidia Titan V. The GPU time is estimated by broadcasting the gradient function on CUDA array of size $2^{17}$ and taking the average.
 \begin{table}[h!]\centering
 \begin{minipage}{\columnwidth}
 \ra{1.3}
@@ -954,13 +955,12 @@ We have different source-to-source automatic differentiation implementations of 
             \bottomrule
         \end{tabularx}
     }
-    \caption{Time and space use in computing the gradients of Bessel function $J_2(1.0)$.
-    The CPU device is Intel(R) Xeon(R) CPU E5-2680 v4 @ 2.40GHz, and the GPU device is Nvidia Titan V.
-    The GPU time is estimated by broadcasting the gradient function on CUDA array of size $2^{17}$ and taking the average.}\label{tbl:besselj}
+    \caption{Time and space used for computing gradients of the first kind Bessel function $J_2(1.0)$.
+}\label{tbl:besselj}
 \end{minipage}
 \end{table}
 
-In \Tbl{tbl:besselj}, Julia is the CPU time used for running the irreversible forward program. It is the baseline for benchmarking.
+In the table, Julia is the CPU time used for running the irreversible forward program. It is the baseline for benchmarking.
 NiLang (call/uncall) is the time of reversible call or uncall. Both of them are 2.8 times slower than its irreversible counterpart. Here, we have removed the reversibility check. Otherwise, it will take more time than this. One can always turn off this check after ruling out possible bugs.
 ForwardDiff gives the best performance, and we repeatedly checked and confirmed it really did the computation.
 It is even faster than manually derived gradients
@@ -1239,7 +1239,7 @@ Graph embedding can be used to find representation for an order parameter~\cite{
 \Ref{Takahashi2020} considers a problem of finding the minimum Euclidean space dimension $k$ that a Petersen graph can fit into, with extra requirements that the distance between a pair of connected vertices has the same value $l_1$, and the distance between a pair of disconnected vertices has the same value $l_2$ and $l_2 > l_1$.
 The Petersen graph is ten vertices graph, as shown in \Fig{fig:petersen}.\begin{figure}
     \centerline{\includegraphics[width=0.6\columnwidth,trim={0 1cm 0 0},clip]{images/petersen.pdf}}
-    \caption{The Petersen graph with 10 vertices and 15 edges.}\label{fig:petersen}
+    \caption{The Petersen graph has 10 vertices and 15 edges. We want to find a minimum embedding dimension for it.}\label{fig:petersen}
 \end{figure}
 Let us denote the set of connected and disconnected vertex pairs as $L_1$ and $L_2$, respectively. This problem can be variationally solved by differential programming by designing the subsequent loss.
 \begin{align}
@@ -1356,9 +1356,9 @@ Although training time is comparable, the converged precision of the later is mu
 Since the ForwardDiff itself provides the Hessian for users, it is interesting to benchmark how much performance we can get by forward differentiating an adjoint program comparing with forward differentiating a forward AD program. In the following benchmark, we also compare other adjoint mode AD packages.
 \begin{figure}
     \centerline{\includegraphics[width=\columnwidth,trim={0 0 0 0},clip]{images/fig7.pdf}}
-    \caption{The time used to (a) call/uncall, (b) compute gradients and (c) compute Hessians.}\label{fig:bench-embedding}
+    \caption{The time used to (a) call/uncall, (b) compute gradients and (c) compute Hessians for the loss of the graph embedding problem.}\label{fig:bench-embedding}
 \end{figure}
-The benchmark is on GPU, which uses the same setup as previous benchmarks.
+The benchmark is executed on CPU with the same setup as previous benchmarks.
 In this application, the number of input parameters scales as $10 \times k$, where $k$ is the embedding dimension of the graph.
 In \Fig{fig:bench-embedding}, we show the the performance of different implementations by varying the dimension $k$.
 As the baseline, (a) shows the time for computing the 0th-order gradient, or the function call. We have reversible and irreversible implementations, where the reversible program is slower than the irreversible native Julia program by a factor of $\sim2$.
@@ -1552,7 +1552,7 @@ Dataview is a view of data. It can be a bijective mapping of an object, an item 
             \bottomrule
         \end{tabularx}
     }
-    \caption{Instructions, the functions they compile to, and their symbolic representations.}\label{tbl:interp}
+    \caption{Instructions, the functions that they compiled to, and their symbolic representations.}\label{tbl:interp}
 \end{minipage}
 \end{table}
 
@@ -1582,7 +1582,7 @@ The list of instructions implemented in NiLang
             \bottomrule
         \end{tabularx}
     }
-    \caption{A collection of reversible instructions, ``.'' is the broadcasting operations in Julia.}\label{tbl:revinstructions}
+    \caption{Predefined reversible instructions in NiLang.}\label{tbl:revinstructions}
 \end{minipage}
 \end{table}
 
@@ -2100,7 +2100,7 @@ julia> hessian_backback(ibesselj, (0.0, 2, 1.0);
 
 \begin{figure}[h]
     \centerline{\includegraphics[width=\columnwidth,trim={0 1cm 0cm 1cm},clip]{images/simplehessian.pdf}}
-    \caption{Data flow in obtaining second-order gradients with the recursive differentiation approach. Annotations on lines are data types used in the computation.}\label{fig:simplehessian}
+    \caption{Data flow in obtaining second-order gradients by backward differentiating the adjoint program. Annotations on lines are data types used in the computation.}\label{fig:simplehessian}
 \end{figure}
 
 \Fig{fig:simplehessian} shows the data flow in the four passes of computing Hessian. The first two passes obtain the gradients. Before entering the third pass, the program wraps each field in \texttt{GVar} with another layer of \texttt{GVar}. Then we pick a variable $x_i$ and add $1$ to the gradient field of its gradient \texttt{grad(grad($x_i$))} in order to compute the $i$-th row of Hessian. Before entering the final pass, the \texttt{$\sim$GVar} is called. We can not unwrap \texttt{GVar} directly because although the values of gradients have been uncomputed to zero, the gradient fields of gradients may be nonzero. Instead, we use \texttt{Partial\{:x\}(obj)} to take field \texttt{x} of an object without erasing memory. By repeating the above procedure for different $x_i$, one can obtain the full Hessian matrix.
