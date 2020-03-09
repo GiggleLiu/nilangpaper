@@ -240,13 +240,13 @@ However, implementing adjoint mode AD is harder than implementing its tangent mo
     %As the reverse mode AD 
 In both machine learning and scientific computation, memory management in AD is becoming a wall~\cite{Luo2019} that limits the scale of many applications.
 In many deep learning models like recurrent neural network~\cite{Lipton2015} and residual neural networks~\cite{He2016}, the depth can reach several thousand, where the memory is often the bottleneck of these programs. The memory wall problem is even more severe when one runs the application on GPU. The computational power of an Nvidia V100 GPU can reach 100 TFLOPS, comparable to a small cluster. However, its memory is only 32GB.
-Back propagating a general program using source code transformation makes the case worse because the memory consumption of the program is typically scales as $O(T)$, where $T$ is the runtime of the program. It is nearly impossible to automatically generate the backward rule for SVD with state of the art performance. A better solution to memory management must be found to make source-to-source AD practical.
+Back propagating a general program using source code transformation makes the case worse because the memory consumption of the program is typically scales as $O(T)$, where $T$ is the runtime of the program. It is nearly impossible to automatically generate the backward rule for SVD with the state-of-the-art performance. A better solution to memory management must be found to make source-to-source AD practical.
 %We don't need extra effort to learn meta parameters.~\cite{} Neural ODE is much easier to design~\cite{Chen2018}.
 
     We tackle this problem by writing a program reversibly. Reversibility has been used in reducing the memory allocations in machine learning models such as recurrent neural networks~\cite{MacKay2018}, Hyperparameter learning~\cite{Maclaurin2015} and residual neural networks~\cite{Behrmann2018}, where information buffer~\cite{Maclaurin2015} and reversible activation functions~\cite{Gomez2017,Jacobsen2018} are used to decrease the memory usage.
     Our approach makes reversibility a language feature so that it is a more general way of utilizing reversibility.
     We develop an embedded domain-specific language (eDSL) NiLang in Julia language~\cite{Bezanson2012,Bezanson2017} that implements reversible programming.~\cite{Perumalla2013,Frank2017}. This eDSL provides a macro to generate reversible functions that can be used by other programs. One can write reversible control flows, instructions, and memory managements inside this macro.
-We choose Julia as the host language for multiple purposes. Julia is a popular language for scientific programming. Its meta-programming and its package for pattern matching MLStyle~\cite{MLStyle} allow us to define an eDSL conveniently. Its type inference and just in time compiling can remove most overheads introduced in our eDSL, providing a state of the art performance. Most importantly, its multiple-dispatch provides the polymorphism that will be used in our AD engine.
+We choose Julia as the host language for multiple purposes. Julia is a popular language for scientific programming. Its meta-programming and its package for pattern matching MLStyle~\cite{MLStyle} allow us to define an eDSL conveniently. Its type inference and just in time compiling can remove most overheads introduced in our eDSL, providing the state-of-the-art performance. Most importantly, its multiple-dispatch provides the polymorphism that will be used in our AD engine.
 %In the past, we see many implementations of AD languages work as an independent language.
 %However, we hope our eDSL can benefit people in Julia's community directly.
 
@@ -977,7 +977,7 @@ So far, the generated backward rule faces the shared write problem, which requir
 
 \subsection{Sparse Matrices}
 Source to source automatic differentiation is useful in differentiating sparse matrices. It is a well-known problem that sparse matrix operations can not benefit directly from generic backward rules for dense matrix because general rules do not keep the sparse structure.
-In the following, we will show that reversible AD can differentiate the Frobenius dot product between two sparse matrices with a state of the art performance. Here, the Frobenius dot product is defined as \texttt{trace(A'B)}.
+In the following, we will show that reversible AD can differentiate the Frobenius dot product between two sparse matrices with the state-of-the-art performance. Here, the Frobenius dot product is defined as \texttt{trace(A'B)}.
 This following reversible implementation is adapted from the irreversible implementation in Julia package \texttt{SparseArrays}.
 
 \begin{minipage}{.44\textwidth}
@@ -1365,7 +1365,7 @@ The same reason applies to compute Hessians. The mixed-mode AD gives better perf
 \section{Discussion and outlook}\label{sec:discussion}
 In this paper, we show how to realize a reversible programming eDSL and how to implement source-to-source adjoint mode AD on top of it.
 It gives the user more flexibility to tradeoff memory and computing time comparing with traditional checkpointing.
-The Julia implementation NiLang gives a state of the art performance and memory efficiency in obtaining first and second-order gradients in applications including first type Bessel function, sparse matrix manipulation, linear algebra functions and a practical, the application graph embedding problem.
+The Julia implementation NiLang gives the state-of-the-art performance and memory efficiency in obtaining first and second-order gradients in applications including first type Bessel function, sparse matrix manipulation, linear algebra functions and a practical, the application graph embedding problem.
 %In a reversible programming language, we proposed to use ``approximate uncomputing'' trick to avoid the overhead of a reversible program in many practical cases.
 
 In the following, we discussed some practical issues about reversible programming, and several future directions to go.
