@@ -964,7 +964,7 @@ ForwardDiff gives the best performance, and it is even faster than manually deri
 \begin{equation}
     J_{\nu}'(z) = \frac{J_{\nu-1} - J_{\nu+1}}{2}.
 \end{equation}
-Except the efficient implementation, its high performance also lies in the fact that this functions is suited for tangent mode AD which has only one input.
+Except the efficient implementation, its high performance also lies in the fact that these functions fit for tangent mode AD which has only one input.
 NiLang.AD represents the reversible AD in NiLang, and it takes 12.3 times the original program, which is still is much faster than naive checkpointing.
 In Zygote, the memory allocation on the heap is 13.47KB. They are not all for checkpointing. Some of them are related to type instability, where Julia compiler fails to infer types.
 Using closure to handle checkpointing can induce poor performance because external type instability sometimes can propagate to the interior.
