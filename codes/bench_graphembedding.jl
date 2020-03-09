@@ -174,7 +174,7 @@ tune!(suite)
 res = run(suite)#; seconds=100, samples=1000)
 
 function analyze_res(res)
-    times = zeros(10, 7)
+    times = zeros(10, length(cases))
     for (k, (lang, term)) in enumerate(cases)
         for i=1:10
             @show lang, term

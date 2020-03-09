@@ -96,9 +96,4 @@ x = 1.0
 NiLang.AD.set_ringtype!(typeof(x))
 
 y, x = 0.0, 1.0
-ibessel'(Loss(y), 2, x)
-
-hessian_repeat(ibessel, (Loss(y), 2, x))
-
-ibessel''(Loss(y), 2, x)
-collect_hessian()
+ibesselj'(Val(1), y, 2, x)
