@@ -235,7 +235,7 @@ However, implementing adjoint mode AD is harder than implementing its tangent mo
     In variational quantum simulator Yao~\cite{Luo2019}, authors implemented a builtin cache free AD engine by utilizing the reversible nature of quantum computing. They derive and implement the backward rule for each type of quantum gate.
 
     Source code transformation based AD brings hope to free scientists from deriving backward rules.
-    Tools like Tapenade~\cite{Hascoet2013} and Zygote~\cite{Innes2018, Innes2019} generate the adjoint code statically while putting variable on a stack called the Wengert list.
+    Tools like Tapenade~\cite{Hascoet2013}, ReverseDiff~\cite{ReverseDiff} and Zygote~\cite{Innes2018, Innes2019} generate the adjoint code statically while putting variable on a stack called the Wengert list.
     However, this approach has its problem too. In traditional AD applications, a program that might do billions of computations will as well get a Wengert list in the range of GBs. Frequent caching of data slows down the program significantly, and the memory will become a bottleneck as well.
     %As the reverse mode AD 
 In both machine learning and scientific computation, memory management in AD is becoming a wall~\cite{Luo2019} that limits the scale of many applications.
@@ -942,10 +942,11 @@ We have different source-to-source automatic differentiation implementations of 
             \hline
             Julia & -- & 22 & 0\\
             NiLang (call/uncall) & -- & 61 & 0\\
-            ForwardDiff & Tangent & 35 & 0\\
+            ForwardDiff & Tangent & 39 & 0\\
             Manual & Adjoint & 83 & 0\\
-            NiLang.AD & Adjoint & 271 & 0\\
+            NiLang.AD & Adjoint & 270 & 0\\
             NiLang.AD (GPU) & Adjoint & 1.4 & 0\\
+            ReverseDiff & Adjoint & 9121 & 7.3\\
             Zygote & Adjoint & 31201 & 13.47\\
             %Tapenade & Adjoint & ? & ?\\
             \hline
@@ -960,7 +961,8 @@ We have different source-to-source automatic differentiation implementations of 
 
 In \Tbl{tbl:besselj}, Julia is the CPU time used for running the irreversible forward program. It is the baseline for benchmarking.
 NiLang (call/uncall) is the time of reversible call or uncall. Both of them are 2.8 times slower than its irreversible counterpart. Here, we have removed the reversibility check. Otherwise, it will take more time than this. One can always turn off this check after ruling out possible bugs.
-ForwardDiff gives the best performance, and it is even faster than manually derived gradients
+ForwardDiff gives the best performance, and we repeatedly checked and confirmed it really did the computation.
+It is even faster than manually derived gradients
 \begin{equation}
     J_{\nu}'(z) = \frac{J_{\nu-1} - J_{\nu+1}}{2}.
 \end{equation}
