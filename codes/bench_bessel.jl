@@ -13,4 +13,4 @@ using Zygote
 display(@benchmark Zygote.gradient($(x->besselj(2, x)), 1.0))
 
 using ForwardDiff
-display(@benchmark besselj(2, ForwardDiff.Dual(1.0)))
+display(@benchmark besselj(2, ForwardDiff.Dual(1.0, 1.0)))
