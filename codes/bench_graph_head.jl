@@ -2,7 +2,6 @@ using NiLang, NiLang.AD
 import ForwardDiff
 using ForwardDiff: Dual
 using Random
-using Zygote
 Random.seed!(2)
 
 # bonds of a petersen graph
@@ -97,7 +96,7 @@ function get_hessian(params0::AbstractArray{T}) where T
     for i=1:N
         @inbounds i !== 1 && (params[i-1] = Dual(params0[i-1], zero(T)))
         @inbounds params[i] = Dual(params0[i], one(T))
-        res = NiLang.AD.gradient(Val(1), embedding_loss, (Dual(0.0, 0.0), params))[2]
+        res = gradient(Val(1), embedding_loss, (Dual(0.0, 0.0), params))[2]
         hes[:,i] .= vec(ForwardDiff.partials.(res, 1))
     end
     hes
@@ -122,51 +121,3 @@ function loss(x)
     vb, mb = myvar_and_mean(b)
     va + vb + exp(relu(-mb + ma + 0.1)) - 1
 end
-
-using BenchmarkTools
-
-suite = BenchmarkGroup()
-suite["NiLang"] = BenchmarkGroup(["Term"])
-suite["ForwardDiff"] = BenchmarkGroup(["Term"])
-suite["Zygote"] = BenchmarkGroup(["Term"])
-
-cases = [("NiLang", "Call"), ("NiLang", "Uncall"),
-         ("NiLang", "Gradient"), ("NiLang", "Hessian"),
-         ("ForwardDiff", "Call"), ("ForwardDiff", "Gradient"),
-         ("ForwardDiff", "Hessian"), 
-         ("Zygote", "Gradient")]
-
-for (lang, term) in cases
-    suite[lang][term] = BenchmarkGroup(["dimension"])
-end
-
-for k=1:10
-    suite["NiLang"]["Call"][k] = @benchmarkable embedding_loss(0.0, $(randn(k, 10)))
-    suite["NiLang"]["Uncall"][k] = @benchmarkable (~embedding_loss)(0.0, $(randn(k, 10)))
-    suite["NiLang"]["Gradient"][k] = @benchmarkable NiLang.AD.gradient(Val(1), embedding_loss, (0.0, $(randn(k, 10))))
-    suite["NiLang"]["Hessian"][k] = @benchmarkable get_hessian($(randn(k, 10)))
-    suite["ForwardDiff"]["Call"][k] = @benchmarkable loss($(randn(k, 10)))
-    suite["ForwardDiff"]["Gradient"][k] = @benchmarkable ForwardDiff.gradient(loss, $(randn(k, 10)))
-    suite["ForwardDiff"]["Hessian"][k] = @benchmarkable ForwardDiff.hessian(loss, $(randn(k, 10)))
-    suite["Zygote"]["Gradient"][k] = @benchmarkable Zygote.gradient(loss, $(randn(k, 10)))
-end
-
-tune!(suite)
-res = run(suite)#; seconds=100, samples=1000)
-
-function analyze_res(res)
-    times = zeros(10, 7)
-    for (k, (lang, term)) in enumerate(cases)
-        for i=1:10
-            @show lang, term
-            @show res[lang][term][i].times[1:10]
-            times[i,k] = minimum(res[lang][term][i].times)
-            @show times[i,k]
-        end
-    end
-    return times
-end
-
-times = analyze_res(res)
-using DelimitedFiles
-writedlm(joinpath(dirname(@__FILE__), "bench_graphembedding.dat"), times)
