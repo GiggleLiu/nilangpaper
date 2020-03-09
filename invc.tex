@@ -169,7 +169,7 @@
 \makeatother
 
 \begin{document}
-\title{A reversible language that differentiate everything}
+\title{Differentiate Everything with a Reversible Programming Language}
 
 %\author{Jin-Guo Liu\thanks{cacate0129@iphy.ac.cn}\\
 %Institute of Physics, Chinese Academy of Sciences,\\Beijing 100190, China\\
@@ -191,7 +191,7 @@
 \affiliation{Department of Computer Science, University of Tsukuba}
 
 \begin{abstract}
-    This paper considers the source-to-source automatic differentiation (AD) in a reversible language. We start by reviewing why adjoint mode AD is hard for traditional machine learning frameworks. Then we propose a solution to existing issues by writing a program reversibly. We developed a reversible eDSL NiLang in Julia that can differentiate a general program while being compatible with Julia's ecosystem. It can generate efficient backward rules with reasonable time and memory efficiency. We demonstrate its power by generating the backward rules for Bessel function, sparse matrix dot product, unitary matrix multiplication, and QR decomposition. We also use it to generate efficient Hessian to solve a graph embedding problem efficiently. Finally, we will discuss the challenges that we face towards rigorous reversible programming, mainly from the instruction and hardware perspective.
+    This paper considers the source-to-source automatic differentiation (AD) in a reversible language. We start by reviewing the limitations of traditional AD frameworks. To solve the issues in these frameworks, we developed a reversible eDSL NiLang in Julia that can differentiate a general program while being compatible with Julia's ecosystem. It empowers users the flexibility to tradeoff time, space, and energy so that one can use it to obtain gradients and Hessians ranging for elementary mathematical functions, sparse matrix operations, and linear algebra that widely used in scientific programming. We demonstrate that a source-to-source AD framework can achieve the state of the art performance by showing and benchmarking several examples. Finally, we will discuss the challenges that we face towards rigorous reversible programming, mainly from the instruction and hardware perspective.
 \end{abstract}
 
 
