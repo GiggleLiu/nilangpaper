@@ -938,10 +938,10 @@ We have different source-to-source automatic differentiation implementations of 
 \ra{1.3}
     \scalebox{1.0}{
         \begin{tabularx}{\textwidth}{X X c c}\toprule
-            & \textbf{Tangent/Adjoint} & \textbf{$T_{\rm min}$/ns} & Space/KB\\
+            & \textbf{Mode} & \textbf{$T_{\rm min}$/ns} & Space/KB\\
             \hline
-            Julia & - & 22 & 0\\
-            NiLang (call/uncall) & - & 61 & 0\\
+            Julia & -- & 22 & 0\\
+            NiLang (call/uncall) & -- & 61 & 0\\
             ForwardDiff & Tangent & 35 & 0\\
             Manual & Adjoint & 83 & 0\\
             NiLang.AD & Adjoint & 271 & 0\\
@@ -964,7 +964,7 @@ ForwardDiff gives the best performance, and it is even faster than manually deri
 \begin{equation}
     J_{\nu}'(z) = \frac{J_{\nu-1} - J_{\nu+1}}{2}.
 \end{equation}
-Except the effient implementation, its high performance also lies in the fact that this functions is suited for tangent mode AD which has only one input.
+Except the efficient implementation, its high performance also lies in the fact that this functions is suited for tangent mode AD which has only one input.
 NiLang.AD represents the reversible AD in NiLang, and it takes 12.3 times the original program, which is still is much faster than naive checkpointing.
 In Zygote, the memory allocation on the heap is 13.47KB. They are not all for checkpointing. Some of them are related to type instability, where Julia compiler fails to infer types.
 Using closure to handle checkpointing can induce poor performance because external type instability sometimes can propagate to the interior.
@@ -1490,7 +1490,7 @@ These improvements need the participation of people from multiple fields.
 %This could be used to reduce the momory cost in normalizing flow, time-reversible integrator, recurrent neural network and residual neural network.
 
 \section{acknowledgments}
-Jin-Guo Liu thank Lei Wang for motivating the project with possible applications reversible integrator, normalizing flow, and neural ODE.
+Jin-Guo Liu thank Lei Wang for motivating the project with possible applications to reversible integrator, normalizing flow, and neural ODE.
 Marisa Kiresame and Xiu-Zhe Luo for discussion on the implementation details of source-to-source automatic differentiation,
 Shuo-Hui Li for helpful discussion on differential geometry, Tong Liu and An-Qi Chen for helpful discussion on quantum adders and multipliers, Yin-Bo Ma for correcting typos by submitting pull requests, Chris Rackauckas for helpful discussion on reversible integrator, Mike Innes for reviewing the comments about Zygote, Jun Takahashi for discussion about the graph embedding problem, Simon Byrne and Chen Zhao for helpful discussion on floating-point and logarithmic numbers.
 The authors are supported by the National Natural Science Foundation of China under Grant No.~11774398, the Strategic Priority Research Program of Chinese Academy of Sciences Grant No.~XDB28000000.
