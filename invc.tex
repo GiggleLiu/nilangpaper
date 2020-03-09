@@ -239,7 +239,7 @@ However, implementing adjoint mode AD is harder than implementing its tangent mo
     However, this approach has its problem too. In traditional AD applications, a program that might do billions of computations will get a Wengert list as well in the range of GBs. Frequent caching of data slows down the program significantly, and the memory will become a bottleneck as well.
     %As the reverse mode AD 
 In both machine learning and scientific computation, memory management in AD is becoming a wall~\cite{Luo2019} that limits the scale of many applications.
-In many deep learning models like recurrent neural network~\cite{Lipton2015} and residual neural networks~\cite{He2016}, the depth can reach several thousand, where the memory is often the bottleneck of these programs. The memory wall problem is even more severe when one runs the application on GPU. The computational power of an Nvidia V100 GPU can reach 100 TFLOPS, comparable to a small cluster. However, its memory is only 32GB.
+In many deep learning models like recurrent neural network~\cite{Lipton2015} and residual neural networks~\cite{He2016}, the depth can reach several thousand, where the memory is often the bottleneck of these programs. The memory wall problem is even more severe when one runs the application on GPU. The computational power of an Nvidia V100 GPU can reach 100 TFLOPS, which is comparable to a small cluster. However, its memory is only 32GB.
 Back propagating a general program using source code transformation makes the case worse because the memory consumption of the program typically scales as $O(T)$,
 where $T$ is the runtime of the program. It is nearly impossible to automatically generate the backward rule for SVD with the state-of-the-art performance. A better solution to memory management must be found to make source-to-source AD practical.
 %We don't need extra effort to learn meta parameters.~\cite{} Neural ODE is much easier to design~\cite{Chen2018}.
@@ -296,7 +296,7 @@ The interesting fact is, both $X$ and $\sim X$ are executed twice in this progra
 The reversible \texttt{if} statement is shown in \Fig{fig:controlflow} (a). It contains a precondition and a postcondition. The precondition decides which branch to enter in the forward execution, while the postcondition decides which branch to enter in the backward execution. After executing the specific branch, the program checks the consistency between precondition and postcondition to make sure they are consistent.
 The reversible \texttt{while} statement is shown in \Fig{fig:controlflow} (b). It also has both precondition and postcondition. Before executing the condition expressions, the program preassumes the postcondition is false.
 After each iteration, the program asserts the postcondition to be true. In the reverse pass, we exchange the precondition and postcondition.
-The reversible \texttt{for} statement is similar to irreversible ones except that after executing the loop, and the program checks the values of these variables to make sure they are not changed. In the reverse pass, we exchange \texttt{start} and \texttt{stop} and inverse the sign of \texttt{step}.
+The reversible \texttt{for} statement is similar to irreversible ones except that after executing the loop, the program checks the values of these variables to make sure they are not changed. In the reverse pass, we exchange \texttt{start} and \texttt{stop} and inverse the sign of \texttt{step}.
 \begin{figure}
     \centerline{\includegraphics[width=0.8\columnwidth,trim={0 0cm 0 0cm},clip]{images/controlflow.pdf}}
     \caption{Flow chart for reversible (a) \texttt{if} statement and (b) \texttt{while} statement. ``stmts'', ``stmts1'' and ``stmts2'' are statements, statements in true branch and statements in false branch respectively. ``pre'' and ``post'' are precondition and postconditions respectively.}\label{fig:controlflow}
@@ -1812,9 +1812,9 @@ end
 
 Functions \texttt{f1} and \texttt{f2} computes $f(x, p) = e^{(p+x)} - e^x$ and stores the output in a new memory \texttt{y!}.
 The only difference is \texttt{f2} uncomputes $x$ arithmetically.
-The task of training is to find a $p$ that makes the output value equal to the target value $1$.
+The task of the training is to find a $p$ that makes the output value equal to the target value $1$.
 After $100$ steps, \texttt{f2} runs into the fixed point with $x$ equal to $1$ upto machine precision.
-However, parameters in \texttt{f1} does change at all.
+However, parameters in \texttt{f1} does not change at all.
 The training of \texttt{f1} fails because this function actually computes $\texttt{f1}(y, x, p) = y + e^{(p+x)} - e^{x}, x, x+p$, where the training parameter $p$ is completely determined by the parameter space on the output side $x \cup x+p$. As a result, shifting $y$ directly is the only approach to satisfy the consistency relation. On the other side, $\texttt{f2}(y, x, p) = y + e^{(p+x)} - e^x, \tilde{0}, x+p$, the output parameters $\tilde{0} \cup x+p$ can not uniquely determine input parameters $p$ and $x$. Here, we use $\tilde{0}$ to denote the zero with rounding error.
 
 \begin{figure}
@@ -1827,7 +1827,7 @@ By viewing $\vx$ and parameters in $\vp_x$ as variables, we can study the traina
     Only if the the conditional entropy $S(\vy|\vp_y)$ is nonzero, algorithm \ref{algo:train} is trainable.
 \end{theorem}
 \begin{proof}
-The above example reveals a fact that training impossible when output parameters completely determines input parameters (or $S(\vp_x | \vp_y) = 0$).
+The above example reveals a fact that training is impossible when output parameters completely determines input parameters (or $S(\vp_x | \vp_y) = 0$).
 \begin{align}
     \begin{split}
         S(\vp_x | \vp_y) &= S(\vp_x \cup \vp_y) - S(\vp_y)\\
@@ -1837,7 +1837,7 @@ The above example reveals a fact that training impossible when output parameters
     \end{split}
 \end{align}
 The third line uses the bijectivity $S(\vx \cup \vp_x) = S(\vy \cup \vp_y)$.
-This inequality shows that when the parameter space on the output side satisfies $S(\vy | \vp_y) = 0$, i.e., contains all information to determine the output field, and the input parameters are also entirely determined by this parameter space. Hence training can not work.
+This inequality shows that when $S(\vy | \vp_y) = 0$, i.e., the output parameters contain all information in output, the input parameters are entirely determined and the training can not work.
 \end{proof}
 In the above example, it corresponds to the case $S\left(e^{(x+y)-e^x} | x \cup x + y\right) = 0$ in \texttt{f1}.
 The solution is to remove the information redundancy in output parameter space through uncomputing, as shown in \texttt{f2}.
@@ -1989,7 +1989,7 @@ end
 
 We can use the macro \texttt{@launchkernel} to launch a kernel.
 The first parameter is a device.
-The second parameter is the block size,
+The second parameter is the block size.
 The third parameter is the number of threads.
 The last parameter is a kernel function call to be launched.
 
@@ -2066,7 +2066,7 @@ end
 \end{lstlisting}
 \end{minipage}
 
-In this example, the postcondition \texttt{n!=0} in the \texttt{while} statement is false before entering the loop, and becomes true in later iterations. In the reverse program, the \texttt{while} statement stops at \texttt{n==0}.
+In this example, the postcondition \texttt{n!=0} in the \texttt{while} statement is false before entering the loop, and it becomes true in later iterations. In the reverse program, the \texttt{while} statement stops at \texttt{n==0}.
 If executed correctly, a user will see the following result.
 
 \begin{minipage}{.44\textwidth}
@@ -2103,7 +2103,7 @@ julia> hessian_backback(ibesselj, (0.0, 2, 1.0);
     \caption{Data flow in obtaining second-order gradients with the recursive differentiation approach. Annotations on lines are data types used in the computation.}\label{fig:simplehessian}
 \end{figure}
 
-\Fig{fig:simplehessian} shows the data flow in the four passes of computing Hessian. The first two passes obtains the gradients. Before entering the third pass, the program wraps each field in \texttt{GVar} with another layer of \texttt{GVar}. Then we pick a variable $x_i$ and add $1$ to the gradient field of its gradient \texttt{grad(grad($x_i$))} in order to compute the $i$-th row of Hessian. Before entering the final pass, the \texttt{$\sim$GVar} is called. We can not unwrap \texttt{GVar} directly because although the values of gradients have been uncomputed to zero, the gradient fields of gradients may be nonzero. Instead, we use \texttt{Partial\{:x\}(obj)} to take field \texttt{x} of an object without erasing memory. By repeating the above procedure for different $x_i$, one can obtains the full Hessian matrix.
+\Fig{fig:simplehessian} shows the data flow in the four passes of computing Hessian. The first two passes obtain the gradients. Before entering the third pass, the program wraps each field in \texttt{GVar} with another layer of \texttt{GVar}. Then we pick a variable $x_i$ and add $1$ to the gradient field of its gradient \texttt{grad(grad($x_i$))} in order to compute the $i$-th row of Hessian. Before entering the final pass, the \texttt{$\sim$GVar} is called. We can not unwrap \texttt{GVar} directly because although the values of gradients have been uncomputed to zero, the gradient fields of gradients may be nonzero. Instead, we use \texttt{Partial\{:x\}(obj)} to take field \texttt{x} of an object without erasing memory. By repeating the above procedure for different $x_i$, one can obtain the full Hessian matrix.
 
 To obtain Hessians, we can also use the Hessian propagation approach as introduced in \Sec{sec:taylor}.
 
