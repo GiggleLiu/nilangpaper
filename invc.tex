@@ -191,7 +191,7 @@
 \affiliation{Department of Computer Science, University of Tsukuba}
 
 \begin{abstract}
-    This paper considers the source-to-source automatic differentiation (AD) in a reversible language. We start by reviewing the limitations of traditional AD frameworks. To solve the issues in these frameworks, we developed a reversible eDSL NiLang in Julia that can differentiate a general program while being compatible with Julia's ecosystem. It empowers users the flexibility to tradeoff time, space, and energy so that one can use it to obtain gradients and Hessians ranging for elementary mathematical functions, sparse matrix operations, and linear algebra that widely used in scientific programming. We demonstrate that a source-to-source AD framework can achieve the state of the art performance by showing and benchmarking several examples. Finally, we will discuss the challenges that we face towards rigorous reversible programming, mainly from the instruction and hardware perspective.
+    This paper considers the source-to-source automatic differentiation (AD) in a reversible language. We start by reviewing the limitations of traditional AD frameworks. To solve the issues in these frameworks, we developed a reversible eDSL NiLang in Julia that can differentiate a general program while being compatible with Julia's ecosystem. It empowers users the flexibility to tradeoff time, space, and energy so that one can use it to obtain gradients and Hessians ranging for elementary mathematical functions, sparse matrix operations, and linear algebra that are widely used in scientific programming. We demonstrate that a source-to-source AD framework can achieve the state of the art performance by showing and benchmarking several examples. Finally, we will discuss the challenges that we face towards rigorous reversible programming, mainly from the instruction and hardware perspective.
 \end{abstract}
 
 
@@ -209,7 +209,7 @@
 where $x^0\in R^m$, $x^L\in R^n$, $L$ is the depth of computing.
 The Jacobian of this program is a $n\times m$ matrix $J_{ij} \equiv \frac{\partial x^L_i}{\partial x_j^0}$, where $x_j^0$ and $x_i^L$ are single elements of inputs and outputs.
 Computing part of the Jacobian automatically is what we called automatic differentiation (AD). It can be classified into three classes, the tangent mode AD, the adjoint mode AD and the mixed mode AD.~\cite{Hascoet2013}
-The tangent mode AD computes the Jacobian matrix elements that related to a single input using the chain rule $\frac{\partial \vx^k}{\partial x^0_j} = \frac{\partial \vx^k}{\partial \vx^{k-1}}\frac{\partial \vx^{k-1}}{\partial x^0_j}$, while a tangent mode AD computes Jacobian matrix elements that related to a single output using $\frac{\partial \vx^k}{\partial x^0_j} = \frac{\partial \vx^k}{\partial \vx^{k-1}}\frac{\partial \vx^{k-1}}{\partial x^0_j}$.
+The tangent mode AD computes the Jacobian matrix elements related to a single input using the chain rule $\frac{\partial \vx^k}{\partial x^0_j} = \frac{\partial \vx^k}{\partial \vx^{k-1}}\frac{\partial \vx^{k-1}}{\partial x^0_j}$, while a tangent mode AD computes Jacobian matrix elements related to a single output using $\frac{\partial \vx^k}{\partial x^0_j} = \frac{\partial \vx^k}{\partial \vx^{k-1}}\frac{\partial \vx^{k-1}}{\partial x^0_j}$.
     In variational applications where the loss function always outputs a scalar, the adjoint mode AD is preferred.
 However, implementing adjoint mode AD is harder than implementing its tangent mode counterpart, because it requires propagating the gradients in the inverse direction of computing the loss. The backpropagation of gradients requires intermediate information of a program that includes
 \begin{enumerate}
@@ -219,7 +219,7 @@ However, implementing adjoint mode AD is harder than implementing its tangent mo
     The computational process is often stored in a computational graph, which is a directed acyclic graph (DAG) that represents the relationship between data and functions.
     There are two basic techniques for implementation of computational graph, operator overloading and source code transformation.
     Most popular AD implementations in the market are based on operator overloading. These packages provide a finite set of primitive functions with predefined backward rules.
-    In Pytorch~\cite{Paszke2017} and Flux~\cite{Innes2018a}, every variable has a tracker field. When applying a predefined primitive function on a variable, the variable's tracker field keeps track of this function as well as data that needed in later backpropagation. TensorFlow~\cite{Tensorflow2015} uses a similar approach expect it builds a static computational graph as a description of the program before actual computation happens.
+    In Pytorch~\cite{Paszke2017} and Flux~\cite{Innes2018a}, every variable has a tracker field. When applying a predefined primitive function on a variable, the variable's tracker field keeps track of this function as well as data needed in later backpropagation. TensorFlow~\cite{Tensorflow2015} uses a similar approach expect it builds a static computational graph as a description of the program before actual computation happens.
     %These packages all prefer tensor types, where the overhead of memory allocations is less significant.
     In research, people need new primitives frequently. Packages based operator overloading can not cover all the diverse needs in different fields.
     Then it relies on users to code backward rules manually.
@@ -238,7 +238,7 @@ However, implementing adjoint mode AD is harder than implementing its tangent mo
     Tools like Tapenade~\cite{Hascoet2013} and Zygote~\cite{Innes2018, Innes2019} generate the adjoint code statically while putting variable on a stack called the Wengert list.
     However, this approach has its problem too. In traditional AD applications, a program that might do billions of computations will as well get a Wengert list in the range of GBs. Frequent caching of data slows down the program significantly, and the memory will become a bottleneck as well.
     %As the reverse mode AD 
-In both machine learning and scientific computation, memory management in AD is becoming a wall~\cite{Luo2019} that limiting the scale of many applications.
+In both machine learning and scientific computation, memory management in AD is becoming a wall~\cite{Luo2019} that limits the scale of many applications.
 In many deep learning models like recurrent neural network~\cite{Lipton2015} and residual neural networks~\cite{He2016}, the depth can reach several thousand, where the memory is often the bottleneck of these programs. The memory wall problem is even more severe when one runs the application on GPU. The computational power of an Nvidia V100 GPU can reach 100 TFLOPS, comparable to a small cluster. However, its memory is only 32GB.
 Back propagating a general program using source code transformation makes the case worse because the memory consumption of the program is typically scales as $O(T)$, where $T$ is the runtime of the program. It is nearly impossible to automatically generate the backward rule for SVD with state of the art performance. A better solution to memory management must be found to make source-to-source AD practical.
 %We don't need extra effort to learn meta parameters.~\cite{} Neural ODE is much easier to design~\cite{Chen2018}.
@@ -698,7 +698,7 @@ The overhead of using \texttt{GVar} type is negligible thanks to Julia's multipl
 Second-order gradients can be obtained in three different approaches, forward differentiating the adjoint program, adjoint differentiating the adjoint program, and Hessian propagation.
 \subsubsection{Forward differentiating the adjoint program}\label{sec:dualhessian}
 Combining the adjoint program in NiLang with dual-numbers is a simple yet efficient way to obtain Hessians.
-By wrapping the elementary type with \texttt{Dual} that defined in package ForwardDiff~\cite{Revels2016} and throwing it into the gradient program defined in NiLang,
+By wrapping the elementary type with \texttt{Dual} defined in package ForwardDiff~\cite{Revels2016} and throwing it into the gradient program defined in NiLang,
 one obtains one row/column of the Hessian matrix straightforward.
 We will show an example of using forward differentiating in Newton's trust region optimization in \Sec{sec:graph}.
 
@@ -976,7 +976,7 @@ For people who are interested in CUDA programming, we prepared another example i
 So far, the generated backward rule faces the shared write problem, which requires further investigation.
 
 \subsection{Sparse Matrices}
-Source to source automatic differentiation is useful in differentiating sparse matrices. It is a well-known problem that sparse matrix operations can not benefit directly from generic backward rules that defined for dense matrix because general rules do not keep the sparse structure.
+Source to source automatic differentiation is useful in differentiating sparse matrices. It is a well-known problem that sparse matrix operations can not benefit directly from generic backward rules for dense matrix because general rules do not keep the sparse structure.
 In the following, we will show that reversible AD can differentiate the Frobenius dot product between two sparse matrices with a state of the art performance. Here, the Frobenius dot product is defined as \texttt{trace(A'B)}.
 This following reversible implementation is adapted from the irreversible implementation in Julia package \texttt{SparseArrays}.
 
@@ -1373,7 +1373,7 @@ In the following, we discussed some practical issues about reversible programmin
 
 \subsection{Time Space Tradeoff}\label{sec:timespace}
 In history, there have been many discussions about time-space tradeoff on a reversible Turing machine (RTM).
-In the most straightforward g-segment tradeoff scheme~\cite{Bennett1989,Levine1990}, an RTM model has either a space overhead that proportional to computing time $T$ or a computational overhead that sometimes can be exponential to the program size comparing with an irreversible counterpart.
+In the most straightforward g-segment tradeoff scheme~\cite{Bennett1989,Levine1990}, an RTM model has either a space overhead that is proportional to computing time $T$ or a computational overhead that sometimes can be exponential to the program size comparing with an irreversible counterpart.
 This result stops many people from taking reversible computing seriously as a high-performance computing scheme.
 In the following, we try to convince the readers that the overhead of reversible computing is not as terrible as people thought.
 %we have
@@ -1554,7 +1554,7 @@ Dataview is a view of data. It can be a bijective mapping of an object, an item 
 \end{table}
 
 
-The list of instructions that implemented in NiLang
+The list of instructions implemented in NiLang
 \begin{table}[h!]\centering
 \begin{minipage}{\columnwidth}
 \ra{1.3}
@@ -1964,7 +1964,7 @@ julia> instruct!(CuArray(randn(8)),
 \end{lstlisting}
 \end{minipage}
 
-One can also write kernels with KernelAbstaction. It solves many compatibility issues that related to different function calls on GPU and CPU.
+One can also write kernels with KernelAbstaction. It solves many compatibility issues related to different function calls on GPU and CPU.
 
 
 \begin{minipage}{.44\textwidth}
@@ -2119,7 +2119,7 @@ julia> collect_hessian()
 
 \texttt{ibesselj\textquotesingle\textquotesingle} computes the second-order gradients. It wraps variables with type \texttt{BeijingRing}~\footnote{When people ask for the location in Beijing, they will start by asking which ring it is? We use the similar approach to locate the elements of Hessian matrix.} in the backward pass. \texttt{BeijingRing} records Jacobians and Hessians for a variable, where Hessians are stored in a global storage.
 Whenever an $n$-th variable or ancilla is created, we push a ring of size $2n-1$ to a global tape. Whenever an ancilla is deallocated, we pop a ring from the top. The $n$-th ring stores Hessian elements $H_{i\leq n,n}$ and $H_{n,i<n}$.% We didn't use the symmetry relation $H_{i,j} = H_{j,i}$ to save memory here in order to simplify the implementation of backward rules described in the right most panel of \Fig{fig:ad}.
-The final result can be collected by calling \texttt{collect\_hessian()}, which will read out the Hessian matrix that stored in the global storage.
+The final result can be collected by calling \texttt{collect\_hessian()}, which will read out the Hessian matrix stored in the global storage.
 This method turns out to allocate too much for ancillas, hence is not economic in practice.
 
 \end{document}

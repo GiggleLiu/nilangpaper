@@ -3,6 +3,7 @@ import ForwardDiff
 using ForwardDiff: Dual
 using Random
 using Zygote
+using ReverseDiff
 Random.seed!(2)
 
 # bonds of a petersen graph
@@ -141,12 +142,15 @@ suite = BenchmarkGroup()
 suite["NiLang"] = BenchmarkGroup(["Term"])
 suite["ForwardDiff"] = BenchmarkGroup(["Term"])
 suite["Zygote"] = BenchmarkGroup(["Term"])
+suite["ReverseDiff"] = BenchmarkGroup(["Term"])
 
 cases = [("NiLang", "Call"), ("NiLang", "Uncall"),
          ("NiLang", "Gradient"), ("NiLang", "Hessian"),
          ("ForwardDiff", "Call"), ("ForwardDiff", "Gradient"),
-         ("ForwardDiff", "Hessian"), 
-         ("Zygote", "Gradient")]
+         ("ForwardDiff", "Hessian"),
+         ("Zygote", "Gradient"),
+         ("ReverseDiff", "Gradient"), ("ReverseDiff", "Hessian")
+         ]
 
 for (lang, term) in cases
     suite[lang][term] = BenchmarkGroup(["dimension"])
@@ -161,6 +165,9 @@ for k=1:10
     suite["ForwardDiff"]["Gradient"][k] = @benchmarkable ForwardDiff.gradient(loss, $(randn(k, 10)))
     suite["ForwardDiff"]["Hessian"][k] = @benchmarkable ForwardDiff.hessian(loss, $(randn(k, 10)))
     suite["Zygote"]["Gradient"][k] = @benchmarkable Zygote.gradient(loss, $(randn(k, 10)))
+    suite["ReverseDiff"]["Gradient"][k] = @benchmarkable ReverseDiff.gradient(loss, $(randn(k, 10)))
+    suite["ReverseDiff"]["Hessian"][k] = @benchmarkable get_hessian_rd($(randn(k, 10)))
+    #suite["ReverseDiff"]["Hessian"][k] = @benchmarkable ReverseDiff.hessian(loss, $(randn(k, 10)))
 end
 
 tune!(suite)
@@ -171,9 +178,7 @@ function analyze_res(res)
     for (k, (lang, term)) in enumerate(cases)
         for i=1:10
             @show lang, term
-            @show res[lang][term][i].times[1:10]
             times[i,k] = minimum(res[lang][term][i].times)
-            @show times[i,k]
         end
     end
     return times
