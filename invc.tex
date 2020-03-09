@@ -221,7 +221,7 @@ However, implementing adjoint mode AD is harder than implementing its tangent mo
     Most popular AD implementations in the market are based on operator overloading. These packages provide a finite set of primitive functions with predefined backward rules.
     In Pytorch~\cite{Paszke2017} and Flux~\cite{Innes2018a}, every variable has a tracker field. When applying a predefined primitive function on a variable, the variable's tracker field keeps track of this function as well as data needed in later backpropagation. TensorFlow~\cite{Tensorflow2015} uses a similar approach except it builds a static computational graph as a description of the program before actual computation happens.
     %These packages all prefer tensor types, where the overhead of memory allocations is less significant.
-    In research, people need new primitives frequently. Packages based operator overloading can not cover all the diverse needs in different fields.
+    In research, people need new primitives frequently. Packages based on operator overloading can not cover all the diverse needs in different fields.
     Then it relies on users to code backward rules manually.
     For example, in physics, the requirements for AD are quite diverse.
     \begin{enumerate}
