@@ -1396,7 +1396,7 @@ For example, accumulation is reversible, and it does not require checkpointing.
 The checkpointing in many iterative algorithms can often be avoided with the ``arithmetic uncomputing'' trick without sacrificing reversibility, as shown in the \texttt{ibesselj} example in \Sec{sec:bessel}.
 % We will review this point in \Sec{sec:hardware}.
 
-As shown in \Fig{fig:ccu}, clever compiling based on memory oriented computational graph can also be used to help user tradeoff between time and space.
+As shown in \Fig{fig:ccu}, clever compiling based on memory oriented computational graphs can also be used to help user tradeoff between time and space.
 Often, when we define a new reversible function, we allocate some ancillas at the beginning of the function and deallocate them through uncomputing at the end.
 The overhead comes from the uncomputing. In the worst case, the time used for uncomputing can be the same as the forward pass.
 In a hierarchical design, uncomputing can appear in every layer of abstraction. To quantify the overhead of uncomputing, we introducing the term program granularity as bellow.
@@ -1424,7 +1424,7 @@ In the future, it can be compiled to reversible instructions~\cite{Vieri1999} an
 %the target instruction can be a \texttt{comefrom} instruction that specifing the postcondition.
 However, arithmetic instructions should be redesigned to support better reversible programs.
 The major obstacle to exact reversibility programming is the current floating-point adders and multipliers used in our computing devices are not exactly reversible.
-There are proposals of reversible floating -oint adders and multipliers~\cite{Nachtigal2010,Nachtigal2011,Nguyen2013,Hner2018}. However these designs require allocating garbage bits in each operation.
+There are proposals of reversible floating point adders and multipliers~\cite{Nachtigal2010,Nachtigal2011,Nguyen2013,Hner2018}. However these designs require allocating garbage bits in each operation.
 %, which is not too different from the information buffer approach~\cite{Maclaurin2015}.
 %In other words, to represent a 64 bit floating point number requires more than 64 bits in storage. Reversible multiplier is also possible in similar approach.~\cite{Nachtigal2010} 
 %With floating point numbers, rigorous reversible arithematic designs without using information buffer or garbage qubits is nearly impossible.
