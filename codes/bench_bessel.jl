@@ -1,18 +1,16 @@
 include("bessel.jl")
 using BenchmarkTools, NiLang.AD
-NiLang.invcheckon(false)
 
-y!, x = Q20f43(0.0), Q20f43(3.0)
-out = ibessel(y!, 2, x)
-out = GVar.(out)
-@instr grad(tget(out,1)) += identity(1)
-@benchmark ($(~ibessel))($out...)
+display(@benchmark ibesselj(0.0, 2, 1.0))
+display(@benchmark besselj(2, 1.0))
 
-@benchmark ibessel(y!, 2, x)
-@benchmark bessel(2, x)
+display(@benchmark NiLang.AD.gradient(Val(1), ibesselj, (0.0, 2, 1.0)))
+
+using ReverseDiff
+display(@benchmark ReverseDiff.gradient($(x->besselj(2, x[1])), $([1.0])))
 
 using Zygote
-@benchmark Zygote.gradient(x->bessel(2, x), x)
+display(@benchmark Zygote.gradient($(x->besselj(2, x)), 1.0))
 
 using ForwardDiff
-@benchmark bessel(2, $(ForwardDiff.Dual(x)))
+display(@benchmark besselj(2, ForwardDiff.Dual(1.0, 1.0)))
