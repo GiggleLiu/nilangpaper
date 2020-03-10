@@ -180,7 +180,7 @@
 Institute of Physics, Chinese Academy of Sciences,\\Beijing 100190, China\\
 \texttt{cacate0129@iphy.ac.cn}\\
 \And
-Hong-Xuan Zhao-Wang\\
+Taine Zhao\\
 Department of Computer Science, University of Tsukuba\\
 }
 %\author{Lei Wang}
@@ -284,7 +284,7 @@ There have not been any reversible eDSL in Julia before, but there have been man
     It can also be pushed to a stack and used later with a pop statement.
     This stack is similar to a traditional stack, except it zero-clears the variable after pushing and presupposes that the variable being zero-cleared before popping.
 \begin{figure}
-    \centerline{\includegraphics[width=0.6\columnwidth,trim={0 1cm 0 0cm},clip]{images/fig6.pdf}}
+    \centerline{\includegraphics[width=0.6\columnwidth,trim={0 1cm 0 0cm},clip]{fig6.pdf}}
     \caption{Two computational processes represented in memory oriented computational graph, where (a) is a subprogram in (b). In these graphs, a vertical single line represents one variable, a vertical double line represents multiple variables, and a parallel line represents a function. A dot at the cross represents a control parameter of a function and a box at the cross represents a mutable parameter of a function.
     }\label{fig:ccu}
 \end{figure}
@@ -303,7 +303,7 @@ The reversible \texttt{while} statement is shown in \Fig{fig:controlflow} (b). I
 After each iteration, the program asserts the postcondition to be true. In the reverse pass, we exchange the precondition and postcondition.
 The reversible \texttt{for} statement is similar to irreversible ones except that after executing the loop, the program checks the values of these variables to make sure they are not changed. In the reverse pass, we exchange \texttt{start} and \texttt{stop} and inverse the sign of \texttt{step}.
 \begin{figure}
-    \centerline{\includegraphics[width=0.5\columnwidth,trim={0 0cm 0 0cm},clip]{images/controlflow.pdf}}
+    \centerline{\includegraphics[width=0.5\columnwidth,trim={0 0cm 0 0cm},clip]{controlflow.pdf}}
     \caption{The flow chart for reversible (a) \texttt{if} statement and (b) \texttt{while} statement. ``pre'' and ``post'' represents precondition and postconditions respectively.}\label{fig:controlflow}
 \end{figure}
 
@@ -426,7 +426,7 @@ For example, one can use \texttt{@safe @show <var>} for debugging.
 The compilation of a reversible function contains three stages.
 
 \begin{figure}[H]
-    \centerline{\includegraphics[width=0.5\columnwidth,trim={0cm 0cm 0 0cm},clip]{images/compiling.pdf}}
+    \centerline{\includegraphics[width=0.5\columnwidth,trim={0cm 0cm 0 0cm},clip]{compiling.pdf}}
     %\caption{Three compiling stages of NiLang.}\label{fig:compiling}
 \end{figure}
 
@@ -624,7 +624,7 @@ where $\out$ represents the outputs of the program. In adjoint mode AD, it is a 
 $J^{\out}_{\vx^i} \equiv \frac{\partial \out}{\partial \vx^i}$ is the Jacobian to be propagated, and $J^{\vx^i}_{\vx^{i-1}}$ is the local Jacobian matrix. Einstein's notation~\cite{Einsum} is used here so that the duplicated index $\vx^{i}$ in the second line is summed over.
 \Eq{eq:jacobian} can be rewritten in the diagram of tensor networks~\cite{Orus2014} as shown in \Fig{fig:ad}.
 \begin{figure}
-    \centerline{\includegraphics[width=0.6\columnwidth,trim={0.5cm 1cm 0 1cm},clip]{images/ad.pdf}}
+    \centerline{\includegraphics[width=0.6\columnwidth,trim={0.5cm 1cm 0 1cm},clip]{ad.pdf}}
     \caption{From left to right, the diagrams represent computing, uncomputing, Jacobian propagation, and Hessian propagation in the tensor network diagram.
     A big circle with three legs represents a Hessian, and a small circle with two legs represents a Jacobian.
     Dangling edges and connected edges stands for unpaired and paired labels respectively in Einstein's notation.}\label{fig:ad}
@@ -783,20 +783,20 @@ This computational process could be diagrammatically represented as a DAG as sho
 In this diagram, the data is represented as an edge. It connects at most two nodes. One generates this data, and one consumes it.
 A computational graph is more likely a mathematical expression, and it can not describe inplace functions or control flows conveniently because it does not have the notation for memory and loops.
 %\begin{figure*}
-    %\centerline{\includegraphics[width=0.8\textwidth,trim={0cm 6cm 0 0},clip]{images/computational_graph.pdf}}
+    %\centerline{\includegraphics[width=0.8\textwidth,trim={0cm 6cm 0 0},clip]{computational_graph.pdf}}
     %\caption{Traditional computational graph for the reversible first kind Bessel function. Where a vertex (circle) is an operation and a directed edge is a variable. The gray region is the body of while loop.}\label{fig:computational-graph}
 %\end{figure*}
 \begin{figure*}[t!]
     \centering
     \begin{subfigure}[t]{0.52\textwidth}
         \centering
-        \includegraphics[width=\textwidth,trim={0 4cm 0 0cm},clip]{images/computational_graph.pdf}
+        \includegraphics[width=\textwidth,trim={0 4cm 0 0cm},clip]{computational_graph.pdf}
         \caption{}
     \end{subfigure}%
     ~
     \begin{subfigure}[t]{0.47\textwidth}
         \centering
-        \includegraphics[width=\textwidth,trim={0 1cm 0 0cm},clip]{images/fig4.pdf}
+        \includegraphics[width=\textwidth,trim={0 1cm 0 0cm},clip]{fig4.pdf}
         \caption{}
     \end{subfigure}
     \caption{(a) The traditional computational graph for the irreversible implementation of the first kind Bessel function. A vertex (circle) is an operation, and a directed edge is a variable. The gray regions are the body of the unrolled while loop.
@@ -888,11 +888,11 @@ Hence we can apply the inverse routine \texttt{$\sim$B} to safely restore conten
 %After computation, values of \texttt{z} and \texttt{$\nu$} are not changed, while a pre-emptied \texttt{out!} is changed to the desired output.
 %The whole function can be represented as
 %\begin{figure}[htp]
-%    \includegraphics[width=0.4\columnwidth,trim={0cm 1.5cm 0cm 0.5cm},clip]{images/fig5.pdf}
+%    \includegraphics[width=0.4\columnwidth,trim={0cm 1.5cm 0cm 0.5cm},clip]{fig5.pdf}
 %\end{figure}
 
 %\begin{figure*}
-    %\centerline{\includegraphics[width=0.7\textwidth,trim={1cm 1cm 0 0},clip]{images/fig4.pdf}}
+    %\centerline{\includegraphics[width=0.7\textwidth,trim={1cm 1cm 0 0},clip]{fig4.pdf}}
     %\caption{Data oriented computational graph for the reversible first kind Bessel function. Circles connected by vertical lines are variables, while boxes and dots connected by parallel lines are operations. A dot on a line represents a control parameter while a box represents a mutable parameter. Annotations $\#1, \#2, \ldots$ are used the mark the positions of variables in the argument list. The gray box represents the body of a while loop, where a precondition and postcondition are positioned on top and bottom of this box.}\label{fig:datagraph}
 %\end{figure*}
 
@@ -1237,7 +1237,7 @@ Here, the loss function \texttt{test1} is defined as the sum of the output unita
 Graph embedding can be used to find representation for an order parameter~\cite{Takahashi2020} in condensed matter physics.
 \Ref{Takahashi2020} considers a problem of finding the minimum Euclidean space dimension $k$ that a Petersen graph can fit into, with extra requirements that the distance between a pair of connected vertices has the same value $l_1$, and the distance between a pair of disconnected vertices has the same value $l_2$ and $l_2 > l_1$.
 The Petersen graph is ten vertices graph, as shown in \Fig{fig:petersen}.\begin{figure}
-    \centerline{\includegraphics[width=0.4\columnwidth,trim={0 1cm 0 0},clip]{images/petersen.pdf}}
+    \centerline{\includegraphics[width=0.4\columnwidth,trim={0 1cm 0 0},clip]{petersen.pdf}}
     \caption{The Petersen graph has 10 vertices and 15 edges. We want to find a minimum embedding dimension for it.}\label{fig:petersen}
 \end{figure}
 Let us denote the set of connected and disconnected vertex pairs as $L_1$ and $L_2$, respectively. This problem can be variationally solved by differential programming by designing the subsequent loss.
@@ -1355,7 +1355,7 @@ Although training time is comparable, the converged precision of the later is mu
 \subsubsection{Benchmark}
 Since the ForwardDiff itself provides the Hessian for users, it is interesting to benchmark how much performance we can get by forward differentiating an adjoint program comparing with forward differentiating a forward AD program. In the following benchmark, we also compare other adjoint mode AD packages.
 \begin{figure}
-    \centerline{\includegraphics[width=0.8\columnwidth,trim={0 0 0 0},clip]{images/fig7.pdf}}
+    \centerline{\includegraphics[width=0.8\columnwidth,trim={0 0 0 0},clip]{fig7.pdf}}
     \caption{The time used to (a) call/uncall, (b) compute gradients and (c) compute Hessians for the loss of the graph embedding problem.}\label{fig:bench-embedding}
 \end{figure}
 The benchmark is executed on CPU with the same setup as previous benchmarks.
@@ -1501,7 +1501,7 @@ The authors are supported by the National Natural Science Foundation of China un
 \bibliographystyle{apsrev4-1}
 \bibliography{invc}
 
-\pagebreak
+\newpage
 \appendix
 
 \section{NiLang Grammar}\label{app:grammar}
@@ -1537,7 +1537,7 @@ Dataview is a view of data. It can be a bijective mapping of an object, an item 
 \input{bnf.tex}
 \end{minipage}
 
-\pagebreak
+\newpage
 \section{Instructions and Backward Rules}\label{app:instr}
 
 \begin{table}[h!]\centering
@@ -1821,7 +1821,7 @@ However, parameters in \texttt{f1} does not change at all.
 The training of \texttt{f1} fails because this function actually computes $\texttt{f1}(y, x, p) = y + e^{(p+x)} - e^{x}, x, x+p$, where the training parameter $p$ is completely determined by the parameter space on the output side $x \cup x+p$. As a result, shifting $y$ directly is the only approach to satisfy the consistency relation. On the other side, $\texttt{f2}(y, x, p) = y + e^{(p+x)} - e^x, \tilde{0}, x+p$, the output parameters $\tilde{0} \cup x+p$ can not uniquely determine input parameters $p$ and $x$. Here, we use $\tilde{0}$ to denote the zero with rounding error.
 
 \begin{figure}
-    \centerline{\includegraphics[width=0.6\columnwidth,trim={0 0.3cm 0 0},clip]{images/fig1.pdf}}
+    \centerline{\includegraphics[width=0.6\columnwidth,trim={0 0.3cm 0 0},clip]{fig1.pdf}}
     \caption{The output value \texttt{y!} as a function of self-consistent training step.}\label{fig:invtrain}
 \end{figure}
 
@@ -2102,7 +2102,7 @@ julia> hessian_backback(ibesselj, (0.0, 2, 1.0);
 \end{minipage}
 
 \begin{figure}[h]
-    \centerline{\includegraphics[width=0.6\columnwidth,trim={0 1cm 0cm 1cm},clip]{images/simplehessian.pdf}}
+    \centerline{\includegraphics[width=0.6\columnwidth,trim={0 1cm 0cm 1cm},clip]{simplehessian.pdf}}
     \caption{Data flow in obtaining second-order gradients by backward differentiating the adjoint program. Annotations on lines are data types used in the computation.}\label{fig:simplehessian}
 \end{figure}
 
