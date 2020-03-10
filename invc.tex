@@ -365,7 +365,7 @@ In this IR, a statement can be an instruction, a function call, a control flow, 
 Any statement in this IR has a unique inverse, as shown in \Tbl{tbl:revstatements}.
 
 \begin{table}[h!]\centering
-\begin{minipage}{\columnwidth}
+\begin{minipage}{0.7\columnwidth}
 \ra{1.3}
     \scalebox{1.0}{
         \begin{tabularx}{\textwidth}{X X}\toprule
@@ -425,8 +425,8 @@ For example, one can use \texttt{@safe @show <var>} for debugging.
 \subsection{Compiling}
 The compilation of a reversible function contains three stages.
 
-\begin{figure}[h]
-    \centerline{\includegraphics[width=0.4\columnwidth,trim={0cm 0cm 0 0cm},clip]{images/compiling.pdf}}
+\begin{figure}[H]
+    \centerline{\includegraphics[width=0.5\columnwidth,trim={0cm 0cm 0 0cm},clip]{images/compiling.pdf}}
     %\caption{Three compiling stages of NiLang.}\label{fig:compiling}
 \end{figure}
 
@@ -939,7 +939,7 @@ See \App{app:hessian} for alternative approaches to obtain its Hessian.
 We have different source-to-source automatic differentiation implementations of the first type Bessel function and show the benchmarks in \Tbl{tbl:besselj}.
 In the benchmark, the CPU device is Intel(R) Xeon(R) CPU E5-2680 v4 @ 2.40GHz, and the GPU device is Nvidia Titan V. The GPU time is estimated by broadcasting the gradient function on CUDA array of size $2^{17}$ and taking the average.
 \begin{table}[h!]\centering
-\begin{minipage}{\columnwidth}
+\begin{minipage}{0.7\columnwidth}
 \ra{1.3}
     \scalebox{1.0}{
         \begin{tabularx}{\textwidth}{X X c c}\toprule
@@ -1544,7 +1544,7 @@ Dataview is a view of data. It can be a bijective mapping of an object, an item 
 \section{Instructions and Backward Rules}\label{app:instr}
 
 \begin{table}[h!]\centering
-\begin{minipage}{\columnwidth}
+\begin{minipage}{0.7\columnwidth}
 \ra{1.3}
     \scalebox{1.0}{
         \begin{tabularx}{\textwidth}{X X c}\toprule
@@ -1563,7 +1563,7 @@ Dataview is a view of data. It can be a bijective mapping of an object, an item 
 
 The list of instructions implemented in NiLang
 \begin{table}[h!]\centering
-\begin{minipage}{\columnwidth}
+\begin{minipage}{0.7\columnwidth}
 \ra{1.3}
     \scalebox{1.0}{
         \begin{tabularx}{\textwidth}{X X}\toprule
