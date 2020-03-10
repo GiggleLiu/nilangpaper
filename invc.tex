@@ -45,19 +45,22 @@
 \usepackage{listings}
 \lstset{
     language=Julia,
-    basicstyle=\ttfamily\footnotesize,
+    basicstyle=\ttfamily\scriptsize,
     numberstyle=\scriptsize,
     % numbers=left,
-    backgroundcolor=\color{gray!10},
-    frame=single,
+    backgroundcolor=\color{gray!7},
+    %backgroundcolor=\color{white},
+    %frame=single,
+    xleftmargin=2em,
     tabsize=2,
-    rulecolor=\color{black!30},
-    title=\lstname,
+    rulecolor=\color{black!15},
+    %title=\lstname,
     %escapeinside={\%(*}{*)},
     breaklines=true,
-    breakatwhitespace=true,
-    framextopmargin=2pt,
-    framexbottommargin=2pt,
+    %breakatwhitespace=true,
+    %framextopmargin=2pt,
+    %framexbottommargin=2pt,
+    frame=bt,
     extendedchars=true,
     inputencoding=utf8,
     columns=fullflexible,
@@ -199,7 +202,6 @@ Department of Computer Science, University of Tsukuba\\
     This paper considers the source-to-source automatic differentiation (AD) in a reversible language. We start by reviewing the limitations of traditional AD frameworks. To solve the issues in these frameworks, we developed a reversible eDSL NiLang in Julia that can differentiate a general program while being compatible with Julia's ecosystem. It empowers users the flexibility to tradeoff time, space, and energy so that one can use it to obtain gradients and Hessians ranging for elementary mathematical functions, sparse matrix operations, and linear algebra that are widely used in scientific programming. We demonstrate that a source-to-source AD framework can achieve the state-of-the-art performance by showing and benchmarking several examples. Finally, we will discuss the challenges that we face towards rigorous reversible programming, mainly from the instruction and hardware perspective.
 \end{abstract}
 
-
 %\begin{multicols}{2}
 \section{Introduction}\label{sec:intro}
     Computing the gradients of a numeric model $f : \mathbb{R}^m \rightarrow \mathbb{R}^n$ plays a crucial role in scientific computing. Consider a computing process
@@ -320,7 +322,7 @@ Similar design is called \texttt{Dual} number in the tangent mode AD package For
 
 The main feature of NiLang is contained in a single macro \texttt{@i} that compiles a reversible function.
 The allowed statements in this eDSL are shown in \App{app:grammar}.
-The following is a minimal example of compiling a NiLang function to native Julia function.
+The following is a minimal example of compiling a reversible function to native Julia function with NiLang v0.2.0.
 
 \begin{minipage}{.88\columnwidth}
 \begin{lstlisting}
@@ -338,23 +340,21 @@ quote
         return (x, y)
     end
     if typeof(f) != typeof(~f)
-        function $(Expr(:where, :((  #$ TODO: remove this comment
-                    mongoose::typeof(~f))(x, y))))
+        function $(Expr(:where, :((mongoose::typeof(~f))(x, y))))
             mandrill = (~SWAP)(x, y)
             x = (NiLangCore.wrap_tuple(mandrill))[1]
             y = (NiLangCore.wrap_tuple(mandrill))[2]
             return (x, y)
         end
     end
-    if !(NiLangCore._hasmethod1(
-                NiLangCore.isreversible, typeof(f)))
+    if !(NiLangCore._hasmethod1(NiLangCore.isreversible, typeof(f)))
         NiLangCore.isreversible(::typeof(f)) = true
     end
 end
 \end{lstlisting}
 \end{minipage}
 
-Macro \texttt{@i} generates three functions \texttt{f}, \texttt{$\sim$f} and \texttt{NiLangCore.isreversible}. \texttt{f} and \texttt{$\sim$f} are a pair of functions that are reversbile to each other, where \texttt{$\sim$f} is an callable of type \texttt{Inv\{typeof(f)\}}.
+Here, macro \texttt{@i} generates three functions \texttt{f}, \texttt{$\sim$f} and \texttt{NiLangCore.isreversible}. \texttt{f} and \texttt{$\sim$f} are a pair of functions that are reversbile to each other, where \texttt{$\sim$f} is an callable of type \texttt{Inv\{typeof(f)\}}.
 In the body of \texttt{f}, \texttt{NiLangCore.wrap\_tuple} is used to unify output data types to tuples.
 The outputs of \texttt{SWAP} are assigned back to its input variables. In other words, it simulates a function that modifies inputs inplace.
 At the end of this function, this macro attaches a return statement that returns all input variables.
@@ -365,7 +365,7 @@ In this IR, a statement can be an instruction, a function call, a control flow, 
 Any statement in this IR has a unique inverse, as shown in \Tbl{tbl:revstatements}.
 
 \begin{table}[h!]\centering
-\begin{minipage}{0.7\columnwidth}
+\begin{minipage}{0.8\columnwidth}
 \ra{1.3}
     \scalebox{1.0}{
         \begin{tabularx}{\textwidth}{X X}\toprule
@@ -526,8 +526,8 @@ Doing this is proper because \texttt{new} is special that its output keeps all i
 It unpacks structure \texttt{x} and assigns fields to corresponding variables in the argument list.
 The following example shows a non-complete definition of the reversible type \texttt{GVar}.
 
-\begin{minipage}{.88\columnwidth}
-\begin{lstlisting}
+\begin{minipage}{\columnwidth}
+\begin{lstlisting}[multicols=2]
 julia> using NiLangCore
 
 julia> @i struct GVar{T,GT} <: IWrapper{T}
@@ -829,8 +829,8 @@ The ``approximate uncomputing'' trick can be extensively used in practice. It mi
 The reason why this trick works here lies in the fact that from the mathematics perspective the state in $n$th step $\{s_n, z\}$ contains the same amount of information as its previous state  $\{s_{n-1}, z\}$ except for some particular points, and it is highly possible to find an equation to uncompute the previous state from the current state.
 With this approximate multiplier, we implement $J_\nu$ as follows.
 
-\begin{minipage}{.88\columnwidth}
-\begin{lstlisting}
+\begin{minipage}{\columnwidth}
+\begin{lstlisting}[multicols=2]
 using NiLang, NiLang.AD
 
 @i function ibesselj(out!, ν, z; atol=1e-8)
@@ -854,8 +854,7 @@ using NiLang, NiLang.AD
 
         anc1 += halfz_power_nu/fact_nu
         out_anc += identity(anc1)
-        while (abs(unwrap(anc1)) > atol &&
-                abs(unwrap(anc4)) < atol, k!=0)
+        while (abs(unwrap(anc1))>atol && abs(unwrap(anc4)) < atol, k!=0)
             k += identity(1)
             @routine begin
                 anc5 += identity(k)
@@ -939,7 +938,7 @@ See \App{app:hessian} for alternative approaches to obtain its Hessian.
 We have different source-to-source automatic differentiation implementations of the first type Bessel function and show the benchmarks in \Tbl{tbl:besselj}.
 In the benchmark, the CPU device is Intel(R) Xeon(R) CPU E5-2680 v4 @ 2.40GHz, and the GPU device is Nvidia Titan V. The GPU time is estimated by broadcasting the gradient function on CUDA array of size $2^{17}$ and taking the average.
 \begin{table}[h!]\centering
-\begin{minipage}{0.7\columnwidth}
+\begin{minipage}{0.8\columnwidth}
 \ra{1.3}
     \scalebox{1.0}{
         \begin{tabularx}{\textwidth}{X X c c}\toprule
@@ -986,18 +985,15 @@ Source to source automatic differentiation is useful in differentiating sparse m
 In the following, we will show that reversible AD can differentiate the Frobenius dot product between two sparse matrices with the state-of-the-art performance. Here, the Frobenius dot product is defined as \texttt{trace(A'B)}.
 This following reversible implementation is adapted from the irreversible implementation in Julia package \texttt{SparseArrays}.
 
-\begin{minipage}{.88\columnwidth}
-\begin{lstlisting}
+\begin{minipage}{\columnwidth}
+\begin{lstlisting}[multicols=2]
 using SparseArrays
 
-@i function dot(r::T, A::SparseMatrixCSC{T},
-        B::SparseMatrixCSC{T}) where {T}
+@i function dot(r::T, A::SparseMatrixCSC{T}, B::SparseMatrixCSC{T}) where {T}
     m ← size(A, 1)
     n ← size(A, 2)
-    @invcheckoff branch_keeper ← zeros(Bool, 2*m)
-    @safe size(B) == (m,n) || 
-        throw(DimensionMismatch(
-        "matrices must have the same dimensions"))
+    @invcheckoff branch_keeper ← zeros(Bool,2*m)
+    @safe size(B) == (m,n) || throw(DimensionMismatch("matrices must have the same dimensions"))
     @invcheckoff @inbounds for j = 1:n
         ia1 ← A.colptr[j]
         ib1 ← B.colptr[j]
@@ -1009,10 +1005,10 @@ using SparseArrays
             ra ← A.rowval[ia]
             rb ← B.rowval[ib]
             if (ra == rb, ~)
-                r += A.nzval[ia]' * B.nzval[ib]
+                r += A.nzval[ia]'*B.nzval[ib]
             end
             # b move -> true, a move -> false
-            branch_keeper[i] ⊻= ia == ia2-1 ||
+            branch_keeper[i] ⊻= ia==ia2-1 ||
                 ra > rb
             ra → A.rowval[ia]
             rb → B.rowval[ib]
@@ -1025,8 +1021,8 @@ using SparseArrays
 
         ~@inbounds for i=1:ia2-ia1+ib2-ib1-1
             # b move -> true, a move -> false
-            branch_keeper[i] ⊻= ia == ia2-1 ||
-                    A.rowval[ia] > B.rowval[ib]
+            branch_keeper[i] ⊻= ia==ia2-1 ||
+                A.rowval[ia] > B.rowval[ib]
             if (branch_keeper[i], ~)
                 ib += identity(1)
             else
@@ -1043,8 +1039,8 @@ With simple adaptation, the code becomes reversible.
 Here, the key point is using a \texttt{branch\_keeper} vector to cache branch decisions.
 In the following example, we compare the time used in the forward pass and backward pass.
 
-\begin{minipage}{.88\columnwidth}
-\begin{lstlisting}
+\begin{minipage}{\columnwidth}
+\begin{lstlisting}[multicols=2]
 julia> using BenchmarkTools
 
 julia> a = sprand(1000, 1000, 0.01);
@@ -1126,8 +1122,8 @@ end
 Here, the ancilla \texttt{k} is deallocated manually by specifying its value, because we know the loop size is $N(N-1)/2$.
 We define the test functions in order to check gradients.
 
-\begin{minipage}{.88\columnwidth}
-\begin{lstlisting}[mathescape=true]
+\begin{minipage}{\columnwidth}
+\begin{lstlisting}[mathescape=true,multicols=2]
 julia> @i function test!(out!, x!::Vector, θ::Vector)
            umm!(x!, θ)
            isum(out!, x!)
@@ -1172,8 +1168,8 @@ Notably, this reversible implementation costs zero memory allocation, although i
 Let us consider a naive implementation of QR decomposition from scratch.
 We admit this implementation is just a proof of principle which does not consider reorthogonalization and other practical issues.
 
-\begin{minipage}{.88\columnwidth}
-\begin{lstlisting}
+\begin{minipage}{\columnwidth}
+    \begin{lstlisting}[multicols=2]
 using NiLang, NiLang.AD
 
 @i function qr(Q, R, A::Matrix{T}) where T
@@ -1255,12 +1251,11 @@ The first line is a summation of distance variances in two sets of vertex pairs,
 The second line is used to guarantee $l_2 > l_1$, where $\overline{X}$ means taking the average of samples in $X$.
 Its reversible implementation is shown below.
 
-\begin{minipage}{.88\columnwidth}
-\begin{lstlisting}
+\begin{minipage}{\columnwidth}
+\begin{lstlisting}[multicols=2]
 using NiLang, NiLang.AD
 
-@i function sqdistance(dist!, x1::AbstractVector{T},
-        x2::AbstractVector) where T
+@i function sqdist(dist!, x1::AbstractVector{T}, x2::AbstractVector) where T
     @inbounds for i=1:length(x1)
         x1[i] -= identity(x2[i])
         dist! += x1[i] ^ 2
@@ -1269,16 +1264,18 @@ using NiLang, NiLang.AD
 end
 
 # bonds of a petersen graph
-const L1 = [(1, 6), (2, 7), (3, 8), (4, 9), (5, 10),
-    (1, 2), (2, 3), (3, 4), (4, 5), (1, 5), (6, 8),
-    (8, 10), (7, 10), (7, 9), (6, 9)]
+const L1 = [(1, 6), (2, 7), (3, 8), (4, 9),
+    (5, 10), (1, 2), (2, 3), (3, 4), (4, 5),
+    (1, 5), (6, 8), (8, 10), (7, 10), (7, 9),
+    (6, 9)]
 
 # disconnected bonds of a petersen graph
-const L2 = [(1, 3), (1, 4), (1, 7), (1, 8), (1, 9),
-    (1, 10), (2, 4), (2, 5), (2, 6), (2, 8), (2, 9),
-    (2, 10), (3, 5), (3, 6), (3, 7), (3, 9), (3, 10),
-    (4, 6), (4, 7), (4, 8), (4, 10), (5, 6), (5, 7),
-    (5, 8), (5, 9), (6, 7), (6, 10), (7, 8), (8, 9),
+const L2 = [(1, 3), (1, 4), (1, 7), (1, 8),
+    (1, 9), (1, 10), (2, 4), (2, 5), (2, 6),
+    (2, 8), (2, 9), (2, 10), (3, 5), (3, 6),
+    (3, 7), (3, 9), (3, 10), (4, 6), (4, 7),
+    (4, 8), (4, 10), (5, 6), (5, 7), (5, 8),
+    (5, 9), (6, 7), (6, 10), (7, 8), (8, 9),
     (9, 10)]
 
 @i function embedding_loss(out!::T, x) where T
@@ -1295,7 +1292,7 @@ const L2 = [(1, 3), (1, 4), (1, 7), (1, 8), (1, 9),
                 x[:,L1[i][1]],x[:,L1[i][2]])
         end
         for i=1:length(L2)
-            sqdistance(d2[i],
+            sqdist(d2[i],
                 x[:,L2[i][1]],x[:,L2[i][2]])
         end
         var_and_mean_sq(v1, m1, d1)
@@ -1307,7 +1304,7 @@ const L2 = [(1, 3), (1, 4), (1, 7), (1, 8), (1, 9),
     out! += identity(v2)
     if (m1 > 0, ~)
         # to ensure mean(v2) > mean(v1)
-        # if mean(v1)+0.1 - mean(v2) > 0, punish it.
+        # if mean(v1)+0.1-mean(v2) > 0, punish it.
         out! += exp(m1)
         out! -= identity(1)
     end
@@ -1544,7 +1541,7 @@ Dataview is a view of data. It can be a bijective mapping of an object, an item 
 \section{Instructions and Backward Rules}\label{app:instr}
 
 \begin{table}[h!]\centering
-\begin{minipage}{0.7\columnwidth}
+\begin{minipage}{0.8\columnwidth}
 \ra{1.3}
     \scalebox{1.0}{
         \begin{tabularx}{\textwidth}{X X c}\toprule
@@ -1563,7 +1560,7 @@ Dataview is a view of data. It can be a bijective mapping of an object, an item 
 
 The list of instructions implemented in NiLang
 \begin{table}[h!]\centering
-\begin{minipage}{0.7\columnwidth}
+\begin{minipage}{0.8\columnwidth}
 \ra{1.3}
     \scalebox{1.0}{
         \begin{tabularx}{\textwidth}{X X}\toprule
@@ -1786,8 +1783,8 @@ A similar idea of training by consistency is used in self-consistent mean-field 
 Finding the self-consistent relation is crucial to self-consistency based training. Here, the reversibility provides a natural self-consistency relation.
 However, it is not a silver bullet; let's consider the following example.
 
-\begin{minipage}{.88\columnwidth}
-\begin{lstlisting}[basicstyle=\small\ttfamily,columns=fullflexible]
+\begin{minipage}{\columnwidth}
+\begin{lstlisting}[multicols=2]
 @i function f1(y!, x, p!)
     p! += identity(x)
     y! -= exp(x)
@@ -1853,8 +1850,8 @@ Besides, the Fibonacci example is often used in a reversible language as a tutor
 
 We list the functions used in \Sec{sec:example} as bellow.
 
-\begin{minipage}{.88\columnwidth}
-\begin{lstlisting}
+\begin{minipage}{\columnwidth}
+\begin{lstlisting}[multicols=2]
 """
 get the summation of an array.
 """
@@ -1947,8 +1944,8 @@ This kernel function simulates the SWAP gate in quantum computing.
 Here, one must use the macro \texttt{@invcheckoff} to turn off the reversibility checks. It is necessary because the possible error thrown in a kernel function can not be handled on a CUDA kernel.
 One can launch this kernel function to GPUs with a single macro \texttt{@cuda}, as shown in the following using case.
 
-\begin{minipage}{.88\columnwidth}
-\begin{lstlisting}
+\begin{minipage}{\columnwidth}
+\begin{lstlisting}[multicols=2]
 julia> @i function instruct!(state::CuVector,
             gate::Val{:SWAP}, locs::Tuple{Int,Int})
            mask1 ← 1 << (tget(locs, 1)-1)
@@ -1999,8 +1996,8 @@ The second parameter is the block size.
 The third parameter is the number of threads.
 The last parameter is a kernel function call to be launched.
 
-\begin{minipage}{.88\columnwidth}
-\begin{lstlisting}
+\begin{minipage}{\columnwidth}
+\begin{lstlisting}[multicols=2]
 julia> @i function instruct!(state::CuVector,
             gate::Val{:SWAP}, locs::Tuple{Int,Int})
            mask1 ← 1 << (tget(locs, 1)-1)
