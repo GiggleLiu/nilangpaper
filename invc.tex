@@ -1,5 +1,7 @@
 %\documentclass[a4paper,superscriptaddress,11pt]{quantumarticle}
-\documentclass[aps,twocolumn,longbibliography,english,superscriptaddress]{revtex4-1}
+%\documentclass[aps,twocolumn,longbibliography,english,superscriptaddress]{revtex4-1}
+\documentclass{article}
+\usepackage[preprint]{neurips_2020}
 %\documentclass[a4paper,superscriptaddress,11pt]{article}
 \pdfoutput=1
 \usepackage[colorlinks=true,urlcolor=blue,citecolor=blue,linkcolor=blue]{hyperref}
@@ -10,7 +12,7 @@
 \usepackage{tabularx}
 \usepackage{upquote}
 \usepackage{subcaption}
-%\usepackage{multicol}
+\usepackage{multicol}
 %\usepackage{caption}
 %\usepackage[plain]{algorithm}
 \usepackage[ruled, vlined]{algorithm2e}
@@ -142,7 +144,7 @@
 \newcommand{\upcite}[1]{\textsuperscript{\cite{#1}}}
 \newcommand{\Eq}[1]{Eq.~(\ref{#1})}
 \newcommand{\Fig}[1]{Fig.~\ref{#1}}
-\newcommand{\Ref}[1]{Ref.~\onlinecite{#1}}
+\newcommand{\Ref}[1]{Ref.~\cite{#1}}
 \newcommand{\Tbl}[1]{Table~\ref{#1}}
 \newcommand{\Sec}[1]{Sec.~\ref{#1}}
 \newcommand{\App}[1]{Appendix \ref{#1}}
@@ -171,31 +173,32 @@
 \begin{document}
 \title{Differentiate Everything with a Reversible Programming Language}
 
-%\author{Jin-Guo Liu\thanks{cacate0129@iphy.ac.cn}\\
-%Institute of Physics, Chinese Academy of Sciences,\\Beijing 100190, China\\
-%\And
-%Hong-Xuan Zhao-Wang\\
-%Department of Computer Science, University of Tsukuba
-%}
+\author{Jin-Guo Liu\\
+Institute of Physics, Chinese Academy of Sciences,\\Beijing 100190, China\\
+\texttt{cacate0129@iphy.ac.cn}\\
+\And
+Hong-Xuan Zhao-Wang\\
+Department of Computer Science, University of Tsukuba\\
+}
 %\author{Lei Wang}
 %\email{wanglei@iphy.ac.cn}
 %\affiliation{Institute of Physics, Chinese Academy of Sciences, Beijing 100190, China}
 %\affiliation{CAS Center for Excellence in Topological Quantum Computation, University of Chinese Academy of Sciences, Beijing 100190, China}
 %\affiliation{Songshan Lake Materials Laboratory, Dongguan, Guangdong 523808, China}
 
-\author{Jin-Guo Liu}
-\email{cacate0129@iphy.ac.cn}
-\affiliation{Institute of Physics, Chinese Academy of Sciences, Beijing 100190, China}
+%\author{Jin-Guo Liu}
+%\email{cacate0129@iphy.ac.cn}
+%\affiliation{Institute of Physics, Chinese Academy of Sciences, Beijing 100190, China}
 
-\author{Taine Zhao}
-\affiliation{Department of Computer Science, University of Tsukuba}
+%\author{Taine Zhao}
+%\affiliation{Department of Computer Science, University of Tsukuba}
+
+\maketitle
 
 \begin{abstract}
     This paper considers the source-to-source automatic differentiation (AD) in a reversible language. We start by reviewing the limitations of traditional AD frameworks. To solve the issues in these frameworks, we developed a reversible eDSL NiLang in Julia that can differentiate a general program while being compatible with Julia's ecosystem. It empowers users the flexibility to tradeoff time, space, and energy so that one can use it to obtain gradients and Hessians ranging for elementary mathematical functions, sparse matrix operations, and linear algebra that are widely used in scientific programming. We demonstrate that a source-to-source AD framework can achieve the state-of-the-art performance by showing and benchmarking several examples. Finally, we will discuss the challenges that we face towards rigorous reversible programming, mainly from the instruction and hardware perspective.
 \end{abstract}
 
-
-\maketitle
 
 %\begin{multicols}{2}
 \section{Introduction}\label{sec:intro}
@@ -279,7 +282,7 @@ There have not been any reversible eDSL in Julia before, but there have been man
     It can also be pushed to a stack and used later with a pop statement.
     This stack is similar to a traditional stack, except it zero-clears the variable after pushing and presupposes that the variable being zero-cleared before popping.
 \begin{figure}
-    \centerline{\includegraphics[width=\columnwidth,trim={0 1cm 0 0cm},clip]{images/fig6.pdf}}
+    \centerline{\includegraphics[width=0.6\columnwidth,trim={0 1cm 0 0cm},clip]{images/fig6.pdf}}
     \caption{Two computational processes represented in memory oriented computational graph, where (a) is a subprogram in (b). In these graphs, a vertical single line represents one variable, a vertical double line represents multiple variables, and a parallel line represents a function. A dot at the cross represents a control parameter of a function and a box at the cross represents a mutable parameter of a function.
     }\label{fig:ccu}
 \end{figure}
@@ -298,7 +301,7 @@ The reversible \texttt{while} statement is shown in \Fig{fig:controlflow} (b). I
 After each iteration, the program asserts the postcondition to be true. In the reverse pass, we exchange the precondition and postcondition.
 The reversible \texttt{for} statement is similar to irreversible ones except that after executing the loop, the program checks the values of these variables to make sure they are not changed. In the reverse pass, we exchange \texttt{start} and \texttt{stop} and inverse the sign of \texttt{step}.
 \begin{figure}
-    \centerline{\includegraphics[width=0.8\columnwidth,trim={0 0cm 0 0cm},clip]{images/controlflow.pdf}}
+    \centerline{\includegraphics[width=0.5\columnwidth,trim={0 0cm 0 0cm},clip]{images/controlflow.pdf}}
     \caption{The flow chart for reversible (a) \texttt{if} statement and (b) \texttt{while} statement. ``pre'' and ``post'' represents precondition and postconditions respectively.}\label{fig:controlflow}
 \end{figure}
 
@@ -319,7 +322,7 @@ The main feature of NiLang is contained in a single macro \texttt{@i} that compi
 The allowed statements in this eDSL are shown in \App{app:grammar}.
 The following is a minimal example of compiling a NiLang function to native Julia function.
 
-\begin{minipage}{.44\textwidth}
+\begin{minipage}{.88\columnwidth}
 \begin{lstlisting}
 julia> using NiLangCore, MacroTools
 
@@ -423,7 +426,7 @@ For example, one can use \texttt{@safe @show <var>} for debugging.
 The compilation of a reversible function contains three stages.
 
 \begin{figure}[h]
-    \centerline{\includegraphics[width=0.7\columnwidth,trim={0cm 0cm 0 0cm},clip]{images/compiling.pdf}}
+    \centerline{\includegraphics[width=0.4\columnwidth,trim={0cm 0cm 0 0cm},clip]{images/compiling.pdf}}
     %\caption{Three compiling stages of NiLang.}\label{fig:compiling}
 \end{figure}
 
@@ -432,7 +435,7 @@ The preprocessor expands the symbol ``\texttt{$\sim$}'' in the postcondition fie
 Since the compute-copy-uncompute paradigm is extensively used in reversible programming to uncompute ancillas, one can use \texttt{@routine <stmt>} statement to record a statement, and \texttt{$\sim$@routine} to insert \texttt{$\sim$<stmt>} for uncomputing.
 The following example pre-processes an \texttt{if} statement to the reversible IR.
 
-\begin{minipage}{.44\textwidth}
+\begin{minipage}{.88\columnwidth}
 \begin{lstlisting}
 julia> using NiLangCore, MacroTools
 
@@ -454,7 +457,7 @@ In this example, since the precondition ``\texttt{x > 3}'' is not changed after 
 
 The second stage generates the reversed code according to table \Tbl{tbl:revstatements}. For example,
 
-\begin{minipage}{.44\textwidth}
+\begin{minipage}{.88\columnwidth}
 \begin{lstlisting}
 julia> NiLangCore.dual_ex(
        :(if (pre, post)
@@ -475,7 +478,7 @@ The third stage is translating this IR and its inverse to native Julia code. It 
 After this, the function is ready to execute on the host language.
 The following example shows how an \texttt{if} statement is transformed in this stage.
 
-\begin{minipage}{.44\textwidth}
+\begin{minipage}{.88\columnwidth}
 \begin{lstlisting}
 julia> NiLangCore.compile_ex(
        :(if (pre, post)
@@ -505,7 +508,7 @@ The inverse of a constructor is called a ``destructor'', which unpacks data and 
 A reversible constructor is implemented by reinterpreting the \texttt{new} function in Julia.
 Let us consider the following statement.
 
-\begin{minipage}{.44\textwidth}
+\begin{minipage}{.88\columnwidth}
 \begin{lstlisting}
     x ← new{TX, TG}(x, g)
 \end{lstlisting}
@@ -514,7 +517,7 @@ Let us consider the following statement.
 The above statement is similar to allocating an ancilla, except that it deallocates \texttt{g} directly at the same time.
 Doing this is proper because \texttt{new} is special that its output keeps all information of its arguments. All input variables that do not appear in the output can be discarded safely. Its inverse is
 
-\begin{minipage}{.44\textwidth}
+\begin{minipage}{.88\columnwidth}
 \begin{lstlisting}
     x → new{TX, TG}(x, g)
 \end{lstlisting}
@@ -523,7 +526,7 @@ Doing this is proper because \texttt{new} is special that its output keeps all i
 It unpacks structure \texttt{x} and assigns fields to corresponding variables in the argument list.
 The following example shows a non-complete definition of the reversible type \texttt{GVar}.
 
-\begin{minipage}{.44\textwidth}
+\begin{minipage}{.88\columnwidth}
 \begin{lstlisting}
 julia> using NiLangCore
 
@@ -566,7 +569,7 @@ The ones before functions generate forward and backward functions, while the one
 Since an operation changes data inplace in NiLang, a field of an immutable instance should also be `` modifiable''.
 Let us first consider the following example.
 
-\begin{minipage}{.44\textwidth}
+\begin{minipage}{.88\columnwidth}
 \begin{lstlisting}
 julia> arr = [GVar(3.0), GVar(1.0)]
 2-element Array{GVar{Float64,Float64},1}:
@@ -589,7 +592,7 @@ julia> arr
 In Julia language, the assign statement above will throw a syntax error because the function call ``\texttt{-}'' can not be assigned, and \texttt{GVar} is an immutable type.
 In NiLang, we use the macro \texttt{@assignback} to modify an immutable data directly. It translates the above statement to
 
-\begin{minipage}{.44\textwidth}
+\begin{minipage}{.88\columnwidth}
 \begin{lstlisting}[numberstyle=\scriptsize\color{gray},numbers=left,numbersep=8pt]
 res = (PlusEq(*))(-arr[2].g, x, y)
 arr[2] = chfield(arr[2], Val(:g),
@@ -621,7 +624,7 @@ where $\out$ represents the outputs of the program. In adjoint mode AD, it is a 
 $J^{\out}_{\vx^i} \equiv \frac{\partial \out}{\partial \vx^i}$ is the Jacobian to be propagated, and $J^{\vx^i}_{\vx^{i-1}}$ is the local Jacobian matrix. Einstein's notation~\cite{Einsum} is used here so that the duplicated index $\vx^{i}$ in the second line is summed over.
 \Eq{eq:jacobian} can be rewritten in the diagram of tensor networks~\cite{Orus2014} as shown in \Fig{fig:ad}.
 \begin{figure}
-    \centerline{\includegraphics[width=0.95\columnwidth,trim={0.5cm 1cm 0 1cm},clip]{images/ad.pdf}}
+    \centerline{\includegraphics[width=0.6\columnwidth,trim={0.5cm 1cm 0 1cm},clip]{images/ad.pdf}}
     \caption{From left to right, the diagrams represent computing, uncomputing, Jacobian propagation, and Hessian propagation in the tensor network diagram.
     A big circle with three legs represents a Hessian, and a small circle with two legs represents a Jacobian.
     Dangling edges and connected edges stands for unpaired and paired labels respectively in Einstein's notation.}\label{fig:ad}
@@ -646,7 +649,7 @@ The gradients can be accessed using the $\grad$ dataview of output variables.
 %When an instruction \texttt{instruct} meets a \texttt{GVar}, besides computing its value field $\vvalue(\vy) = \texttt{instruct}(\vvalue(\vx))$, it also updates the gradient field $\grad(\vy) = \left[J^{\vy}_{\vx}\right]^{-1} \grad(\vx)$, where $\left[J^{\vy}_{\vx}\right]^{-1}$ is the Jacobian of $\texttt{instruct}^{-1}$. One can define this gradient function on either \texttt{instruct} or \texttt{instruct${}^{-1}$}.
 The computation of gradients is implemented with multiple-dispatch. That is, when an instruction meets a \texttt{GVar} instance, it calls a different routine. For example, the backward rules for instructions \texttt{$\oplus(*)$} and \texttt{$\ominus(*)$} can be defined by overloading \textbf{either} of them as following.
 
-\begin{minipage}{.44\textwidth}
+\begin{minipage}{.88\columnwidth}
 \begin{lstlisting}[mathescape=true]
 @i function ⊖(*)(out!::GVar, x::GVar, y::GVar)
     value(out!) -= value(x) * value(y)
@@ -665,7 +668,7 @@ Since taking inverse and computing gradients commute to each other~\cite{Mcinern
 %, which increases the hyrachy by 1. Whenever the hyrachy increase by 1, the computational overhead doubles comparing with its irreversible counter part.
 One can check the correctness of this definition as follows.
 
-\begin{minipage}{.44\textwidth}
+\begin{minipage}{.88\columnwidth}
 \begin{lstlisting}[mathescape=true]
 julia> using NiLang, NiLang.AD
 
@@ -760,7 +763,7 @@ A Bessel function of the first kind of order $\nu$ can be computed using Taylor 
 \end{equation}
 where $\Gamma(n) = (n-1)!$ is the Gamma function. One can compute the accumulated item iteratively as $s_n = -\frac{z^2}{4} s_{n-1}$. The irreversible implementation is
 
-\begin{minipage}{.44\textwidth}
+\begin{minipage}{.88\columnwidth}
 \begin{lstlisting}
 function besselj(ν, z; atol=1e-8)
     k = 0
@@ -787,13 +790,13 @@ A computational graph is more likely a mathematical expression, and it can not d
     \centering
     \begin{subfigure}[t]{0.52\textwidth}
         \centering
-        \includegraphics[width=\columnwidth,trim={0 4cm 0 0cm},clip]{images/computational_graph.pdf}
+        \includegraphics[width=\textwidth,trim={0 4cm 0 0cm},clip]{images/computational_graph.pdf}
         \caption{}
     \end{subfigure}%
     ~
     \begin{subfigure}[t]{0.47\textwidth}
         \centering
-        \includegraphics[width=\columnwidth,trim={0 1cm 0 0cm},clip]{images/fig4.pdf}
+        \includegraphics[width=\textwidth,trim={0 1cm 0 0cm},clip]{images/fig4.pdf}
         \caption{}
     \end{subfigure}
     \caption{(a) The traditional computational graph for the irreversible implementation of the first kind Bessel function. A vertex (circle) is an operation, and a directed edge is a variable. The gray regions are the body of the unrolled while loop.
@@ -807,7 +810,7 @@ The above Bessel function contains a loop with irreversible ``\texttt{*=}'' oper
 Intuitively, consequtive multiplication requires an increasing size of tape to cache the intermediate state $s_n$, since one can not release state $s_{n-1}$ directly after computing $s_n$~\cite{Perumalla2013}.
 To reduce the memory allocation without increasing the time complexity of the program, we introduce the following reversible approximate multiplier.
 
-\begin{minipage}{.44\textwidth}
+\begin{minipage}{.88\columnwidth}
     \begin{lstlisting}[numberstyle=\scriptsize\color{gray},numbers=left,numbersep=8pt]
 @i @inline function imul(out!, x, anc!)
     anc! += out! * x
@@ -826,7 +829,7 @@ The ``approximate uncomputing'' trick can be extensively used in practice. It mi
 The reason why this trick works here lies in the fact that from the mathematics perspective the state in $n$th step $\{s_n, z\}$ contains the same amount of information as its previous state  $\{s_{n-1}, z\}$ except for some particular points, and it is highly possible to find an equation to uncompute the previous state from the current state.
 With this approximate multiplier, we implement $J_\nu$ as follows.
 
-\begin{minipage}{.44\textwidth}
+\begin{minipage}{.88\columnwidth}
 \begin{lstlisting}
 using NiLang, NiLang.AD
 
@@ -896,7 +899,7 @@ Hence we can apply the inverse routine \texttt{$\sim$B} to safely restore conten
 
 One can obtain gradients of this function by calling \texttt{ibesselj\textquotesingle}.
 
-\begin{minipage}{.44\textwidth}
+\begin{minipage}{.88\columnwidth}
 \begin{lstlisting}
 julia> out!, x = 0.0, 1.0
 (0.0, 1.0)
@@ -909,7 +912,7 @@ julia> ibesselj'(Val(1), out!, 2, x)
 Here, \texttt{ibesselj\textquotesingle} is a callable instance of type \texttt{Grad\{typeof(ibesselj)\}}. The first parameters \texttt{Val(1)} specifies the position of loss in argument list. 
 The Hessian can be obtained by feeding dual-numbers into this gradient function.
 
-\begin{minipage}{.44\textwidth}
+\begin{minipage}{.88\columnwidth}
 \begin{lstlisting}
 julia> out!, x = 0.0, 1.0
 (0.0, 1.0)
@@ -983,7 +986,7 @@ Source to source automatic differentiation is useful in differentiating sparse m
 In the following, we will show that reversible AD can differentiate the Frobenius dot product between two sparse matrices with the state-of-the-art performance. Here, the Frobenius dot product is defined as \texttt{trace(A'B)}.
 This following reversible implementation is adapted from the irreversible implementation in Julia package \texttt{SparseArrays}.
 
-\begin{minipage}{.44\textwidth}
+\begin{minipage}{.88\columnwidth}
 \begin{lstlisting}
 using SparseArrays
 
@@ -1040,7 +1043,7 @@ With simple adaptation, the code becomes reversible.
 Here, the key point is using a \texttt{branch\_keeper} vector to cache branch decisions.
 In the following example, we compare the time used in the forward pass and backward pass.
 
-\begin{minipage}{.44\textwidth}
+\begin{minipage}{.88\columnwidth}
 \begin{lstlisting}
 julia> using BenchmarkTools
 
@@ -1100,7 +1103,7 @@ One of the simplest ways to parametrize a unitary matrix is representing a unita
 \end{align}
 where \texttt{$\theta$} is the rotation angle, \texttt{a!} and \texttt{b!} are target registers.
 
-\begin{minipage}{.44\textwidth}
+\begin{minipage}{.88\columnwidth}
 \begin{lstlisting}[mathescape=true]
 using NiLang, NiLang.AD
 
@@ -1123,7 +1126,7 @@ end
 Here, the ancilla \texttt{k} is deallocated manually by specifying its value, because we know the loop size is $N(N-1)/2$.
 We define the test functions in order to check gradients.
 
-\begin{minipage}{.44\textwidth}
+\begin{minipage}{.88\columnwidth}
 \begin{lstlisting}[mathescape=true]
 julia> @i function test!(out!, x!::Vector, θ::Vector)
            umm!(x!, θ)
@@ -1169,7 +1172,7 @@ Notably, this reversible implementation costs zero memory allocation, although i
 Let us consider a naive implementation of QR decomposition from scratch.
 We admit this implementation is just a proof of principle which does not consider reorthogonalization and other practical issues.
 
-\begin{minipage}{.44\textwidth}
+\begin{minipage}{.88\columnwidth}
 \begin{lstlisting}
 using NiLang, NiLang.AD
 
@@ -1216,7 +1219,7 @@ The expression in $\sim$ is used to uncompute \texttt{ri}, \texttt{anc\_dot} and
 \texttt{dot} and \texttt{norm2} are reversible functions to compute dot product and vector norm.
 One can quickly check the correctness of the gradient function
 
-\begin{minipage}{.44\textwidth}
+\begin{minipage}{.88\columnwidth}
 \begin{lstlisting}
 julia> A  = randn(4,4);
 
@@ -1238,7 +1241,7 @@ Here, the loss function \texttt{test1} is defined as the sum of the output unita
 Graph embedding can be used to find representation for an order parameter~\cite{Takahashi2020} in condensed matter physics.
 \Ref{Takahashi2020} considers a problem of finding the minimum Euclidean space dimension $k$ that a Petersen graph can fit into, with extra requirements that the distance between a pair of connected vertices has the same value $l_1$, and the distance between a pair of disconnected vertices has the same value $l_2$ and $l_2 > l_1$.
 The Petersen graph is ten vertices graph, as shown in \Fig{fig:petersen}.\begin{figure}
-    \centerline{\includegraphics[width=0.6\columnwidth,trim={0 1cm 0 0},clip]{images/petersen.pdf}}
+    \centerline{\includegraphics[width=0.4\columnwidth,trim={0 1cm 0 0},clip]{images/petersen.pdf}}
     \caption{The Petersen graph has 10 vertices and 15 edges. We want to find a minimum embedding dimension for it.}\label{fig:petersen}
 \end{figure}
 Let us denote the set of connected and disconnected vertex pairs as $L_1$ and $L_2$, respectively. This problem can be variationally solved by differential programming by designing the subsequent loss.
@@ -1252,7 +1255,7 @@ The first line is a summation of distance variances in two sets of vertex pairs,
 The second line is used to guarantee $l_2 > l_1$, where $\overline{X}$ means taking the average of samples in $X$.
 Its reversible implementation is shown below.
 
-\begin{minipage}{.44\textwidth}
+\begin{minipage}{.88\columnwidth}
 \begin{lstlisting}
 using NiLang, NiLang.AD
 
@@ -1315,7 +1318,7 @@ end
 
 One can access the gradient by typing
 
-\begin{minipage}{.44\textwidth}
+\begin{minipage}{.88\columnwidth}
 \begin{lstlisting}
 julia> embedding_loss'(Val(1), 0.0, randn(5, 10))
 \end{lstlisting}
@@ -1323,7 +1326,7 @@ julia> embedding_loss'(Val(1), 0.0, randn(5, 10))
 
 One can also obtain the Hessian with the following function
 
-\begin{minipage}{.44\textwidth}
+\begin{minipage}{.88\columnwidth}
 \begin{lstlisting}
 using ForwardDiff: Dual, partials
 
@@ -1355,7 +1358,7 @@ Although training time is comparable, the converged precision of the later is mu
 \subsubsection{Benchmark}
 Since the ForwardDiff itself provides the Hessian for users, it is interesting to benchmark how much performance we can get by forward differentiating an adjoint program comparing with forward differentiating a forward AD program. In the following benchmark, we also compare other adjoint mode AD packages.
 \begin{figure}
-    \centerline{\includegraphics[width=\columnwidth,trim={0 0 0 0},clip]{images/fig7.pdf}}
+    \centerline{\includegraphics[width=0.8\columnwidth,trim={0 0 0 0},clip]{images/fig7.pdf}}
     \caption{The time used to (a) call/uncall, (b) compute gradients and (c) compute Hessians for the loss of the graph embedding problem.}\label{fig:bench-embedding}
 \end{figure}
 The benchmark is executed on CPU with the same setup as previous benchmarks.
@@ -1508,7 +1511,7 @@ The authors are supported by the National Natural Science Foundation of China un
 
 To define a reversible function one can use ``@i'' plus a standard function definition like bellow
 
-\begin{minipage}{.44\textwidth}
+\begin{minipage}{.88\columnwidth}
 \begin{lstlisting}[basicstyle=\small\ttfamily,columns=fullflexible]
 """
 docstring...
@@ -1532,11 +1535,12 @@ Dataview is a view of data. It can be a bijective mapping of an object, an item 
 
 \newpage
 
-\begin{minipage}{0.3\textwidth}
+\begin{minipage}{0.6\textwidth}
     \small
 \input{bnf.tex}
 \end{minipage}
 
+\pagebreak
 \section{Instructions and Backward Rules}\label{app:instr}
 
 \begin{table}[h!]\centering
@@ -1590,6 +1594,7 @@ The list of instructions implemented in NiLang
 For function $\vec{y} = f(\vec{x})$, its Jacobian is $J_{ij} = \frac{\partial y_i}{\partial x_j}$ and its Hessian is $H^k_{ij} = \frac{\partial y_k}{x_i x_j}$.
 We have the following local Jacobians and Hessians on the above instructions.
 
+\begin{multicols}{2}
 \begin{enumerate}
     \item $a \mathrel+= b$
 
@@ -1743,6 +1748,7 @@ In the following, we omit the Jacobians and Hessians of inverse functions.
     &H^b_{\theta\theta} = -b\cos\theta-a\sin\theta, else ~0
 \end{align*}
 \end{enumerate}
+\end{multicols}
 
 \section{Learn by consistency}\label{sec:train}
 Consider a training that with input $\vx^*$ and output $\vy^*$,
@@ -1780,7 +1786,7 @@ A similar idea of training by consistency is used in self-consistent mean-field 
 Finding the self-consistent relation is crucial to self-consistency based training. Here, the reversibility provides a natural self-consistency relation.
 However, it is not a silver bullet; let's consider the following example.
 
-\begin{minipage}{.44\textwidth}
+\begin{minipage}{.88\columnwidth}
 \begin{lstlisting}[basicstyle=\small\ttfamily,columns=fullflexible]
 @i function f1(y!, x, p!)
     p! += identity(x)
@@ -1818,7 +1824,7 @@ However, parameters in \texttt{f1} does not change at all.
 The training of \texttt{f1} fails because this function actually computes $\texttt{f1}(y, x, p) = y + e^{(p+x)} - e^{x}, x, x+p$, where the training parameter $p$ is completely determined by the parameter space on the output side $x \cup x+p$. As a result, shifting $y$ directly is the only approach to satisfy the consistency relation. On the other side, $\texttt{f2}(y, x, p) = y + e^{(p+x)} - e^x, \tilde{0}, x+p$, the output parameters $\tilde{0} \cup x+p$ can not uniquely determine input parameters $p$ and $x$. Here, we use $\tilde{0}$ to denote the zero with rounding error.
 
 \begin{figure}
-    \centerline{\includegraphics[width=0.9\columnwidth,trim={0 0.3cm 0 0},clip]{images/fig1.pdf}}
+    \centerline{\includegraphics[width=0.6\columnwidth,trim={0 0.3cm 0 0},clip]{images/fig1.pdf}}
     \caption{The output value \texttt{y!} as a function of self-consistent training step.}\label{fig:invtrain}
 \end{figure}
 
@@ -1847,7 +1853,7 @@ Besides, the Fibonacci example is often used in a reversible language as a tutor
 
 We list the functions used in \Sec{sec:example} as bellow.
 
-\begin{minipage}{.44\textwidth}
+\begin{minipage}{.88\columnwidth}
 \begin{lstlisting}
 """
 get the summation of an array.
@@ -1915,7 +1921,7 @@ end
 CUDA programming is playing a more and more significant role in high-performance computing. In Julia, one can write kernel functions in native Julia language with CUDAnative~\cite{Besard2018}.
 NiLang is compatible with CUDAnative and KernelAbstractions~\cite{KernelAbstractions}, and one can write a reversible kernel like the following.
 
-\begin{minipage}{.44\textwidth}
+\begin{minipage}{.88\columnwidth}
 \begin{lstlisting}
 using CuArrays, CUDAnative, GPUArrays
 using NiLang, NiLang.AD
@@ -1941,7 +1947,7 @@ This kernel function simulates the SWAP gate in quantum computing.
 Here, one must use the macro \texttt{@invcheckoff} to turn off the reversibility checks. It is necessary because the possible error thrown in a kernel function can not be handled on a CUDA kernel.
 One can launch this kernel function to GPUs with a single macro \texttt{@cuda}, as shown in the following using case.
 
-\begin{minipage}{.44\textwidth}
+\begin{minipage}{.88\columnwidth}
 \begin{lstlisting}
 julia> @i function instruct!(state::CuVector,
             gate::Val{:SWAP}, locs::Tuple{Int,Int})
@@ -1970,7 +1976,7 @@ julia> instruct!(CuArray(randn(8)),
 One can also write kernels with KernelAbstaction. It solves many compatibility issues related to different function calls on GPU and CPU.
 
 
-\begin{minipage}{.44\textwidth}
+\begin{minipage}{.88\columnwidth}
 \begin{lstlisting}
 @i @kernel function swap_kernel2(state, mask1, mask2)
     @invcheckoff begin
@@ -1993,7 +1999,7 @@ The second parameter is the block size.
 The third parameter is the number of threads.
 The last parameter is a kernel function call to be launched.
 
-\begin{minipage}{.44\textwidth}
+\begin{minipage}{.88\columnwidth}
 \begin{lstlisting}
 julia> @i function instruct!(state::CuVector,
             gate::Val{:SWAP}, locs::Tuple{Int,Int})
@@ -2023,7 +2029,7 @@ julia> instruct!(CuArray(randn(8)),
 \section{Computing Fibonacci Numbers}\label{app:fib}
 The following is an example that everyone likes, computing Fibonacci number recursively.
 
-\begin{minipage}{.44\textwidth}
+\begin{minipage}{.88\columnwidth}
     \begin{lstlisting}
 using NiLang
 
@@ -2050,7 +2056,7 @@ end
 The time complexity of this recursive algorithm is exponential to input \texttt{n}. It is also possible to write a reversible linear time with for loops.
 A slightly non-trivial task is computing the first Fibonacci number that greater or equal to a certain number $z$, where a \texttt{while} statement is required.
 
-\begin{minipage}{.44\textwidth}
+\begin{minipage}{.88\columnwidth}
 \begin{lstlisting}
 @i function rfibn(n!, z)
     @safe @assert n! == 0
@@ -2069,7 +2075,7 @@ end
 In this example, the postcondition \texttt{n!=0} in the \texttt{while} statement is false before entering the loop, and it becomes true in later iterations. In the reverse program, the \texttt{while} statement stops at \texttt{n==0}.
 If executed correctly, a user will see the following result.
 
-\begin{minipage}{.44\textwidth}
+\begin{minipage}{.88\columnwidth}
 \begin{lstlisting}
 julia> rfib(0, 10)
 (55, 10)
@@ -2087,7 +2093,7 @@ This example shows how an addition postcondition provided by the user can help t
 \section{Alternative approaches to Obtain Hessian}\label{app:hessian}
 This function itself is reversible and differentiable. Hence one can back-propagate this function to obtain Hessians as introduced in \Sec{sec:simplehessian}. In NiLang, it is implemented as \texttt{hessian\_backback}.
 
-\begin{minipage}{.44\textwidth}
+\begin{minipage}{.88\columnwidth}
 \begin{lstlisting}
 julia> hessian_backback(ibesselj, (0.0, 2, 1.0);
             iloss=1)
@@ -2099,7 +2105,7 @@ julia> hessian_backback(ibesselj, (0.0, 2, 1.0);
 \end{minipage}
 
 \begin{figure}[h]
-    \centerline{\includegraphics[width=\columnwidth,trim={0 1cm 0cm 1cm},clip]{images/simplehessian.pdf}}
+    \centerline{\includegraphics[width=0.6\columnwidth,trim={0 1cm 0cm 1cm},clip]{images/simplehessian.pdf}}
     \caption{Data flow in obtaining second-order gradients by backward differentiating the adjoint program. Annotations on lines are data types used in the computation.}\label{fig:simplehessian}
 \end{figure}
 
@@ -2107,7 +2113,7 @@ julia> hessian_backback(ibesselj, (0.0, 2, 1.0);
 
 To obtain Hessians, we can also use the Hessian propagation approach as introduced in \Sec{sec:taylor}.
 
-\begin{minipage}{.44\textwidth}
+\begin{minipage}{.88\columnwidth}
 \begin{lstlisting}
 julia> hessian_propagate(ibesselj, (0.0, 2, 1.0); iloss=1)
 (BeijingRing{Float64}(0.0, 1.0, 1), 2,
