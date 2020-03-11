@@ -33,9 +33,9 @@ class PLT(object):
             edge >> (a, b)
 
     def fig3(self, tp='pdf'):
-        zydata = np.loadtxt("../codes/zygote.dat")
-        nidata = np.loadtxt("../codes/nilang.dat")
-        rawdata = np.loadtxt("../codes/forward.dat")
+        zydata = np.loadtxt("codes/zygote.dat")
+        nidata = np.loadtxt("codes/nilang.dat")
+        rawdata = np.loadtxt("codes/forward.dat")
         L = len(zydata)
         tfdata = np.zeros(L)
         torchdata = np.zeros(L)
@@ -670,7 +670,7 @@ class PLT(object):
             plt.text(4.7, 0, "(b)", fontsize=14)
 
     def fig7(self, tp='pdf'):
-        data = np.loadtxt("../codes/bench_graphembedding.dat")/1000
+        data = np.loadtxt("codes/bench_graphembedding.dat")/1000
         plt.rcParams['xtick.labelsize'] = 12
         plt.rcParams['ytick.labelsize'] = 12
         with DataPlt(filename="fig7.%s"%tp, figsize=(8,4)) as dp:
@@ -709,7 +709,7 @@ class PLT(object):
             plt.tight_layout()
 
     def fig8(self, tp='pdf'):
-        data = np.loadtxt("../codes/bench_graphembedding.dat")/1000
+        data = np.loadtxt("codes/bench_graphembedding.dat")/1000
         plt.rcParams['xtick.labelsize'] = 14
         plt.rcParams['ytick.labelsize'] = 14
         with DataPlt(filename="fig7.%s"%tp, figsize=(7,6)) as dp:
