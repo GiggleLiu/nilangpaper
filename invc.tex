@@ -1419,14 +1419,28 @@ As an eDSL, one has an alternative to deallocate the memory irreversibly outside
 %The point it, an reversible Turing Machine is able to trade space with time.
 %In some cases, it may cause polynomial overhead than its irreversible counterpart.
 
-\subsection{Instructions and Hardwares}\label{sec:hardware}
+\subsection{Differentiability as a Hardware Feature}\label{sec:hardware}
+
+\begin{figure}
+    \centerline{\includegraphics[width=0.8\columnwidth,trim={0 0cm 0 0cm},clip]{hardware.pdf}}
+    \caption{Energy efficient AI co-processor. Green arrows represents energy efficient operations on reversible devices.}\label{fig:hardware}
+\end{figure}
 %Todays CPU are starving, that is, the memory access is the performance bottleneck in many applications rather than the arithmetic operations.
 %There is a natural granularity for operations with memory access or not.
 So far, our eDSL is compiled to Julia.
 In the future, it can be compiled to reversible instructions~\cite{Vieri1999} and executed on a reversible device.
 %For example, the control flow defined in this NiLang can be compiled to reversible instructions like reversible \texttt{goto} instruction, where
 %the target instruction can be a \texttt{comefrom} instruction that specifing the postcondition.
-However, arithmetic instructions should be redesigned to support better reversible programs.
+We propose a reversible-irreversible hetero-structural hardware design for differential programming, where a reversile device plays the role of energy efficient gradient provider. A reversible device defines a reversible instruction set. It has a switch that controls whether the instruction calls a normal instruction or an instruction that also updates gradients.
+As show in \Fig{fig:hardware}, when a program calls a reversible routine, the reversible program is compiled to a reversible instruction set.
+The reversible co-processor reads the instruction set forward with gradient switch off, and copy the result to global memory.
+Then it reads the instruction set backward and uncall each instruction with gradient switch on.
+Since the gradient switch is on, it opens a new space for gradient updating.
+After reaching the starting of the program, the gradient is computed, we copy the desired parts to global memory.
+With the output and gradient information, the main processor can keep going, while the reversible co-processor has to uncompute the process of obtaining gradients to clean up the gradient tape.
+The whole process of obtaining gradients does not have a lower bound of energy consumption.
+
+We still face challenges to support reversible hardwares. One of the most challenging one is arithmetic instructions should be redesigned to support better reversible programs.
 The major obstacle to exact reversibility programming is the current floating-point adders and multipliers used in our computing devices are not exactly reversible.
 There are proposals of reversible floating point adders and multipliers, however these designs require allocating garbage bits in each operation~\cite{Nachtigal2010,Nachtigal2011,Nguyen2013,Hner2018}.
 %, which is not too different from the information buffer approach~\cite{Maclaurin2015}.
