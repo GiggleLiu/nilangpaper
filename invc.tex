@@ -952,12 +952,13 @@ In the benchmark, the CPU device is Intel(R) Xeon(R) CPU E5-2680 v4 @ 2.40GHz, a
             NiLang.AD (GPU) & Adjoint & 1.4 & 0\\
             ReverseDiff & Adjoint & 9121 & 7.3\\
             Zygote & Adjoint & 31201 & 13.47\\
-            %Tapenade & Adjoint & ? & ?\\
+            Tapenade & Adjoint & ? & ?\\
             \hline
             \bottomrule
         \end{tabularx}
     }
     \caption{Time and space used for computing gradients of the first kind Bessel function $J_2(1.0)$.
+    \blue{@MLS, Please fill the Tapenade benchmark here, and add some comments bellow.}
 }\label{tbl:besselj}
 \end{minipage}
 \end{table}
@@ -1423,7 +1424,7 @@ As an eDSL, one has an alternative to deallocate the memory irreversibly outside
 
 \begin{figure}
     \centerline{\includegraphics[width=0.8\columnwidth,trim={0 0cm 0 0cm},clip]{hardware.pdf}}
-    \caption{Energy efficient AI co-processor. Green arrows represents energy efficient operations on reversible devices.}\label{fig:hardware}
+    \caption{Energy efficient AI co-processor. Green arrows represents energy efficient operations on reversible devices. Dashed lines does not occupy the CPU time.}\label{fig:hardware}
 \end{figure}
 %Todays CPU are starving, that is, the memory access is the performance bottleneck in many applications rather than the arithmetic operations.
 %There is a natural granularity for operations with memory access or not.
