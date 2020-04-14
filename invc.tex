@@ -167,6 +167,7 @@
 \newcommand{\xgreen}[1]{[{\bf  \color{green}{\sout{TZ: #1}}}]}
 \newcommand{\xblue}[1]{[{\bf  \color{blue}{\sout{JG: #1}}}]}
 \newcommand{\material}[1]{\iffalse[{\bf  \color{cyan}{Material: #1}}]\fi}
+\newcommand{\orange}[1]{\iffalse[{\bf  \color{orange}{Jo: #1}}]\fi}
 
 \newtheorem{theorem}{\textit{Theorem}}
 \theoremstyle{definition}\newtheorem{definition}{\textit{Definition}}
@@ -174,7 +175,7 @@
 \makeatother
 
 \begin{document}
-\title{Differentiate Everything with a Reversible Programming Language}
+\title{Differentiate Everything with a Reversible Domain-Specific Language}
 
 \author{Jin-Guo Liu\\
 Institute of Physics, Chinese Academy of Sciences,\\Beijing 100190, China\\
@@ -278,7 +279,7 @@ There have not been any reversible eDSL in Julia before, but there have been man
     In a modern programming language, functions are pushed to a global stack for scheduling. The memory layout of a function consists of input arguments, a function frame with information like the return address and saved memory segments, local variables, and working stack. After the call, the function clears run-time information, only stores the return value. In reversible programming, this kind of design is no longer the best practice. One can not discard input variables and local variables easily after a function call, since discarding information may ruin reversibility. For this reason, reversible functions are very different from irreversible ones from multiple perspectives.
 
 \subsubsection{Memory management}
-    The critical difference between reversible and irreversible memory management is whether the content of a variable that is going to be discarded in a reversible program must be known.
+    A distinct feature of reversible memory management is, the content of a variable must be known when it is deallocated.
     We denote the allocation of a zero emptied memory as \texttt{x $\leftarrow$ 0}, and the corresponding deallocation as \texttt{x $\rightarrow$ 0}.
     A variable $x$ can be allocated and deallocated in a local scope, which is called an ancilla.
     It can also be pushed to a stack and used later with a pop statement.
@@ -354,7 +355,7 @@ end
 \end{lstlisting}
 \end{minipage}
 
-Here, macro \texttt{@i} generates three functions \texttt{f}, \texttt{$\sim$f} and \texttt{NiLangCore.isreversible}. \texttt{f} and \texttt{$\sim$f} are a pair of functions that are reversbile to each other, where \texttt{$\sim$f} is an callable of type \texttt{Inv\{typeof(f)\}}.
+Here, macro \texttt{@i} generates three functions \texttt{f}, \texttt{$\sim$f} and \texttt{NiLangCore.isreversible}. \texttt{f} and \texttt{$\sim$f} are a pair of functions that are reversbile to each other, where \texttt{$\sim$f} is an callable of type \texttt{Inv\{typeof(f)\}} and the type parameter \texttt{typeof(f)} stands for th type of the function \texttt{f}.
 In the body of \texttt{f}, \texttt{NiLangCore.wrap\_tuple} is used to unify output data types to tuples.
 The outputs of \texttt{SWAP} are assigned back to its input variables. In other words, it simulates a function that modifies inputs inplace.
 At the end of this function, this macro attaches a return statement that returns all input variables.
@@ -379,7 +380,7 @@ Any statement in this IR has a unique inverse, as shown in \Tbl{tbl:revstatement
             \hline
             \texttt{<y> $\veebar$= <f>(<args>...)} & \texttt{<y> $\veebar$= <f>(<args>...)}\\
             \hline
-            \texttt{<y> .$\veebar$= <f>(<args>...)} & \texttt{<y> .$\veebar$= <f>(<args>...)}\\
+            \texttt{<y> .$\veebar$= <f>.(<args>...)} & \texttt{<y> .$\veebar$= <f>.(<args>...)}\\
             \hline
             \texttt{<a> $\leftarrow$ <expr>} & \texttt{<a> $\rightarrow$ <expr>}\\
             \hline
@@ -419,8 +420,10 @@ A \texttt{if} or \texttt{while} statement is similar to its native Julia counter
 %A function call in NiLang supports Julia's broadcasting magic, a function defined on scalars can be broadcasted to vectors by adding a ``.'' after the function call.
 %\texttt{$\rightarrow$} will be added automatically.
     %The additional check underlines the difference between the irreversible assign statement and reversible ancilla statement.
-Finally, the macro \texttt{@safe} allows users to use external statements that do not break reversibility.
+Finally, we allow users to put an irreversible external statements inside a reversible context by putting a macro \texttt{@safe} in front of it.
+This statement is not a standard reversible statement, but provides convenience.
 For example, one can use \texttt{@safe @show <var>} for debugging.
+Although printing is not reversible, it does not affect the reversibility of other statements too.
 
 \subsection{Compiling}
 The compilation of a reversible function contains three stages.
@@ -643,7 +646,7 @@ The algorithm to compute the adjoint mode AD can be summarized as follows.
 \end{algorithm}
 
 We first compute the results with the forward pass $f(x)$.
-Then we wrap each output with a gradient field. The gradient field is initialized to 1 if the variable is the loss else 0. Then we run the backward pass $f^{-1}(x)$ to update the gradient fields of variables.
+Then we wrap each output with a gradient field. $\delta_{k, \rm iloss}$ is the Diract delta notation, which mean the gradient field is initialized to 1 if the variable is the loss else 0. Then we run the backward pass $f^{-1}(x)$ to update the gradient fields of variables.
 The gradients can be accessed using the $\grad$ dataview of output variables.
 %Its inverse \texttt{$\sim$GVar} deallocates the gradient field safely and returns its value field.  Here, "safely" means before deallocation, the program will check the gradient field to make sure its value is restored to $0$.
 %When an instruction \texttt{instruct} meets a \texttt{GVar}, besides computing its value field $\vvalue(\vy) = \texttt{instruct}(\vvalue(\vx))$, it also updates the gradient field $\grad(\vy) = \left[J^{\vy}_{\vx}\right]^{-1} \grad(\vx)$, where $\left[J^{\vy}_{\vx}\right]^{-1}$ is the Jacobian of $\texttt{instruct}^{-1}$. One can define this gradient function on either \texttt{instruct} or \texttt{instruct${}^{-1}$}.
@@ -873,7 +876,7 @@ end
 \end{lstlisting}
 \end{minipage}
 
-Here, the definition of \texttt{ifactorial} could be found in the appendix. Only a finite number of ancillas used, while the time complexity does not increase compared to its irreversible counterpart.
+Here, the definition of \texttt{ifactorial} could be found in the appendix. Comparing with it irreversible counterpart, the number of additional ancillas is a constant, while the time overhead factor is also a constant.
 Ancilla \texttt{anc4} plays the role of \textit{dirty ancilla} in multiplication, and it is uncomputed rigorously in the uncomputing stage marked by \texttt{$\sim$@routine}.
 %The \texttt{while} statement takes two conditions, the precondition and postcondition. Precondition \texttt{val(anc1) > atol} indicates when to break the forward pass and postcondition \texttt{iplus != 0} indicates when to break the backward pass.
 
@@ -964,7 +967,7 @@ In the benchmark, the CPU device is Intel(R) Xeon(R) CPU E5-2680 v4 @ 2.40GHz, a
 \end{table}
 
 In the table, Julia is the CPU time used for running the irreversible forward program. It is the baseline for benchmarking.
-NiLang (call/uncall) is the time of reversible call or uncall. Both of them are 2.8 times slower than its irreversible counterpart. Here, we have removed the reversibility check. Otherwise, it will take more time than this. One can always turn off this check after ruling out possible bugs.
+NiLang (call/uncall) is the time of reversible call or uncall. Both of them are 2.8 times slower than its irreversible counterpart. Here, we have removed the reversibility check to avoid overheads. One can always turn off this check after ruling out possible bugs.
 ForwardDiff gives the best performance, and we repeatedly checked and confirmed it really did the computation.
 It is even faster than manually derived gradients
 \begin{equation}
@@ -1403,7 +1406,7 @@ The checkpointing in many iterative algorithms can often be avoided with the ``a
 
 As shown in \Fig{fig:ccu}, clever compiling based on memory oriented computational graphs can also be used to help user tradeoff between time and space.
 Often, when we define a new reversible function, we allocate some ancillas at the beginning of the function and deallocate them through uncomputing at the end.
-The overhead comes from the uncomputing. In the worst case, the time used for uncomputing can be the same as the forward pass.
+The overhead comes from the uncomputing. In the worst case, the time used for uncomputing can be the same as the normal call.
 In a hierarchical design, uncomputing can appear in every layer of the abstraction. To quantify the overhead of uncomputing, we introduce the term program granularity as bellow.
 \begin{definition}[program granularity]
     The log-ratio between the execution time of a reversible program and its irreversible counterpart.
@@ -1447,7 +1450,7 @@ There are proposals of reversible floating point adders and multipliers, however
 %, which is not too different from the information buffer approach~\cite{Maclaurin2015}.
 %In other words, to represent a 64 bit floating point number requires more than 64 bits in storage. Reversible multiplier is also possible in similar approach.~\cite{Nachtigal2010} 
 %With floating point numbers, rigorous reversible arithematic designs without using information buffer or garbage qubits is nearly impossible.
-Alternatives include fixed point numbers~\cite{FixedPointNumbers} and logarithmic numbers~\cite{Taylor1988,LogarithmicNumbers}, where logarithmic number system is reversible under \texttt{*=} and \texttt{/=}.
+Alternatives include fixed point numbers~\cite{FixedPointNumbers} and logarithmic numbers~\cite{Taylor1988,LogarithmicNumbers}, where logarithmic number system is reversible under \texttt{*=} and \texttt{/=} but not addition and subtraction.
 We also need instructions like \texttt{comefrom} as a partener of \texttt{goto}.
 Many people know \texttt{comefrom} from the joke~\cite{COMEFROM}~\footnote{I heard this joke from Damian Steiger when we were discussing his quantum simulation paper~\cite{Haner2017}.} to complaint people who use \texttt{goto} frequently.
 It turns out to be necessary for compiling a reversible program.
@@ -1455,14 +1458,14 @@ It turns out to be necessary for compiling a reversible program.
 %Reversible programming is not nessesarily related to reversible hardwares.
 %Reversible programs is a subset of irreversible programs, hence can be simulated efficiently on traditional CMOS devices~\cite{Vieri1999}.
 %Reversible programming just provides an alternative to execute on an energy efficient reversible hardwares.
-Reversible instructions can be executed on energy-efficient reversible hardware.
+Reversible instructions could be executed on energy-efficient reversible hardware.
 In the introduction, we mentioned several reversible hardware. Reversible hardware can be devices supporting reversible gates like the Toffoli gate and the Fredkin gate, or devices like an adiabatic CMOS with the ability to recover signal energy. The latter is known as the generalized reversible computing~\cite{Frank2005,Frank2017b}.
 It is already a better choice as the computing device in a spacecraft~\cite{Debenedictis2017}.
 Since reversible programming is an exceptional platform for differential programming, building an energy-efficient artificial intelligence (AI) coprocessors would be also a promising direction.
 %Since reversible computing is mainly driven by quantum computing in recent years.
 %In the following, we comment briefly on quantum devices.
 
-The development of reversible compiling theory can benefit quantum compiling directly, as it bridges classical computing and quantum computing.
+The development of reversible compiling theory can benefit quantum compiling~\cite{Chong2017} directly, as it bridges classical computing and quantum computing.
 Building a universal quantum computer~\cite{Nielsen2002} is difficult. 
 The difficulty lies in the fact that it is hard to protect a quantum state.
 Unlike a classical state, a quantum state can not be cloned. Meanwhile, it loses information by interacting with the environment.
@@ -1493,7 +1496,7 @@ Writing a reversible control program should boost training performance.
 Reversibility is also a valuable resource for training.
 We show the potential of self-consistent training in \App{sec:train}.
 
-To solve the above problems better, people can improve reversible programming from multiple perspectives.
+To solve the above problems better, people can improve reversible programming from multiple perspectives.\orange{Unless the underlying CPU arch would be reversible, which is not}
 First, we need a better compiler suited for compiling reversible programs. It can decrease the uncomputing overheads automatically for us.
 A better compiler can also help to avoid the problem of shared memory write problem on GPU when computing gradients.
 Then, we need a number system to avoid rounding errors. Currently, we can simulate rigorous reversible arithmetics with the fixed-point number package~\cite{FixedPointNumbers,LogarithmicNumbers}. A more efficient fixed point or log number operations requires instruction-level design.
@@ -1507,8 +1510,9 @@ These improvements need the participation of people from multiple fields.
 %it is interesting to see how quantum simulator can improve the instruction design. Notice a quantum fourier transformation (QFT) based quantum adder and multiplier is sometimes more efficient than a classical adder~\cite{Haener2018} \blue{Is this true?}.
 %This could be used to reduce the momory cost in normalizing flow, time-reversible integrator, recurrent neural network and residual neural network.
 
-\section{acknowledgments}
+\section{Acknowledgments}
 Jin-Guo Liu thank Lei Wang for motivating the project with possible applications to reversible integrator, normalizing flow, and neural ODE.
+Johann-Tobias Schäg for deepening the discussion about reversible programming with his mathematicians head.
 Marisa Kiresame and Xiu-Zhe Luo for discussion on the implementation details of source-to-source automatic differentiation,
 Shuo-Hui Li for helpful discussion on differential geometry, Tong Liu and An-Qi Chen for helpful discussion on quantum adders and multipliers, Ying-Bo Ma for correcting typos by submitting pull requests, Chris Rackauckas for helpful discussion on reversible integrator, Mike Innes for reviewing the comments about Zygote, Jun Takahashi for discussion about the graph embedding problem, Simon Byrne and Chen Zhao for helpful discussion on floating-point and logarithmic numbers.
 The authors are supported by the National Natural Science Foundation of China under Grant No.~11774398, the Strategic Priority Research Program of Chinese Academy of Sciences Grant No.~XDB28000000.
