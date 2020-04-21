@@ -4,7 +4,8 @@ using NiBundleAdjustment: vec2cam, vec2scam, compute_reproj_err
 using StaticArrays
 
 function load(b, n, m, p)
-    dir_in = joinpath(dirname(dirname(@__FILE__)), "data", "ba")
+    #dir_in = joinpath(dirname(dirname(@__FILE__)), "data", "ba")
+    dir_in = joinpath(homedir(), "jcode", "ADBench", "data", "ba")
     fn = "ba$(b)_n$(n)_m$(m)_p$(p)"
     fn_in = joinpath(dir_in, fn)
     NiBundleAdjustment.read_ba_instance(string(fn_in,".txt"))
@@ -16,7 +17,7 @@ for case in cases
     suite[case] = BenchmarkGroup()
 end
 
-arglist = [(4,372,47423,204472)]
+arglist = [(1,49,7776,31843), (4,372,47423,204472), (7,93,61203,287451), (10,1197,126327,563734), (13,245,198739,1091386), (16,1544,942409,4750193), (19,4585,1324582,9125125)]
 for args in arglist
     cams, X, w, obs, feats = load(args...)
     CAMS = [vec2cam(cams[:,i]) for i = 1:size(cams,2)]

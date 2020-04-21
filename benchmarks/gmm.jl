@@ -3,7 +3,8 @@ using NiGaussianMixture
 using ForwardDiff
 
 function load(d, k)
-    dir_in = joinpath(dirname(dirname(@__FILE__)), "data", "gmm")
+    #dir_in = joinpath(dirname(dirname(@__FILE__)), "data", "gmm")
+    dir_in = joinpath(homedir(), "jcode/ADBench", "data", "gmm")
     dir_out = dirname(@__FILE__)
     fn = joinpath("10k", "gmm_d$(d)_K$k")
 
@@ -26,7 +27,14 @@ for case in cases
     suite[case] = BenchmarkGroup()
 end
 
-arglist = [(10, 5)]
+for d = [2, 10, 20, 32, 64, 128], K = [5, 10, 25, 50, 100, 200]
+    args = (d, K)
+    alphas, means, icf, x, wishart = load(args...)
+    params = NiGaussianMixture.pack(alphas,means,icf)
+    println(d, " ", K, ", nparams = $(length(params))")
+end
+
+arglist = [(2, 5), (10, 5), (2, 200), (10, 50), (64, 5), (64, 10), (64, 25), (64, 200)]
 for args in arglist
     alphas, means, icf, x, wishart = load(args...)
     params = NiGaussianMixture.pack(alphas,means,icf)
@@ -35,7 +43,7 @@ for args in arglist
     suite["Julia"][args] = @benchmarkable gmm_objective($alphas,$means,$icf,$x,$wishart)
     suite["NiLang"][args] = @benchmarkable gmm_objective(0.0, $alphas,$means,$icf,$x,$wishart)
 
-    if length(params) < 1000
+    if length(params) < 5000
         fobj = get_fdobjective(x, wishart, size(x, 1), size(alphas, 2))
         suite["ForwardDiff"][args] = @benchmarkable ForwardDiff.gradient($fobj, $(params))
     end
@@ -50,7 +58,9 @@ function analyze_res(res)
     times = zeros(length(arglist), length(cases))
     for (k, term) in enumerate(cases)
         for (i,args) in enumerate(arglist)
-            times[i,k] = minimum(res[term][args].times)
+	    if haskey(res[term], args)
+            	times[i,k] = minimum(res[term][args].times)
+            end
         end
     end
     return times
