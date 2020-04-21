@@ -1374,6 +1374,28 @@ Comparing with other adjoint mode AD packages ReverseDiff and Zygote, NiLang is 
 
 \section{Benchmark}
 
+We reproduced the benchmarks for Gaussian mixture model (GMM) and bundle adjustment (BA) in ~\cite{Srajer2018} by re-writting the programs in a reversible way, and show the results bellow.
+
+\begin{table}[h!]\centering
+    \scriptsize
+\begin{minipage}{\columnwidth}
+\ra{1.3}
+    \scalebox{1.0}{
+        \begin{tabularx}{\textwidth}{bssssssss}\toprule
+            \textbf{\# parameters} & 3.00e+1 & 3.30e+3 & 1.20e+3 & 3.30e+3 & 1.07e+4 & 2.15e+4 & 5.36e+4 & 4.29e+5\\
+            \hline
+            Julia       & 9.189e-03 & 1.193e-02 & 2.494e-01 & 8.618e-02 & 3.523e-02 & 7.641e-02 & 2.254e-01 & 3.404e+00\\
+            NiLang      & 1.657e-02 & 5.009e-02 & 4.902e-01 & 4.625e-01 & 3.036e-01 & 6.095e-01 & 1.594e+00 & 1.529e+01\\
+            ForwardDiff & 3.360e-02 & 1.240e+00 & 3.984e+01 & 1.429e+02 & -         & -         & -         &  -       \\
+            NiLang.AD   & 3.510e-02 & 1.136e-01 & 1.064e+00 & 1.066e+00 & 1.700e+00 & 3.328e+00 & 8.643e+00 & 7.354e+01\\
+            \hline
+            \bottomrule
+        \end{tabularx}
+    }
+    \caption{Absolute runtimes for GMM with 10k data points.}\label{tbl:interp}
+\end{minipage}
+\end{table}
+
 \begin{table}[h!]\centering
     \scriptsize
 \begin{minipage}{\columnwidth}
@@ -1395,25 +1417,6 @@ Comparing with other adjoint mode AD packages ReverseDiff and Zygote, NiLang is 
 \end{table}
 
 
-\begin{table}[h!]\centering
-    \scriptsize
-\begin{minipage}{\columnwidth}
-\ra{1.3}
-    \scalebox{1.0}{
-        \begin{tabularx}{\textwidth}{bssssssss}\toprule
-            \textbf{\# parameters} & 3.00e+1 & 3.30e+3 & 1.20e+3 & 3.30e+3 & 1.07e+4 & 2.15e+4 & 5.36e+4 & 4.29e+5\\
-            \hline
-            Julia       & 9.189e-03 & 1.193e-02 & 2.494e-01 & 8.618e-02 & 3.523e-02 & 7.641e-02 & 2.254e-01 & 3.404e+00\\
-            NiLang      & 1.657e-02 & 5.009e-02 & 4.902e-01 & 4.625e-01 & 3.036e-01 & 6.095e-01 & 1.594e+00 & 1.529e+01\\
-            ForwardDiff & 3.360e-02 & 1.240e+00 & 3.984e+01 & 1.429e+02 & -         & -         & -         &  -       \\
-            NiLang.AD   & 3.510e-02 & 1.136e-01 & 1.064e+00 & 1.066e+00 & 1.700e+00 & 3.328e+00 & 8.643e+00 & 7.354e+01\\
-            \hline
-            \bottomrule
-        \end{tabularx}
-    }
-    \caption{Absolute runtimes for GMM with 10k data points.}\label{tbl:interp}
-\end{minipage}
-\end{table}
 
 \section{Discussion and outlook}\label{sec:discussion}
 In this paper, we show how to realize a reversible programming eDSL and how to implement source-to-source adjoint mode AD on top of it.

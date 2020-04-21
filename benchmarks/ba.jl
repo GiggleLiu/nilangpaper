@@ -21,11 +21,15 @@ arglist = [(1,49,7776,31843), (4,372,47423,204472), (7,93,61203,287451), (10,119
 for args in arglist
     cams, X, w, obs, feats = load(args...)
     CAMS = [vec2cam(cams[:,i]) for i = 1:size(cams,2)]
+    SCAMS = [vec2scam(cams[:,i]) for i = 1:size(cams,2)]
     XX = [P3(X[:,i]...) for i=1:size(X,2)]
     FEATS = [P2(feats[:,1]...) for i=1:size(feats, 2)]
-    suite["Julia"][args] = @benchmarkable compute_reproj_err($(vec2scam(cams[:,1])), $(X[:,1]), $(w[1]), $(feats[:,1]))
-    suite["NiLang"][args] = @benchmarkable compute_reproj_err($(P2(0.0, 0.0)), $(P2(0.0, 0.0)),
-        $(CAMS[1]), $(XX[1]), $(w[1]), $(FEATS[1]))
+    suite["Julia"][args] = @benchmarkable NiBundleAdjustment.ba_objective($SCAMS, $X, $w, $obs, $feats)
+    reproj_err! = zeros(P2{Float64}, size(feats, 2))
+    w_err! = zero(w)
+    reproj_err_cache! = zeros(P2{Float64}, size(feats, 2))
+    suite["NiLang"][args] = @benchmarkable NiBundleAdjustment.ba_objective!($reproj_err!, $w_err!,
+                $reproj_err_cache!, $CAMS, $XX, $w, $obs, $FEATS)
     suite["ForwardDiff"][args] = @benchmarkable compute_ba_J(Val(:ForwardDiff), $cams, $X, $w, $obs, $feats)
     suite["NiLang-AD"][args] = @benchmarkable compute_ba_J(Val(:NiLang), $CAMS, $XX, $w, $obs, $FEATS)
 end
