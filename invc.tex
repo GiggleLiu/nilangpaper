@@ -42,6 +42,8 @@
 \usepackage{txfonts}
 \usepackage[epsilon, tsrm, altpo]{backnaur}
 
+\newcolumntype{b}{X}
+\newcolumntype{s}{>{\hsize=.7\hsize}X}
 \usepackage{listings}
 \lstset{
     language=Julia,
@@ -1369,6 +1371,49 @@ As the baseline, (a) shows the time for computing the 0th-order gradient, or the
 (b) shows the time for computing the first-order gradients. The reversible program shows the advantage of obtaining gradients when the dimension $k \geq 3$. The larger the number of inputs, the more advantage it shows due to the overhead proportional to input size in tangent mode AD.
 The same reason applies to computing Hessians. The mixed-mode AD gives better performance when $k \geq 3$ comparing with pure tangent mode AD.
 Comparing with other adjoint mode AD packages ReverseDiff and Zygote, NiLang is approximately one order more efficient for the same reason we discussed in \Sec{sec:bessel}.
+
+\section{Benchmark}
+
+\begin{table}[h!]\centering
+    \scriptsize
+\begin{minipage}{\columnwidth}
+\ra{1.3}
+    \scalebox{1.0}{
+        \begin{tabularx}{\textwidth}{bsssssss}\toprule
+            \textbf{\# measurements} & 3.18e+4 & 2.04e+5 & 2.87e+5 & 5.64e+5 & 1.09e+6 & 4.75e+6 & 9.13e+6\\
+            \hline
+            Julia       & 3.850e-08 & 3.838e-08 & 3.828e-08 & 3.847e-08 & 3.853e-08 & 3.840e-08 & 3.840e-08\\
+            NiLang      & 7.565e-08 & 7.521e-08 & 7.540e-08 & 7.671e-08 & 7.557e-08 & 7.563e-08 & 7.543e-08\\
+            ForwardDiff & 6.579e-02 & 5.342e-01 & 7.369e-01 & 1.469e+00 & 2.878e+00 & 1.294e+01 & 2.648e+01\\
+            NiLang.AD   & 1.651e-02 & 1.182e-01 & 1.668e-01 & 3.273e-01 & 6.375e-01 & 2.785e+00 & 5.535e+00\\
+            \hline
+            \bottomrule
+        \end{tabularx}
+    }
+    \caption{Absolute runtimes for bundle adjustment with 10k data points.}\label{tbl:interp}
+\end{minipage}
+\end{table}
+
+
+\begin{table}[h!]\centering
+    \scriptsize
+\begin{minipage}{\columnwidth}
+\ra{1.3}
+    \scalebox{1.0}{
+        \begin{tabularx}{\textwidth}{bssssssss}\toprule
+            \textbf{\# parameters} & 3.00e+1 & 3.30e+3 & 1.20e+3 & 3.30e+3 & 1.07e+4 & 2.15e+4 & 5.36e+4 & 4.29e+5\\
+            \hline
+            Julia       & 9.189e-03 & 1.193e-02 & 2.494e-01 & 8.618e-02 & 3.523e-02 & 7.641e-02 & 2.254e-01 & 3.404e+00\\
+            NiLang      & 1.657e-02 & 5.009e-02 & 4.902e-01 & 4.625e-01 & 3.036e-01 & 6.095e-01 & 1.594e+00 & 1.529e+01\\
+            ForwardDiff & 3.360e-02 & 1.240e+00 & 3.984e+01 & 1.429e+02 & -         & -         & -         &  -       \\
+            NiLang.AD   & 3.510e-02 & 1.136e-01 & 1.064e+00 & 1.066e+00 & 1.700e+00 & 3.328e+00 & 8.643e+00 & 7.354e+01\\
+            \hline
+            \bottomrule
+        \end{tabularx}
+    }
+    \caption{Absolute runtimes for GMM with 10k data points.}\label{tbl:interp}
+\end{minipage}
+\end{table}
 
 \section{Discussion and outlook}\label{sec:discussion}
 In this paper, we show how to realize a reversible programming eDSL and how to implement source-to-source adjoint mode AD on top of it.
