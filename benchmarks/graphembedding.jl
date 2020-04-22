@@ -9,6 +9,20 @@ Random.seed!(2)
 using NiGraphEmbedding
 using BenchmarkTools
 
+function get_hessian_rd(params0::AbstractArray{T}) where T
+    N = length(params0)
+    params = Dual.(params0, zero(T))
+    hes = zeros(T, N, N)
+    for i=1:N
+        @inbounds i !== 1 && (params[i-1] = Dual(params0[i-1], zero(T)))
+        @inbounds params[i] = Dual(params0[i], one(T))
+        res = ReverseDiff.gradient(embedding_loss, params)
+        hes[:,i] .= vec(ForwardDiff.partials.(res, 1))
+    end
+    hes
+end
+
+
 suite = BenchmarkGroup()
 suite["NiLang"] = BenchmarkGroup(["Term"])
 suite["ForwardDiff"] = BenchmarkGroup(["Term"])
