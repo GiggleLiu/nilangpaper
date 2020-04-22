@@ -95,8 +95,9 @@ endsubroutine besselj
 program main
     real*8 :: res, resb, zb
     res = 0
-    resb = 0
+    resb = 1
     zb = 0
+    call besselj(res, 2, 1D0, 1D-8)
     call besselj_b(res, resb, 2, 1D0, zb, 1D-8)
     print*, res, resb, zb
 endprogram main
