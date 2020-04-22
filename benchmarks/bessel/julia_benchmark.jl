@@ -7,6 +7,8 @@ suite["NiLang"] = @benchmarkable ibesselj(0.0, 2, 1.0)
 suite["Julia"] = @benchmarkable besselj(2, 1.0)
 
 suite["NiLang.AD"] = @benchmarkable NiLang.AD.gradient(Val(1), ibesselj, (0.0, 2, 1.0))
+@benchmark NiLang.AD.gradient(Val(1), ibesselj, (0.0, 2, 1.0))
+@benchmark ibesselj(0.0, 2, 1.0)
 
 using ReverseDiff
 suite["ReverseDiff"] = @benchmarkable ReverseDiff.gradient($(x->besselj(2, x[1])), $([1.0]))

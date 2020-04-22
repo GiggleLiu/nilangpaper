@@ -63,8 +63,7 @@ end
         while (abs(unwrap(anc1)) > atol && abs(unwrap(anc4)) < atol, k!=0)
             k += identity(1)
             @routine begin
-                anc5 += identity(k)
-                anc5 += identity(ν)
+                anc5 += k + ν
                 anc2 -= k * anc5
                 anc3 += halfz_power_2 / anc2
             end
