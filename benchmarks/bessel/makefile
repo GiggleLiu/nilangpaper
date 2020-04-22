@@ -1,0 +1,27 @@
+#================================================
+# system parameters
+F77 = gfortran
+F90 = gfortran
+CC = cc
+CCOPTS = -O3 #-CB -CU -g -trace -W1
+FCOPTS = -O3 #-CB -CU -g -trace -W1
+LDOPTS = -O3 #-CB -CU -g -trace -W1
+LIBS = 
+#================================================
+# define all obj files
+OBJS = besselj_b.o adBuffer.o adStack.o
+#================================================
+# link all to generate exe file
+main.out: $(OBJS)
+	$(F90) $(FCOPTS) $(OBJS) $(LIBS) -o main.out 
+#================================================
+clean:
+	rm -f *.o *.mod *.x *.a
+#================================================
+#generate every obj and module files
+besselj_b.o : besselj_b.f90
+	$(F90) $(FCOPTS) -c besselj_b.f90
+adBuffer.o : adBuffer.f
+	$(F77) $(FCOPTS) -c adBuffer.f
+adStack.o : adStack.c
+	$(CC) $(CCOPTS) -c adStack.c

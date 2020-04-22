@@ -19,3 +19,5 @@ _temp/
 qmpsNotes.bib
 codes/.benchmarks/
 output/
+*.o
+*.out
