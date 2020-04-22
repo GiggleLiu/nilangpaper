@@ -5,7 +5,7 @@ To start
 $ latexmk -pdf invc.tex
 ```
 
-For benchmarks, please refer
+For benchmarks, please install the following packages
 
 * https://github.com/JuliaReverse/NiBundleAdjustment.jl
 * https://github.com/JuliaReverse/NiGaussianMixture.jl
