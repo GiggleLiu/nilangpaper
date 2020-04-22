@@ -1,4 +1,5 @@
 using NiLang, NiLang.AD
+using BenchmarkTools
 
 function besselj(ν, z; atol=1e-8)
     k = 0
@@ -35,11 +36,5 @@ end
     out! += besselj(ν, z)
 end
 
-test'(Loss(0.0), 2, 1.0)
-
-out!, ν, z = 0.0, 2, 1.0
-@instr test(out!, ν, z)
-@benchmark test($out!, $ν, $z)
-out!, z = GVar(out!, 1.0), GVar(z, 0.0)
-using BenchmarkTools
-@benchmark $(~test)($out!, $ν, $z)
+println("Manual:")
+display(@benchmark test'(Val(1), 0.0, 2, 1.0))

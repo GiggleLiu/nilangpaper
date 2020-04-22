@@ -32,7 +32,7 @@ end
     SWAP(out!, anc!)
 end
 
-@i function ifactorial(out!, n::Int)
+@i @inline function ifactorial(out!, n::Int)
     out! += identity(1)
     @routine @invcheckoff for i=1:n
         mulint(out!, i)
@@ -79,21 +79,10 @@ end
 
 using ForwardDiff
 using ForwardDiff: Dual
-
-
-ForwardDiff.derivative(x->besselj(2, x), 1.0)
-ibesselj(ForwardDiff.Dual(0.0, 0.0), 2, ForwardDiff.Dual(1.0, 1.0))
 using BenchmarkTools
+
+
 function btest(v, z)
     y, _, x = ibesselj(Dual(0.0, 0.0), 2, Dual(z, 1.0))
     ibesselj(GVar(y, one(y)), 2, GVar(z, zero(y)))
 end
-
-@benchmark btest(2, 1.0)
-
-#y, x = Fixed43(0.0), Fixed43(3.0)
-x = 1.0
-NiLang.AD.set_ringtype!(typeof(x))
-
-y, x = 0.0, 1.0
-ibesselj'(Val(1), y, 2, x)

@@ -57,4 +57,4 @@ end
 
 times = analyze_res(res)
 using DelimitedFiles
-writedlm(joinpath(dirname(@__FILE__), "bench_graphembedding.dat"), times)
+writedlm(joinpath(dirname(@__FILE__), "data", "bench_graphembedding.dat"), times)

@@ -1,8 +1,8 @@
 using DelimitedFiles
 using Printf
 
-bares() = readdlm("bench_ba.dat")'./1e9
-gmmres() = readdlm("bench_gmm.dat")'./1e9
+bares() = readdlm("data/bench_ba.dat")'./1e9
+gmmres() = readdlm("data/bench_gmm.dat")'./1e9
 function tapenade_gmmres()
     arglist = [(2, 5), (10, 5), (2, 200), (10, 50), (64, 5), (64, 10), (64, 25), (64, 200)]
     res = zeros(Float64, 2, arglist |> length)

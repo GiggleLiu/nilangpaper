@@ -19,9 +19,3 @@ subroutine besselj(res, v, z, atol)
         res = res + s
     enddo
 endsubroutine besselj
-
-program main
-    real*8 :: res
-    call besselj(res, 2, 1D0, 1D-8)
-    print*,res
-endprogram main
