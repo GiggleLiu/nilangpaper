@@ -321,15 +321,17 @@ Here, it is worth noticing that \texttt{+=} and \texttt{-=} are not precisely re
 \subsection{NiLang}
 The main feature of NiLang is contained in a single macro \texttt{@i} that compiles a reversible function.
 The allowed statements in this eDSL are shown in \App{app:grammar}.
-The following is a minimal example of compiling a reversible function to native Julia function with NiLang v0.3.1.
+We can use \texttt{macroexpand} to show the compiling a reversible function to the native Julia function.
 
 \begin{minipage}{.88\columnwidth}
 \begin{lstlisting}
 julia> using NiLangCore, MacroTools
 
-julia> macroexpand(Main, :(@i function f(x, y)
+julia> ex = :(@i function f(x, y)
            SWAP(x, y)
-       end)) |> MacroTools.prettify
+       end)
+
+julia> macroexpand(Main, ex) |> MacroTools.prettify
 quote
     $(Expr(:meta, :doc))
     function $(Expr(:where, :(f(x, y))))
@@ -353,14 +355,15 @@ end
 \end{lstlisting}
 \end{minipage}
 
-Here, macro \texttt{@i} generates three functions \texttt{f}, \texttt{$\sim$f} and \texttt{NiLangCore.isreversible}. \texttt{f} and \texttt{$\sim$f} are a pair of functions that are reversbile to each other. \texttt{$\sim$f} is an callable of type \texttt{Inv\{typeof(f)\}}, where the type parameter \texttt{typeof(f)} stands for th type of the function \texttt{f}.
+Here, the version of NiLang is v0.3.1.
+Macro \texttt{@i} generates three functions \texttt{f}, \texttt{$\sim$f} and \texttt{NiLangCore.isreversible}. \texttt{f} and \texttt{$\sim$f} are a pair of functions that are reversbile to each other. \texttt{$\sim$f} is an callable of type \texttt{Inv\{typeof(f)\}}, where the type parameter \texttt{typeof(f)} stands for th type of the function \texttt{f}.
 In the body of \texttt{f}, \texttt{NiLangCore.wrap\_tuple} is used to unify output data types to tuples.
 The outputs of \texttt{SWAP} are assigned back to its input variables. In other words, it simulates a function that modifies inputs inplace.
 At the end of this function, this macro attaches a return statement that returns all input variables.
-Finally, it defines \texttt{NiLangCore.isreversible} for \texttt{f} to mark it as reversible.
+Finally, \texttt{NiLangCore.isreversible} marks \texttt{f} as reversible.
 
 \subsubsection{Compiling}
-The compilation of a reversible function to native Julia functions contain three stages: \textit{preprocessing}, \textit{reversing} and \textit{translation}.
+The compilation of a reversible function to native Julia functions is consisted of three stages: \textit{preprocessing}, \textit{reversing} and \textit{translation}.
 \Fig{fig:compiling} shows the compilation of the complex valued log function body, which is originally defined as follows.
 
 \begin{minipage}{.88\columnwidth}
@@ -378,22 +381,17 @@ end
 \end{minipage}
 
 \begin{figure}
-    \centerline{\includegraphics[width=0.9\columnwidth,trim={0cm 0cm 0cm 0cm},clip]{compiling_v2.pdf}}
-    \caption{Compiling process of NiLang, the body of complex number log as an example.}\label{fig:compiling}
+    \centerline{\includegraphics[width=0.95\columnwidth,trim={0cm 0cm 0cm 0cm},clip]{compiling_v2.pdf}}
+    \caption{Compiling process of NiLang, the body of the complex valued log function as an example.}\label{fig:compiling}
 \end{figure}
 
 In the \textit{preprocessing} stage, the compiler pre-processes human inputs to reversible NiLang IR.
-The preprocessor expands the symbol ``\texttt{$\sim$}'' in the postcondition field of \texttt{if} statement by copying the precondition, adds missing ancilla ``$\leftarrow$'' statements to ensure ``\texttt{$\leftarrow$}'' and ``\texttt{$\rightarrow$}'' appear in pairs inside a local scope, and handles the uncomputing macro \texttt{@routine}.
-In the left most code box in \Fig{fig:compiling}, one uses \texttt{@routine <stmt>} statement to record a statement, and \texttt{$\sim$@routine} to insert the inverse statement for uncomputing.
+The preprocessor removes redundant grammars and expands shortcuts. It expands the ``same as precondition'' symbol (``\texttt{$\sim$}'') in the postcondition field of an \texttt{if} statement by copying its precondition, adds missing ancilla deallocation statement (``$\leftarrow$'') to ensure the allocation and deallocation of an ancilla appear in pairs inside a local scope, and handles the computing-uncomputing macros \texttt{@routine} and \texttt{$\sim$@routine}.
+In the left most code box in \Fig{fig:compiling}, one uses \texttt{@routine <stmt>} statement to record a statement, and \texttt{$\sim$@routine} to insert the corresponding inverse statement for uncomputing.
+Here, one can input ``$\leftarrow$'' and ``$\rightarrow$'' in Julia by typing ``$\backslash$leftarrow[TAB KEY]'' and ``$\backslash$rightarrow[TAB KEY]'' respectively in a Julia editor or REPL.
 
-In the \textit{reversing} stage, the compiler generates a reversed IR according to table \Tbl{tbl:revstatements}.
-``\texttt{$\leftarrow$}'' and ``\texttt{$\rightarrow$}'' are symbols for memory allocation and deallocation. One can input them by typing ``$\backslash$leftarrow'' and ``$\backslash$rightarrow'' respectively followed by a Tab key in a Julia editor or REPL.
-``\texttt{begin <stmts> end}'' is the statement for code block in Julia.
-It can be inverted by reversing the order as well as each element in it.
-The condition expression in \texttt{if} or \texttt{while} statement is a tuple of precondition and postcondition, they are swapped during reversing.
-Finally, we allow users to put an irreversible external statements inside a reversible context by putting a macro \texttt{@safe} in front of it.
-This statement is not a standard reversible statement, but provides convenience.
-For example, one can use \texttt{@safe @show <var>} for debugging.
+In the \textit{reversing} stage, based on this symmetric and reversible IR, the compiler generates reversed statements according to table \Tbl{tbl:revstatements}.
+The reversible IR plays a central role in NiLang, from which one can see the allowed statements and how they are reversed. 
 
 \begin{table}[h!]\centering
     \footnotesize
@@ -429,15 +427,20 @@ For example, one can use \texttt{@safe @show <var>} for debugging.
             \bottomrule
         \end{tabularx}
     }
-    \caption{The reversible statements in NiLang IR, where elements in the left column and those in the right column are reversible to each other.
+    \caption{The statements in NiLang IR, where elements in the left column and those in the right column are reversible to each other.
     ``.'' is the symbol for the broadcasting magic in Julia,
     ``$\sim$'' is the symbol for reversing a statement or a function.
     \texttt{<pre>} stands for precondition, and \texttt{<post>} stands for postcondition
+``\texttt{begin <stmts> end}'' is the statement for code block in Julia.
+It can be inverted by reversing the order as well as each element in it.
+We allow users to put an arbituary external statement inside a reversible context by putting a macro \texttt{@safe} in front of it.
+This statement is not reversible, but provides convenience.
+For example, one can use \texttt{@safe @show <var>} for debugging.
 }\label{tbl:revstatements}
 \end{minipage}
 \end{table}
 
-In the \textit{translation} stage, the compiler translates this reversible IR as well as its inverse to native Julia code. It adds \texttt{@assignback} before each function call so that input arguments are effectively changed inplace, inserts codes for reversibility check, handle control flows.
+In the \textit{translation} stage, the compiler translates this reversible IR as well as its inverse to native Julia code. It adds \texttt{@assignback} before each function call to modify arguments ``inplace'', inserts codes for reversibility check, and handle control flows.
 At the end of a function definition, it attaches a return statement that returns all updated input arguments.
 Now, the function is ready to execute on the host language.
 
