@@ -271,6 +271,7 @@ There have not been any reversible eDSL in Julia before, but there have been man
     In this paper, we first introduce the language design of NiLang in \Sec{sec:lang}.
     In \Sec{sec:bp}, we explain the back-propagation algorithm of Jacobians and Hessians in this eDSL.
     In \Sec{sec:example}, we show several examples, including Bessel function, the dot product between sparse matrices, unitary matrix multiplication, and QR decomposition. We show how to generate first-order and second-order backward rules for these functions. We also show a practical application that solves the graph embedding problem.
+    In \Sec{sec:benchmark}, we benchmark the performance of NiLang with other AD Julia AD packages and Tapenade.
     In \Sec{sec:discussion}, we discuss several important issues, the time-space  tradeoff, reversible instructions and hardware, and finally, an outlook to some open problems to be solved.
     In the appendix, we show the grammar of NiLang and other technical details.
 
@@ -306,7 +307,7 @@ The reversible \texttt{while} statement is shown in \Fig{fig:controlflow} (b). I
 After each iteration, the program asserts the postcondition to be true. In the reverse pass, we exchange the precondition and postcondition.
 The reversible \texttt{for} statement is similar to irreversible ones except that after executing the loop, the program checks the values of these variables to make sure they are not changed. In the reverse pass, we exchange \texttt{start} and \texttt{stop} and inverse the sign of \texttt{step}.
 \begin{figure}
-    \centerline{\includegraphics[width=0.5\columnwidth,trim={0 0cm 0 0cm},clip]{controlflow.pdf}}
+    \centerline{\includegraphics[width=0.9\columnwidth,trim={0 0cm 0 0cm},clip]{controlflow_v2.pdf}}
     \caption{The flow chart for reversible (a) \texttt{if} statement and (b) \texttt{while} statement. ``pre'' and ``post'' represents precondition and postconditions respectively.}\label{fig:controlflow}
 \end{figure}
 
@@ -317,15 +318,10 @@ For other arithmetic operations, we regard \texttt{y += f(args...)} and \texttt{
 Besides the above two types of operations, \texttt{SWAP} operation that exchanges the contents in two memory spaces is also widely used in reversible computing systems.
 Here, it is worth noticing that \texttt{+=} and \texttt{-=} are not precisely reversible to each other because floating-point number operations have the rounding error. For applications sensitive to rounding errors, we should consider using other number systems, which will be discussed in \Sec{sec:hardware}.
 
-\subsection{NiLang's Reversible IR}
-In the last subsection, we have reviewed the basic building blocks of a typical reversible language. In order to insert the code of obtaining gradients into the reversed program, the reversible language design should have related abstraction power.
-It can be achieved by utilizing the multiple-dispatch of Julia.
-We can wrap a number with a particular type with a gradient field called \texttt{GVar} and dispatch it to instructions that update gradient fields for it.
-Similar design is called \texttt{Dual} number in the tangent mode AD package ForwardDiff~\cite{Revels2016}.
-
+\subsection{NiLang}
 The main feature of NiLang is contained in a single macro \texttt{@i} that compiles a reversible function.
 The allowed statements in this eDSL are shown in \App{app:grammar}.
-The following is a minimal example of compiling a reversible function to native Julia function with NiLang v0.2.0.
+The following is a minimal example of compiling a reversible function to native Julia function with NiLang v0.3.1.
 
 \begin{minipage}{.88\columnwidth}
 \begin{lstlisting}
@@ -337,37 +333,70 @@ julia> macroexpand(Main, :(@i function f(x, y)
 quote
     $(Expr(:meta, :doc))
     function $(Expr(:where, :(f(x, y))))
-        gaur = SWAP(x, y)
-        x = (NiLangCore.wrap_tuple(gaur))[1]
-        y = (NiLangCore.wrap_tuple(gaur))[2]
-        return (x, y)
+        koala = SWAP(x, y)
+        x = (wrap_tuple(koala))[1]
+        y = (wrap_tuple(koala))[2]
+        (x, y)
     end
-    if typeof(f) != typeof(~f)
-        function $(Expr(:where, :((mongoose::typeof(~f))(x, y))))
-            mandrill = (~SWAP)(x, y)
-            x = (NiLangCore.wrap_tuple(mandrill))[1]
-            y = (NiLangCore.wrap_tuple(mandrill))[2]
-            return (x, y)
+    if NiLangCore._typeof(f) != _typeof(~f)
+        function $(Expr(:where, :((chimpanzee::_typeof(~f))(x, y))))
+            loris = (~SWAP)(x, y)
+            x = (wrap_tuple(loris))[1]
+            y = (wrap_tuple(loris))[2]
+            (x, y)
         end
     end
-    if !(NiLangCore._hasmethod1(NiLangCore.isreversible, typeof(f)))
-        NiLangCore.isreversible(::typeof(f)) = true
+    if !(_hasmethod1(NiLangCore.isreversible, NiLangCore._typeof(f)))
+        NiLangCore.isreversible(::NiLangCore._typeof(f)) = true
     end
 end
 \end{lstlisting}
 \end{minipage}
 
-Here, macro \texttt{@i} generates three functions \texttt{f}, \texttt{$\sim$f} and \texttt{NiLangCore.isreversible}. \texttt{f} and \texttt{$\sim$f} are a pair of functions that are reversbile to each other, where \texttt{$\sim$f} is an callable of type \texttt{Inv\{typeof(f)\}} and the type parameter \texttt{typeof(f)} stands for th type of the function \texttt{f}.
+Here, macro \texttt{@i} generates three functions \texttt{f}, \texttt{$\sim$f} and \texttt{NiLangCore.isreversible}. \texttt{f} and \texttt{$\sim$f} are a pair of functions that are reversbile to each other. \texttt{$\sim$f} is an callable of type \texttt{Inv\{typeof(f)\}}, where the type parameter \texttt{typeof(f)} stands for th type of the function \texttt{f}.
 In the body of \texttt{f}, \texttt{NiLangCore.wrap\_tuple} is used to unify output data types to tuples.
 The outputs of \texttt{SWAP} are assigned back to its input variables. In other words, it simulates a function that modifies inputs inplace.
 At the end of this function, this macro attaches a return statement that returns all input variables.
 Finally, it defines \texttt{NiLangCore.isreversible} for \texttt{f} to mark it as reversible.
 
-To understand the design of reversibility, we first introduce a reversible IR that plays a central role in NiLang.
-In this IR, a statement can be an instruction, a function call, a control flow, a memory allocation/deallocation, or the inverse statement ``$\sim$''.
-Any statement in this IR has a unique inverse, as shown in \Tbl{tbl:revstatements}.
+\subsubsection{Compiling}
+The compilation of a reversible function to native Julia functions contain three stages: \textit{preprocessing}, \textit{reversing} and \textit{translation}.
+\Fig{fig:compiling} shows the compilation of the complex valued log function body, which is originally defined as follows.
+
+\begin{minipage}{.88\columnwidth}
+\begin{lstlisting}[mathescape=true]
+@i function ⊕(log)(y!::Complex{T}, x::Complex{T}) where T
+    @routine begin
+        n ← zero(T)
+        n += abs(x)
+    end
+    y!.re += log(n)
+    y!.im += angle(x)
+    ~@routine
+end
+\end{lstlisting}
+\end{minipage}
+
+\begin{figure}
+    \centerline{\includegraphics[width=0.9\columnwidth,trim={0cm 0cm 0cm 0cm},clip]{compiling_v2.pdf}}
+    \caption{Compiling process of NiLang, the body of complex number log as an example.}\label{fig:compiling}
+\end{figure}
+
+In the \textit{preprocessing} stage, the compiler pre-processes human inputs to reversible NiLang IR.
+The preprocessor expands the symbol ``\texttt{$\sim$}'' in the postcondition field of \texttt{if} statement by copying the precondition, adds missing ancilla ``$\leftarrow$'' statements to ensure ``\texttt{$\leftarrow$}'' and ``\texttt{$\rightarrow$}'' appear in pairs inside a local scope, and handles the uncomputing macro \texttt{@routine}.
+In the left most code box in \Fig{fig:compiling}, one uses \texttt{@routine <stmt>} statement to record a statement, and \texttt{$\sim$@routine} to insert the inverse statement for uncomputing.
+
+In the \textit{reversing} stage, the compiler generates a reversed IR according to table \Tbl{tbl:revstatements}.
+``\texttt{$\leftarrow$}'' and ``\texttt{$\rightarrow$}'' are symbols for memory allocation and deallocation. One can input them by typing ``$\backslash$leftarrow'' and ``$\backslash$rightarrow'' respectively followed by a Tab key in a Julia editor or REPL.
+``\texttt{begin <stmts> end}'' is the statement for code block in Julia.
+It can be inverted by reversing the order as well as each element in it.
+The condition expression in \texttt{if} or \texttt{while} statement is a tuple of precondition and postcondition, they are swapped during reversing.
+Finally, we allow users to put an irreversible external statements inside a reversible context by putting a macro \texttt{@safe} in front of it.
+This statement is not a standard reversible statement, but provides convenience.
+For example, one can use \texttt{@safe @show <var>} for debugging.
 
 \begin{table}[h!]\centering
+    \footnotesize
 \begin{minipage}{0.8\columnwidth}
 \ra{1.3}
     \scalebox{1.0}{
@@ -400,7 +429,7 @@ Any statement in this IR has a unique inverse, as shown in \Tbl{tbl:revstatement
             \bottomrule
         \end{tabularx}
     }
-    \caption{The collection of reversible statements, where the left side and the right side are reversible to each other.
+    \caption{The reversible statements in NiLang IR, where elements in the left column and those in the right column are reversible to each other.
     ``.'' is the symbol for the broadcasting magic in Julia,
     ``$\sim$'' is the symbol for reversing a statement or a function.
     \texttt{<pre>} stands for precondition, and \texttt{<post>} stands for postcondition
@@ -408,105 +437,11 @@ Any statement in this IR has a unique inverse, as shown in \Tbl{tbl:revstatement
 \end{minipage}
 \end{table}
 
-%For example, an instruction \texttt{y $\mathrel{+}=$ f(args...)} is interpreted as a Julia function call \texttt{PlusEq(f)(y, args...)} or \texttt{$\oplus$(f)(y, args...)} as a shorthand.
-%Here, the ``!'' after a variable is used as a convension to indicate that a variable is changed after the call of an instruction or function.
-%The detailed specification of instructions is listed in \App{app:instr}. The function call is same as the host language, except every function \texttt{f} has a \texttt{$\sim$f} that binded to an object of type \texttt{Inv\{typeof(f)\}}. \texttt{$\sim$f} invokes the compiled inverse functions of \texttt{f}.
+In the \textit{translation} stage, the compiler translates this reversible IR as well as its inverse to native Julia code. It adds \texttt{@assignback} before each function call so that input arguments are effectively changed inplace, inserts codes for reversibility check, handle control flows.
+At the end of a function definition, it attaches a return statement that returns all updated input arguments.
+Now, the function is ready to execute on the host language.
 
-%This design allows users putting additional postcondition in control flows to help reverse the program.
-%A postcondition is a boolean expression that being evaluated after the body expressions being executed.
-``\texttt{$\leftarrow$}'' and ``\texttt{$\rightarrow$}'' are symbols for memory allocation and deallocation. One can input them by typing ``$\backslash$leftarrow'' and ``$\backslash$rightarrow'' respectively followed by a Tab key in a Julia editor or REPL.
-``\texttt{begin <stmts> end}'' is the block statement in Julia. It represents a code block.
-It can be inverted by reversing the order as well as each element in it.
-A \texttt{if} or \texttt{while} statement is similar to its native Julia counterpart, except that the conditional expression in statements is a tuple of precondition and postcondition.
-%\texttt{<a> $\leftarrow$ <expr>} binds variable \texttt{<a>} to an initial value specified by \texttt{<expr>}. Its inverse \texttt{<a> $\rightarrow$ <expr>} deallocates the variable \texttt{<a>}. Before deallocating the variable, the program checks that the its value is the same as the value of \texttt{<expr>}, otherwise throws an \texttt{InvertibilityError}.
-%A function call in NiLang supports Julia's broadcasting magic, a function defined on scalars can be broadcasted to vectors by adding a ``.'' after the function call.
-%\texttt{$\rightarrow$} will be added automatically.
-    %The additional check underlines the difference between the irreversible assign statement and reversible ancilla statement.
-Finally, we allow users to put an irreversible external statements inside a reversible context by putting a macro \texttt{@safe} in front of it.
-This statement is not a standard reversible statement, but provides convenience.
-For example, one can use \texttt{@safe @show <var>} for debugging.
-Although printing is not reversible, it does not affect the reversibility of other statements too.
-
-\subsection{Compiling}
-The compilation of a reversible function contains three stages.
-
-\begin{figure}[H]
-    \centerline{\includegraphics[width=0.5\columnwidth,trim={0cm 0cm 0 0cm},clip]{compiling.pdf}}
-    %\caption{Three compiling stages of NiLang.}\label{fig:compiling}
-\end{figure}
-
-The first stage pre-processes human inputs to a reversible IR.
-The preprocessor expands the symbol ``\texttt{$\sim$}'' in the postcondition field of \texttt{if} statement by copying the precondition, adds missing ancilla ``$\leftarrow$'' statements to ensure ``\texttt{$\leftarrow$}'' and ``\texttt{$\rightarrow$}'' appear in pairs inside a function, a \texttt{while} statement or a \texttt{for} statement, and expands the uncomputing macro \texttt{$\sim$@routine}.
-Since the compute-copy-uncompute paradigm is extensively used in reversible programming to uncompute ancillas, one can use \texttt{@routine <stmt>} statement to record a statement, and \texttt{$\sim$@routine} to insert \texttt{$\sim$<stmt>} for uncomputing.
-The following example pre-processes an \texttt{if} statement to the reversible IR.
-
-\begin{minipage}{.88\columnwidth}
-\begin{lstlisting}
-julia> using NiLangCore, MacroTools
-
-julia> NiLangCore.precom_ex(
-       :(if (x > 3, ~)
-            @routine z += x * y
-            ~@routine
-       end), NiLangCore.PreInfo()
-       ) |> MacroTools.prettify
-:(if (x > 3, x > 3)
-      z += x * y
-      z -= x * y
-  else
-  end)
-\end{lstlisting}
-\end{minipage}
-
-In this example, since the precondition ``\texttt{x > 3}'' is not changed after execution of the specific branch, we omit the postcondition by putting a ``$\sim$'' in this field. ``\texttt{@routine}'' records a statement, and the statement can also be a ``\texttt{begin <stmts> end}'' block as a sequence of statements.
-
-The second stage generates the reversed code according to table \Tbl{tbl:revstatements}. For example,
-
-\begin{minipage}{.88\columnwidth}
-\begin{lstlisting}
-julia> NiLangCore.dual_ex(
-       :(if (pre, post)
-           z += x * y
-       else
-           z += x / y
-       end)
-       ) |> MacroTools.prettify
-:(if (post, pre)
-      z -= x * y
-  else
-      z -= x / y
-  end)
-\end{lstlisting}
-\end{minipage}
-
-The third stage is translating this IR and its inverse to native Julia code. It explains all functions as inplace and inserts codes about reversibility check. At the end of a function definition, it attaches a return statement that returns all input arguments.
-After this, the function is ready to execute on the host language.
-The following example shows how an \texttt{if} statement is transformed in this stage.
-
-\begin{minipage}{.88\columnwidth}
-\begin{lstlisting}
-julia> NiLangCore.compile_ex(
-       :(if (pre, post)
-           z += x * y
-       else
-           z += x / y
-       end), NiLangCore.CompileInfo()
-       ) |> MacroTools.prettify
-quote
-    bat = pre
-    if bat
-        @assignback (PlusEq(*))(z, x, y)
-    else
-        @assignback (PlusEq(/))(z, x, y)
-    end
-    @invcheck post bat
-end
-\end{lstlisting}
-\end{minipage}
-
-The compiler translates the instruction according to \Tbl{tbl:interp} and adds \texttt{@assignback} before each instruction and function call statement. The macro \texttt{@assignback} assigns the output of a function back to the arguments of that function. \texttt{@invcheck post bat} checks the consistency between preconditions and postconditions to ensure reversibility. This statement will throw an \texttt{InvertibilityError} error if target variables \texttt{bat} and \texttt{post} are not ``equal'' to each other up to a certian torlerance.
-
-\subsection{Types and Dataviews}
+\subsubsection{Types and Dataviews}
 So far, the language design is not too different from a traditional reversible language. To implement the adjoint mode AD, we introduce types and dataviews.
 The type used in the reversible context is just a standard Julia type with an additional requirement of having reversible constructors.
 The inverse of a constructor is called a ``destructor'', which unpacks data and deallocates derived fields.
@@ -614,6 +549,10 @@ We call a bijection of a field of an object a ``dataview'' of this object, and i
 The definition of dataview can be found in \App{app:grammar}.
 
 \section{Reversible automatic differentiation}\label{sec:bp}
+In the last subsection, we have reviewed the basic building blocks of a typical reversible language. In order to insert the code of obtaining gradients into the reversed program, the reversible language design should have related abstraction power.
+It can be achieved by utilizing the multiple-dispatch of Julia.
+We can wrap a number with a particular type with a gradient field called \texttt{GVar} and dispatch it to instructions that update gradient fields for it.
+Similar design is called \texttt{Dual} number in the tangent mode AD package ForwardDiff~\cite{Revels2016}.
 
 Local Jacobians and Hessians for basic instructions used in this section could be found in \App{app:jacobians}.
 
@@ -699,33 +638,16 @@ julia> a, b, y
 Here, since $J(\ominus(*)) = J(\oplus(*))^{-1}$, consecutively applying them will restore the gradient fields of all variables.
 The overhead of using \texttt{GVar} type is negligible thanks to Julia's multiple-dispatch and type inference.
 
+\subsection{Differentiating complex numbers}
+To differentiate complex numbers, we need to re-implement all complex instructions reversiblly.
+It can be seen easily from the following example that implements the .
 
 \subsection{Second-order gradient}
-Second-order gradients can be obtained in three different approaches, forward differentiating the adjoint program, adjoint differentiating the adjoint program, and Hessian propagation.
-\subsubsection{Forward differentiating the adjoint program}\label{sec:dualhessian}
+Second-order gradients can be obtained by forward differentiating the adjoint program, adjoint differentiating the adjoint program, and Hessian propagation.
 Combining the adjoint program in NiLang with dual-numbers is a simple yet efficient way to obtain Hessians.
 By wrapping the elementary type with \texttt{Dual} defined in package ForwardDiff~\cite{Revels2016} and throwing it into the gradient program defined in NiLang,
 one obtains one row/column of the Hessian matrix straightforward.
 We will show an example of using forward differentiating in Newton's trust region optimization in \Sec{sec:graph}.
-
-\subsubsection{Adjoint differentiating the adjoint program}\label{sec:simplehessian}
-Back propagating first-order gradients is also widely used to obtain the second-order gradients. Suppose the function space is closed under gradient operation, one can obtain higher-order gradients by recursively differentiating lower-order gradient functions without defining new backward rules. An example is shown in \App{app:hessian}.
-
-\subsubsection{Hessian propagation}\label{sec:taylor}
-It is also possible to back-propagate Hessians directly~\cite{Martens2012} using the relation
-\begin{align}
-    \begin{split}
-        &H^{\out}_{\vx^{L'},\vx^{L''}} = \mathbf{0},\\
-        &H^{\out}_{\vx^{i-1},\vx^{i-1'}} = J^{\vx^i}_{\vx^{i-1}} H^{\out}_{\vx^i, \vx^{i'}} J^{\vx^{i'}}_{\vx^{i-1'}} + J^{\out}_{\vx^i} H^{\vx^i}_{\vx^{i-1}, \vx^{i-1'}}.
-    \end{split}
-\end{align}
-Here, the Hessian is represented as a tensor $H^{\out}_{\vx^{i-1},\vx^{i-1'}}$ of rank three.
-In the tensor network diagram, the above equation can be represented as the right panel of \Fig{fig:ad}.
-The advantage of using Hessian propagation is that it can be generalized to Taylor propagation in the future.
-Concerning the order of gradients, Taylor propagation is exponentially more efficient in obtaining higher-order gradients than differentiating lower-order gradients recursively. %The later requires traversing the computational graph repeatedly.
-%In JAX~\cite{Bettencourt2019}, in order to support Taylor propagation, the propagation rules for part of primitives should be manually defined.
-Comparing with operator overloading, source-to-source automatic differentiation has the advantage of having very limited primitives, making exhausted support to Hessian propagation possible.
-An example to obtain Hessians is provided in \Sec{sec:bessel}.
 
 \subsection{Gradient on ancilla problem}
 In this subsection, we introduce an easily overlooked problem in our reversible AD framework.
@@ -938,54 +860,6 @@ Here, the gradient field of \texttt{hxx} is defined as $\frac{\partial {\rm out!
 It has a field partials that store the derivative for \texttt{x}.
 It corresponds to the Hessian $\frac{\partial{\rm out!}^2}{\partial x^2}$ that we need.
 See \App{app:hessian} for alternative approaches to obtain its Hessian.
-
-\subsubsection{Benchmark}
-We have different source-to-source automatic differentiation implementations of the first type Bessel function and show the benchmarks in \Tbl{tbl:besselj}.
-In the benchmark, the CPU device is Intel(R) Xeon(R) CPU E5-2680 v4 @ 2.40GHz, and the GPU device is Nvidia Titan V. The GPU time is estimated by broadcasting the gradient function on CUDA array of size $2^{17}$ and taking the average.
-\begin{table}[h!]\centering
-\begin{minipage}{0.8\columnwidth}
-\ra{1.3}
-    \scalebox{1.0}{
-        \begin{tabularx}{\textwidth}{X X c c}\toprule
-            & \textbf{Mode} & \textbf{$T_{\rm min}$/ns} & Space/KB\\
-            \hline
-            Julia & -- & 17 & 0\\
-            NiLang (call/uncall) & -- & 53 & 0\\
-            ForwardDiff & Tangent & 39 & 0\\
-            %Manual & Adjoint & 83 & 0\\
-            NiLang.AD & Adjoint & 231 & 0\\
-            %NiLang.AD (GPU) & Adjoint & 1.4 & 0\\
-            ReverseDiff & Adjoint & 7198 & 7.3\\
-            Zygote & Adjoint & 22561 & 13.47\\
-            Tapenade & - & 32 & 0\\
-            Tapenade & Tangent & 30 & 0\\
-            Tapenade & Adjoint & 111 & > 0\\
-            \hline
-            \bottomrule
-        \end{tabularx}
-    }
-    \caption{Time and space used for computing gradients of the first kind Bessel function $J_2(1.0)$.
-}\label{tbl:besselj}
-\end{minipage}
-\end{table}
-
-In the table, Julia is the CPU time used for running the irreversible forward program. It is the baseline for benchmarking.
-NiLang (call/uncall) is the time of reversible call or uncall. Both of them are 2.8 times slower than its irreversible counterpart. Here, we have removed the reversibility check to avoid overheads. One can always turn off this check after ruling out possible bugs.
-ForwardDiff gives the best performance, and we repeatedly checked and confirmed it really did the computation.
-It is even faster than manually derived gradients
-\begin{equation}
-    J_{\nu}'(z) = \frac{J_{\nu-1} - J_{\nu+1}}{2}.
-\end{equation}
-Besides the efficient implementation, its high performance also lies in the fact that this function fit for tangent mode AD which has only one input.
-NiLang.AD represents the reversible AD in NiLang, and it takes 12.3 times the original program, which is still much faster than naive checkpointing.
-In Zygote, the memory allocation on the heap is 13.47KB. They are not all for checkpointing. Some of them are related to type instability, where Julia compiler fails to infer types.
-Using closures to handle checkpointing can induce poor performance because external type instability sometimes can propagate to the interior.
-NiLang uses uncomputing to manage memory rather than closure, which does not frequently involve external variables in the function.
-Hence it is more friendly to type inference in Julia compiler.
-%Tapenade \blue{needs your effort, @MLS}
-We also include a CUDA benchmark. Our reversible programming is compatible with CUDA programming so that the differentiable kernel can be executed on GPU.
-For people who are interested in CUDA programming, we prepared another example in \App{app:cuda}, which implements a differentiable quantum simulation kernel on GPU.
-So far, the generated backward rule faces the shared write problem, which requires further investigation.
 
 \subsection{Sparse Matrices}
 Source to source automatic differentiation is useful in differentiating sparse matrices. It is a well-known problem that sparse matrix operations can not benefit directly from generic backward rules for dense matrix because general rules do not keep the sparse structure.
@@ -1359,7 +1233,57 @@ For $k=5$, an Adam optimizer with a learning rate $0.01$~\cite{Kingma2014} requi
 The trust region Newton's method converges much faster, which requires $\sim 20$ computations of Hessians to reach convergence.
 Although training time is comparable, the converged precision of the later is much better.
 
-\subsubsection{Benchmark}
+\section{Benchmark}\label{sec:benchmark}
+
+\subsection{Bessel Function}
+We have different source-to-source automatic differentiation implementations of the first type Bessel function and show the benchmarks in \Tbl{tbl:besselj}.
+In the benchmark, the CPU device is Intel(R) Xeon(R) CPU E5-2680 v4 @ 2.40GHz, and the GPU device is Nvidia Titan V. The GPU time is estimated by broadcasting the gradient function on CUDA array of size $2^{17}$ and taking the average.
+\begin{table}[h!]\centering
+\begin{minipage}{0.8\columnwidth}
+\ra{1.3}
+    \scalebox{1.0}{
+        \begin{tabularx}{\textwidth}{X X c c}\toprule
+            & \textbf{Mode} & \textbf{$T_{\rm min}$/ns} & Space/KB\\
+            \hline
+            Julia & - & 17 & 0\\
+            NiLang (call/uncall) & - & 53 & 0\\
+            ForwardDiff & Tangent & 39 & 0\\
+            %Manual & Adjoint & 83 & 0\\
+            NiLang.AD & Adjoint & 231 & 0\\
+            %NiLang.AD (GPU) & Adjoint & 1.4 & 0\\
+            ReverseDiff & Adjoint & 7198 & 7.3\\
+            Zygote & Adjoint & 22561 & 13.47\\
+            Tapenade & - & 32 & 0\\
+            Tapenade & Tangent & 30 & 0\\
+            Tapenade & Adjoint & 111 & > 0\\
+            \hline
+            \bottomrule
+        \end{tabularx}
+    }
+    \caption{Time and space used for computing gradients of the first kind Bessel function $J_2(1.0)$.
+}\label{tbl:besselj}
+\end{minipage}
+\end{table}
+
+In the table, Julia is the CPU time used for running the irreversible forward program. It is the baseline for benchmarking.
+NiLang (call/uncall) is the time of reversible call or uncall. Both of them are $\sim 3$ times slower than its irreversible counterpart. Here, we have removed the reversibility check to avoid overheads. One can always turn off this check after debugging.
+In this case, Tangent mode AD tools are faster than reverse mode AD, both ForwardDiff and Tapenade have the 
+It is even faster than manually derived gradients
+\begin{equation}
+    J_{\nu}'(z) = \frac{J_{\nu-1} - J_{\nu+1}}{2}.
+\end{equation}
+Besides the efficient implementation, its high performance also lies in the fact that this function fit for tangent mode AD which has only one input.
+NiLang.AD represents the reversible AD in NiLang, and it takes 12.3 times the original program, which is still much faster than naive checkpointing.
+In Zygote, the memory allocation on the heap is 13.47KB. They are not all for checkpointing. Some of them are related to type instability, where Julia compiler fails to infer types.
+Using closures to handle checkpointing can induce poor performance because external type instability sometimes can propagate to the interior.
+NiLang uses uncomputing to manage memory rather than closure, which does not frequently involve external variables in the function.
+Hence it is more friendly to type inference in Julia compiler.
+%Tapenade \blue{needs your effort, @MLS}
+We also include a CUDA benchmark. Our reversible programming is compatible with CUDA programming so that the differentiable kernel can be executed on GPU.
+For people who are interested in CUDA programming, we prepared another example in \App{app:cuda}, which implements a differentiable quantum simulation kernel on GPU.
+So far, the generated backward rule faces the shared write problem, which requires further investigation.
+
+\subsubsection{Graph embedding problem}
 Since the ForwardDiff itself provides the Hessian for users, it is interesting to benchmark how much performance we can get by forward differentiating an adjoint program comparing with forward differentiating a forward AD program. In the following benchmark, we also compare other adjoint mode AD packages.
 \begin{figure}
     \centerline{\includegraphics[width=0.8\columnwidth,trim={0 0 0 0},clip]{fig7.pdf}}
@@ -1373,8 +1297,7 @@ As the baseline, (a) shows the time for computing the 0th-order gradient, or the
 The same reason applies to computing Hessians. The mixed-mode AD gives better performance when $k \geq 3$ comparing with pure tangent mode AD.
 Comparing with other adjoint mode AD packages ReverseDiff and Zygote, NiLang is approximately one order more efficient for the same reason we discussed in \Sec{sec:bessel}.
 
-\section{Benchmark}
-
+\subsection{Gaussian mixture model and bundle adjustment}
 We reproduced the benchmarks for Gaussian mixture model (GMM) and bundle adjustment (BA) in ~\cite{Srajer2018} by re-writting the programs in a reversible way, and show the results bellow.
 
 \begin{table}[h!]\centering
