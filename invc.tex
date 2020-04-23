@@ -358,11 +358,10 @@ end
 Here, the version of NiLang is v0.3.1.
 Macro \texttt{@i} generates three functions \texttt{f}, \texttt{$\sim$f} and \texttt{NiLangCore.isreversible}. \texttt{f} and \texttt{$\sim$f} are a pair of functions that are reversbile to each other. \texttt{$\sim$f} is an callable of type \texttt{Inv\{typeof(f)\}}, where the type parameter \texttt{typeof(f)} stands for th type of the function \texttt{f}.
 In the body of \texttt{f}, \texttt{NiLangCore.wrap\_tuple} is used to unify output data types to tuples.
-The outputs of \texttt{SWAP} are assigned back to its input variables. In other words, it simulates a function that modifies inputs inplace.
+The outputs of \texttt{SWAP} are assigned back to its input variables.
 At the end of this function, this macro attaches a return statement that returns all input variables.
 Finally, \texttt{NiLangCore.isreversible} marks \texttt{f} as reversible.
 
-\subsubsection{Compiling}
 The compilation of a reversible function to native Julia functions is consisted of three stages: \textit{preprocessing}, \textit{reversing} and \textit{translation}.
 \Fig{fig:compiling} shows the compilation of the complex valued log function body, which is originally defined as follows.
 
@@ -440,116 +439,30 @@ For example, one can use \texttt{@safe @show <var>} for debugging.
 \end{minipage}
 \end{table}
 
-In the \textit{translation} stage, the compiler translates this reversible IR as well as its inverse to native Julia code. It adds \texttt{@assignback} before each function call to modify arguments ``inplace'', inserts codes for reversibility check, and handle control flows.
-At the end of a function definition, it attaches a return statement that returns all updated input arguments.
+In the \textit{translation} stage, the compiler translates this reversible IR as well as its inverse to native Julia code. It adds \texttt{@assignback} before each function call, inserts codes for reversibility check, and handle control flows.
+We can expand the \texttt{@assignback} macro to see the compiled expression.
+
+\begin{minipage}{.88\columnwidth}
+\begin{lstlisting}
+julia> macroexpand(Main, :(@assignback PlusEq(log)(y!.re, n)))
+quote
+    var"##277" = (PlusEq(log))(y!.re, n)
+    begin
+        y! = chfield(y!, Val{:re}(), ((NiLangCore.wrap_tuple)(var"##277"))[1])
+        n = ((NiLangCore.wrap_tuple)(var"##277"))[2]
+    end
+end
+\end{lstlisting}
+\end{minipage}
+
+Here, the function \texttt{chfield} returns a complex number with an updated \texttt{re} field. This updated value is then assigned back to \texttt{y!}.
+In other words, this macro simulates ``inplace'' operations on immutable types.
+Except fields, one can also define \texttt{chfield} on a function call and indexing. For example, \texttt{real(y!)} should also be inplace modifiable. We call an expression that directly modifiable in NiLang a \textit{dataview}, it can be a variable itself, a field or an element of a dataview, or a bijective mapping of a dataview.
+
+As a final step, the compiler attaches a return statement that returns all updated input arguments at the end of a function definition.
 Now, the function is ready to execute on the host language.
 
-\subsubsection{Types and Dataviews}
-So far, the language design is not too different from a traditional reversible language. To implement the adjoint mode AD, we introduce types and dataviews.
-The type used in the reversible context is just a standard Julia type with an additional requirement of having reversible constructors.
-The inverse of a constructor is called a ``destructor'', which unpacks data and deallocates derived fields.
-A reversible constructor is implemented by reinterpreting the \texttt{new} function in Julia.
-Let us consider the following statement.
-
-\begin{minipage}{.88\columnwidth}
-\begin{lstlisting}
-    x ← new{TX, TG}(x, g)
-\end{lstlisting}
-\end{minipage}
-
-The above statement is similar to allocating an ancilla, except that it deallocates \texttt{g} directly at the same time.
-Doing this is proper because \texttt{new} is special that its output keeps all information of its arguments. All input variables that do not appear in the output can be discarded safely. Its inverse is
-
-\begin{minipage}{.88\columnwidth}
-\begin{lstlisting}
-    x → new{TX, TG}(x, g)
-\end{lstlisting}
-\end{minipage}
-
-It unpacks structure \texttt{x} and assigns fields to corresponding variables in the argument list.
-The following example shows a non-complete definition of the reversible type \texttt{GVar}.
-
-\begin{minipage}{\columnwidth}
-\begin{lstlisting}[multicols=2]
-julia> using NiLangCore
-
-julia> @i struct GVar{T,GT} <: IWrapper{T}
-           x::T
-           g::GT
-           function GVar{T,GT}(x::T, g::GT) where
-                                       {T,GT}
-               new{T,GT}(x, g)
-           end
-           function GVar(x::T, g::GT) where {T,GT}
-               new{T,GT}(x, g)
-           end
-           @i function GVar(x::T) where T
-               g ← zero(x)
-               x ← new{T,T}(x, g)
-           end
-           @i function GVar(x::AbstractArray)
-               GVar.(x)
-           end
-       end
-
-julia> GVar(0.5)
-GVar{Float64,Float64}(0.5, 0.0)
-
-julia> (~GVar)(GVar(0.5))
-0.5
-
-julia> (~GVar)(GVar([0.5, 0.6]))
-2-element Array{Float64,1}:
- 0.5
- 0.6
-\end{lstlisting}
-\end{minipage}
-
-\texttt{GVar} has two fields that correspond to the value and gradient of a variable.
-Here, we put \texttt{@i} macro before both \texttt{struct} and \texttt{function} statements.
-The ones before functions generate forward and backward functions, while the one before \texttt{struct} moves \texttt{$\sim$GVar} functions to the outside of the type definition. Otherwise, the inverse function will be ignored by Julia compiler.
-
-Since an operation changes data inplace in NiLang, a field of an immutable instance should also be `` modifiable''.
-Let us first consider the following example.
-
-\begin{minipage}{.88\columnwidth}
-\begin{lstlisting}
-julia> arr = [GVar(3.0), GVar(1.0)]
-2-element Array{GVar{Float64,Float64},1}:
- GVar{Float64,Float64}(3.0, 0.0)
- GVar{Float64,Float64}(1.0, 0.0)
-
-julia> x, y = 1.0, 2.0
-(1.0, 2.0)
-
-julia> @instr -arr[2].g += x * y
-2.0
-
-julia> arr
-2-element Array{GVar{Float64,Float64},1}:
- GVar{Float64,Float64}(3.0, 0.0) 
- GVar{Float64,Float64}(1.0, -2.0)
-\end{lstlisting}
-\end{minipage}
-
-In Julia language, the assign statement above will throw a syntax error because the function call ``\texttt{-}'' can not be assigned, and \texttt{GVar} is an immutable type.
-In NiLang, we use the macro \texttt{@assignback} to modify an immutable data directly. It translates the above statement to
-
-\begin{minipage}{.88\columnwidth}
-\begin{lstlisting}[numberstyle=\scriptsize\color{gray},numbers=left,numbersep=8pt]
-res = (PlusEq(*))(-arr[2].g, x, y)
-arr[2] = chfield(arr[2], Val(:g),
-    chfield(arr[2].g, -, res[1]))
-x = res[2]
-y = res[3]
-\end{lstlisting}
-\end{minipage}
-
-The first line \texttt{PlusEq(*)(-arr[3].g, x, y)} computes the output as a tuple of length $3$.
-At lines 2-3, \texttt{chfield(x, Val\{:g\}, val)} modifies the \texttt{g} field of \texttt{x} and \texttt{chfield(x, -, res[1])} returns \texttt{-res[1]}. Here, modifying a field requires the default constructor of a type not overwritten.
-The assignments in lines 4 and 5 are straightforward.
-We call a bijection of a field of an object a ``dataview'' of this object, and it is directly modifiable in NiLang.
-The definition of dataview can be found in \App{app:grammar}.
+One can also define a reversible constructor and destructor, we put this part in \App{app:constructor}.
 
 \section{Reversible automatic differentiation}\label{sec:bp}
 In the last subsection, we have reviewed the basic building blocks of a typical reversible language. In order to insert the code of obtaining gradients into the reversed program, the reversible language design should have related abstraction power.
@@ -560,7 +473,7 @@ Similar design is called \texttt{Dual} number in the tangent mode AD package For
 Local Jacobians and Hessians for basic instructions used in this section could be found in \App{app:jacobians}.
 
 \subsection{First order gradient}\label{sec:jacobian}
-Consider a computation $\vx^{i-1} = f_{i}^{-1}(\vx^{i})$ in a reversed program, the Jacobians can be propagated in the reversed direction like
+Consider a computational process $\vx^{i-1} = f_{i}^{-1}(\vx^{i})$ inside a reversed program, the Jacobians can be propagated in the reversed direction like
 \begin{align}
     \begin{split}
         J^{\out}_{\out'} &= \delta_{\out,\out'},\\
@@ -1584,6 +1497,115 @@ The list of instructions implemented in NiLang
     \caption{Predefined reversible instructions in NiLang.}\label{tbl:revinstructions}
 \end{minipage}
 \end{table}
+
+\section{Reversible Constructors}\label{app:constructor}
+So far, the language design is not too different from a traditional reversible language. To port Julia's type system better, we introduce dataviews.
+The type used in the reversible context is just a standard Julia type with an additional requirement of having reversible constructors.
+The inverse of a constructor is called a ``destructor'', which unpacks data and deallocates derived fields.
+A reversible constructor is implemented by reinterpreting the \texttt{new} function in Julia.
+Let us consider the following statement.
+
+\begin{minipage}{.88\columnwidth}
+\begin{lstlisting}
+    x ← new{TX, TG}(x, g)
+\end{lstlisting}
+\end{minipage}
+
+The above statement is similar to allocating an ancilla, except that it deallocates \texttt{g} directly at the same time.
+Doing this is proper because \texttt{new} is special that its output keeps all information of its arguments. All input variables that do not appear in the output can be discarded safely. Its inverse is
+
+\begin{minipage}{.88\columnwidth}
+\begin{lstlisting}
+    x → new{TX, TG}(x, g)
+\end{lstlisting}
+\end{minipage}
+
+It unpacks structure \texttt{x} and assigns fields to corresponding variables in the argument list.
+The following example shows a non-complete definition of the reversible type \texttt{GVar}.
+
+\begin{minipage}{\columnwidth}
+\begin{lstlisting}[multicols=2]
+julia> using NiLangCore
+
+julia> @i struct GVar{T,GT} <: IWrapper{T}
+           x::T
+           g::GT
+           function GVar{T,GT}(x::T, g::GT)
+                        where {T,GT}
+               new{T,GT}(x, g)
+           end
+           function GVar(x::T, g::GT)
+                        where {T,GT}
+               new{T,GT}(x, g)
+           end
+           @i function GVar(x::T) where T
+               g ← zero(x)
+               x ← new{T,T}(x, g)
+           end
+           @i function GVar(x::AbstractArray)
+               GVar.(x)
+           end
+       end
+
+julia> GVar(0.5)
+GVar{Float64,Float64}(0.5, 0.0)
+
+julia> (~GVar)(GVar(0.5))
+0.5
+
+julia> (~GVar)(GVar([0.5, 0.6]))
+2-element Array{Float64,1}:
+ 0.5
+ 0.6
+\end{lstlisting}
+\end{minipage}
+
+\texttt{GVar} has two fields that correspond to the value and gradient of a variable.
+Here, we put \texttt{@i} macro before both \texttt{struct} and \texttt{function} statements.
+The ones before functions generate forward and backward functions, while the one before \texttt{struct} moves \texttt{$\sim$GVar} functions to the outside of the type definition. Otherwise, the inverse function will be ignored by Julia compiler.
+
+Since an operation changes data inplace in NiLang, a field of an immutable instance should also be `` modifiable''.
+Let us first consider the following example.
+
+\begin{minipage}{.88\columnwidth}
+\begin{lstlisting}
+julia> arr = [GVar(3.0), GVar(1.0)]
+2-element Array{GVar{Float64,Float64},1}:
+ GVar{Float64,Float64}(3.0, 0.0)
+ GVar{Float64,Float64}(1.0, 0.0)
+
+julia> x, y = 1.0, 2.0
+(1.0, 2.0)
+
+julia> @instr -arr[2].g += x * y
+2.0
+
+julia> arr
+2-element Array{GVar{Float64,Float64},1}:
+ GVar{Float64,Float64}(3.0, 0.0) 
+ GVar{Float64,Float64}(1.0, -2.0)
+\end{lstlisting}
+\end{minipage}
+
+In Julia language, the assign statement above will throw a syntax error because the function call ``\texttt{-}'' can not be assigned, and \texttt{GVar} is an immutable type.
+In NiLang, we use the macro \texttt{@assignback} to modify an immutable data directly. It translates the above statement to
+
+\begin{minipage}{.88\columnwidth}
+\begin{lstlisting}[numberstyle=\scriptsize\color{gray},numbers=left,numbersep=8pt]
+res = (PlusEq(*))(-arr[2].g, x, y)
+arr[2] = chfield(arr[2], Val(:g),
+    chfield(arr[2].g, -, res[1]))
+x = res[2]
+y = res[3]
+\end{lstlisting}
+\end{minipage}
+
+The first line \texttt{PlusEq(*)(-arr[3].g, x, y)} computes the output as a tuple of length $3$.
+At lines 2-3, \texttt{chfield(x, Val\{:g\}, val)} modifies the \texttt{g} field of \texttt{x} and \texttt{chfield(x, -, res[1])} returns \texttt{-res[1]}. Here, modifying a field requires the default constructor of a type not overwritten.
+The assignments in lines 4 and 5 are straightforward.
+We call a bijection of a field of an object a ``dataview'' of this object, and it is directly modifiable in NiLang.
+The definition of dataview can be found in \App{app:grammar}.
+
 
 \subsection{Backward rules for instructions}\label{app:jacobians}
 For function $\vec{y} = f(\vec{x})$, its Jacobian is $J_{ij} = \frac{\partial y_i}{\partial x_j}$ and its Hessian is $H^k_{ij} = \frac{\partial y_k}{x_i x_j}$.
