@@ -149,6 +149,7 @@
 \newcommand{\upcite}[1]{\textsuperscript{\cite{#1}}}
 \newcommand{\Eq}[1]{Eq.~(\ref{#1})}
 \newcommand{\Fig}[1]{Fig.~\ref{#1}}
+\newcommand{\Lst}[1]{Listing.~\ref{#1}}
 \newcommand{\Ref}[1]{Ref.~\cite{#1}}
 \newcommand{\Tbl}[1]{Table~\ref{#1}}
 \newcommand{\Sec}[1]{Sec.~\ref{#1}}
@@ -269,7 +270,7 @@ There have not been any reversible eDSL in Julia before, but there have been man
     However, the field of reversible computing faces the difficulty of not enough funding in recent decade~\cite{Frank2017}. As a result, not many people studying AD know the marvelous designs in reversible computing. People have not connected it with automatic differentiation seriously, even though they have many similarities. We aim to break the information barrier between the machine learning community and the reversible programming community in our work and provide yet another strong motivation to develop reversible programming.
 
     In this paper, we first introduce the language design of NiLang in \Sec{sec:lang}.
-    In \Sec{sec:bp}, we explain the back-propagation algorithm of Jacobians and Hessians in this eDSL.
+    In \Sec{sec:bp}, we explain the back-propagation algorithm in this eDSL.
     In \Sec{sec:example}, we show several examples, including Bessel function, the dot product between sparse matrices, unitary matrix multiplication, and QR decomposition. We show how to generate first-order and second-order backward rules for these functions. We also show a practical application that solves the graph embedding problem.
     In \Sec{sec:benchmark}, we benchmark the performance of NiLang with other AD Julia AD packages and Tapenade.
     In \Sec{sec:discussion}, we discuss several important issues, the time-space  tradeoff, reversible instructions and hardware, and finally, an outlook to some open problems to be solved.
@@ -366,7 +367,7 @@ The compilation of a reversible function to native Julia functions is consisted 
 \Fig{fig:compiling} shows the compilation of the complex valued log function body, which is originally defined as follows.
 
 \begin{minipage}{.88\columnwidth}
-\begin{lstlisting}[mathescape=true]
+\begin{lstlisting}[mathescape=true,caption={Reversible implementation of the complex valued log function.},label={lst:complex}]
 @i function ⊕(log)(y!::Complex{T}, x::Complex{T}) where T
     @routine begin
         n ← zero(T)
@@ -465,13 +466,6 @@ Now, the function is ready to execute on the host language.
 One can also define a reversible constructor and destructor, we put this part in \App{app:constructor}.
 
 \section{Reversible automatic differentiation}\label{sec:bp}
-In the last subsection, we have reviewed the basic building blocks of a typical reversible language. In order to insert the code of obtaining gradients into the reversed program, the reversible language design should have related abstraction power.
-It can be achieved by utilizing the multiple-dispatch of Julia.
-We can wrap a number with a particular type with a gradient field called \texttt{GVar} and dispatch it to instructions that update gradient fields for it.
-Similar design is called \texttt{Dual} number in the tangent mode AD package ForwardDiff~\cite{Revels2016}.
-
-Local Jacobians and Hessians for basic instructions used in this section could be found in \App{app:jacobians}.
-
 \subsection{First order gradient}\label{sec:jacobian}
 Consider a computational process $\vx^{i-1} = f_{i}^{-1}(\vx^{i})$ inside a reversed program, the Jacobians can be propagated in the reversed direction like
 \begin{align}
@@ -482,13 +476,6 @@ Consider a computational process $\vx^{i-1} = f_{i}^{-1}(\vx^{i})$ inside a reve
 \end{align}
 where $\out$ represents the outputs of the program. In adjoint mode AD, it is a scalar.
 $J^{\out}_{\vx^i} \equiv \frac{\partial \out}{\partial \vx^i}$ is the Jacobian to be propagated, and $J^{\vx^i}_{\vx^{i-1}}$ is the local Jacobian matrix. Einstein's notation~\cite{Einsum} is used here so that the duplicated index $\vx^{i}$ in the second line is summed over.
-\Eq{eq:jacobian} can be rewritten in the diagram of tensor networks~\cite{Orus2014} as shown in \Fig{fig:ad}.
-\begin{figure}
-    \centerline{\includegraphics[width=0.6\columnwidth,trim={0.5cm 1cm 0 1cm},clip]{ad.pdf}}
-    \caption{From left to right, the diagrams represent computing, uncomputing, Jacobian propagation, and Hessian propagation in the tensor network diagram.
-    A big circle with three legs represents a Hessian, and a small circle with two legs represents a Jacobian.
-    Dangling edges and connected edges stands for unpaired and paired labels respectively in Einstein's notation.}\label{fig:ad}
-\end{figure}
 The algorithm to compute the adjoint mode AD can be summarized as follows.
 
 \begin{algorithm}[H]
@@ -496,21 +483,23 @@ The algorithm to compute the adjoint mode AD can be summarized as follows.
     let \texttt{iloss} be the index of the loss in $\vx$\\
     $\vx \leftarrow f(\vx)$\\
     \For{k = 1:length($\vx$)}{
-        $\vx_k \leftarrow$ \texttt{GVar}($\vx_k$, $\delta_{k, {\rm iloss}}$)\\
+        $\vx[k] \leftarrow$ \texttt{GVar}($\vx[k]$, $\delta_{k, {\rm iloss}}$)\\
     }
     $\vx \leftarrow f^{-1}(\vx)$
     \caption{Reversible Automatic Differentiation}\label{alg:ad}
 \end{algorithm}
 
 We first compute the results with the forward pass $f(x)$.
-Then we wrap each output with a gradient field. $\delta_{k, \rm iloss}$ is the Diract delta notation, which mean the gradient field is initialized to 1 if the variable is the loss else 0. Then we run the backward pass $f^{-1}(x)$ to update the gradient fields of variables.
-The gradients can be accessed using the $\grad$ dataview of output variables.
-%Its inverse \texttt{$\sim$GVar} deallocates the gradient field safely and returns its value field.  Here, "safely" means before deallocation, the program will check the gradient field to make sure its value is restored to $0$.
-%When an instruction \texttt{instruct} meets a \texttt{GVar}, besides computing its value field $\vvalue(\vy) = \texttt{instruct}(\vvalue(\vx))$, it also updates the gradient field $\grad(\vy) = \left[J^{\vy}_{\vx}\right]^{-1} \grad(\vx)$, where $\left[J^{\vy}_{\vx}\right]^{-1}$ is the Jacobian of $\texttt{instruct}^{-1}$. One can define this gradient function on either \texttt{instruct} or \texttt{instruct${}^{-1}$}.
-The computation of gradients is implemented with multiple-dispatch. That is, when an instruction meets a \texttt{GVar} instance, it calls a different routine. For example, the backward rules for instructions \texttt{$\oplus(*)$} and \texttt{$\ominus(*)$} can be defined by overloading \textbf{either} of them as following.
+Then we wrap each output with a gradient field $\delta_{k, \rm iloss}$, which is the Dirac delta notation. The gradient field is initialized to 1 if the variable is the loss else 0. The new number type with a gradient field is called \texttt{GVar}. If the \texttt{GVar} constructor meets an array, it will be broadcasted to each element of this array. Then we feed these \texttt{GVar} instances into the backward pass $f^{-1}$.
+Finally, the gradients can be accessed with the $\grad$ dataview of output variables.
+Here we emphasis that, in the backward pass, since the basic element types are changed, different instructions are called.
+The new instructions update gradient fields for variables during computing.
+This is the multiple-dispatch in Julia that a function can be dynamically dispatched based on the run time type of more than one of its arguments.
+Similar approach has been used in the tangent mode AD package ForwardDiff~\cite{Revels2016}.
+As an example, to bind the backward rules for instructions \texttt{$\oplus(*)$} (or \texttt{PlusEq(*)}) and \texttt{$\ominus(*)$} (or \texttt{MinusEq(*)}). One can overload \textbf{either} of them as follows.
 
 \begin{minipage}{.88\columnwidth}
-\begin{lstlisting}[mathescape=true]
+    \begin{lstlisting}[mathescape=true]
 @i function ⊖(*)(out!::GVar, x::GVar, y::GVar)
     value(out!) -= value(x) * value(y)
     grad(x) += grad(out!) * value(y)
@@ -519,11 +508,8 @@ end
 \end{lstlisting}
 \end{minipage}
 
-%Here, we adopt the convention that only variables ended with \texttt{!} will be changed after the function call.
-%This backward rule has been included in NiLang, one can check the gradients by typing in a Julia REPL
-%If one defines the backward rule on \texttt{instruct}, the compiler will generate the backward rule for its inverse \texttt{instruct${}^{-1}$} as the inverse function. This is doable 
-We use the backward rule defined on $\ominus(*)$ to backpropagate the function $\oplus(*)$.
-Since taking inverse and computing gradients commute to each other~\cite{Mcinerney2015}, the compiler also binds the backward function on $\oplus(*)$ automatically.
+Here, the first line in the function body does normal computing for the \texttt{value} dataview. The second and thrid lines update the gradient fields of \texttt{x} and \texttt{y}, where update rule corresponds to the backward rule of $\oplus(*)$.
+The update rule defined on $\oplus(*)$ is automatically generated by macro \texttt{@i}, which reflects the fact that taking inverse and computing gradients commute~\cite{Mcinerney2015}.
 %When gradients are not used anymore, the reversible way to deallocate gradients is uncomputing the whole process of obtaining them.
 %, which increases the hyrachy by 1. Whenever the hyrachy increase by 1, the computational overhead doubles comparing with its irreversible counter part.
 One can check the correctness of this definition as follows.
@@ -552,14 +538,12 @@ julia> a, b, y
 \end{minipage}
 
 Here, since $J(\ominus(*)) = J(\oplus(*))^{-1}$, consecutively applying them will restore the gradient fields of all variables.
-The overhead of using \texttt{GVar} type is negligible thanks to Julia's multiple-dispatch and type inference.
+More local Jacobians and Hessians for basic instructions used in this section could be found in \App{app:jacobians}.
 
 \subsection{Differentiating complex numbers}
-To differentiate complex numbers, we need to re-implement all complex instructions reversiblly.
-It can be seen easily from the following example that implements the .
+To differentiate complex numbers, we re-implemented complex instructions reversiblly. For example, with the definition of complex valued log function in \Lst{lst:complex}, the complex valued log can be differentiated with no extra effort.
 
 \subsection{Second-order gradient}
-Second-order gradients can be obtained by forward differentiating the adjoint program, adjoint differentiating the adjoint program, and Hessian propagation.
 Combining the adjoint program in NiLang with dual-numbers is a simple yet efficient way to obtain Hessians.
 By wrapping the elementary type with \texttt{Dual} defined in package ForwardDiff~\cite{Revels2016} and throwing it into the gradient program defined in NiLang,
 one obtains one row/column of the Hessian matrix straightforward.
@@ -718,7 +702,6 @@ end
 
 Here, the definition of \texttt{ifactorial} could be found in the appendix. Comparing with it irreversible counterpart, the number of additional ancillas is a constant, while the time overhead factor is also a constant.
 Ancilla \texttt{anc4} plays the role of \textit{dirty ancilla} in multiplication, and it is uncomputed rigorously in the uncomputing stage marked by \texttt{$\sim$@routine}.
-%The \texttt{while} statement takes two conditions, the precondition and postcondition. Precondition \texttt{val(anc1) > atol} indicates when to break the forward pass and postcondition \texttt{iplus != 0} indicates when to break the backward pass.
 
 This reversible program can be diagrammatically represented as a memory oriented computational graph as shown in \Fig{fig:cgraphs} (b).
 In this graph, a variable is a vertical line, while a function is a parallel line.
@@ -728,16 +711,6 @@ If a function uses a variable but does not change the contents in it, we call th
 This diagram can be used to analyse uncomputable variables. In this example routine ``B'' uses \texttt{hz\_2}, \texttt{$\nu$} and \texttt{k} as control parameters, and changes the contents in \texttt{anc2}, \texttt{anc3} and \texttt{anc5}.
 while the following operation \texttt{imul} does not change these variables.
 Hence we can apply the inverse routine \texttt{$\sim$B} to safely restore contents in \texttt{anc2}, \texttt{anc3} and \texttt{anc5}, and this is what people called compute-copy-uncompute paradigm.
-%After computation, values of \texttt{z} and \texttt{$\nu$} are not changed, while a pre-emptied \texttt{out!} is changed to the desired output.
-%The whole function can be represented as
-%\begin{figure}[htp]
-%    \includegraphics[width=0.4\columnwidth,trim={0cm 1.5cm 0cm 0.5cm},clip]{fig5.pdf}
-%\end{figure}
-
-%\begin{figure*}
-    %\centerline{\includegraphics[width=0.7\textwidth,trim={1cm 1cm 0 0},clip]{fig4.pdf}}
-    %\caption{Data oriented computational graph for the reversible first kind Bessel function. Circles connected by vertical lines are variables, while boxes and dots connected by parallel lines are operations. A dot on a line represents a control parameter while a box represents a mutable parameter. Annotations $\#1, \#2, \ldots$ are used the mark the positions of variables in the argument list. The gray box represents the body of a while loop, where a precondition and postcondition are positioned on top and bottom of this box.}\label{fig:datagraph}
-%\end{figure*}
 
 One can obtain gradients of this function by calling \texttt{ibesselj\textquotesingle}.
 
