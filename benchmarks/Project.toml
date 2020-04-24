@@ -1,0 +1,11 @@
+[deps]
+BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
+DelimitedFiles = "8bb1440f-4735-579b-a4ab-409b98df4dab"
+ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
+NiBundleAdjustment = "4bfec6ed-2d82-413d-a7f7-dd566fd7eab0"
+NiGaussianMixture = "c0507137-b52b-44bc-b78e-1bee68c1883e"
+NiGraphEmbedding = "5519a3d1-9e73-450f-ba3d-abb22cd71d1c"
+NiLang = "ab4ef3a6-0b42-11ea-31f6-e34652774712"
+ReverseDiff = "37e2e3b7-166d-5795-8a7a-e32c996b4267"
+StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
+Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"

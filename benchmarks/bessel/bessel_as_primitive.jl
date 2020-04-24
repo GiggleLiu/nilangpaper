@@ -35,6 +35,3 @@ end
 @i function test(out!, ν, z)
     out! += besselj(ν, z)
 end
-
-println("Manual:")
-display(@benchmark test'(Val(1), 0.0, 2, 1.0))

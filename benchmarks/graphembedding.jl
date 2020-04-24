@@ -1,10 +1,8 @@
 using NiLang, NiLang.AD
 import ForwardDiff
 using ForwardDiff: Dual
-using Random
 using Zygote
 using ReverseDiff
-Random.seed!(2)
 
 using NiGraphEmbedding
 using BenchmarkTools

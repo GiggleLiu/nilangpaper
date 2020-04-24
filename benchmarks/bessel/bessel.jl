@@ -1,4 +1,8 @@
 using NiLang, NiLang.AD
+using ForwardDiff
+using ForwardDiff: Dual
+using BenchmarkTools
+
 
 """
     J(ν, z) := ∑ (−1)^k / Γ(k+1) / Γ(k+ν+1) * (z/2)^(ν+2k)
@@ -75,11 +79,6 @@ end
     out! += identity(out_anc)
     ~@routine
 end
-
-using ForwardDiff
-using ForwardDiff: Dual
-using BenchmarkTools
-
 
 function btest(v, z)
     y, _, x = ibesselj(Dual(0.0, 0.0), 2, Dual(z, 1.0))
