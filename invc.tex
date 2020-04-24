@@ -203,7 +203,8 @@ Department of Computer Science, University of Tsukuba\\
 \maketitle
 
 \begin{abstract}
-    This paper considers the source-to-source automatic differentiation (AD) in a reversible language. We start by reviewing the limitations of traditional AD frameworks. To solve the issues in these frameworks, we developed a reversible eDSL NiLang in Julia that can differentiate a general program while being compatible with Julia's ecosystem. It empowers users the flexibility to tradeoff time, space, and energy so that one can use it to obtain gradients and Hessians ranging for elementary mathematical functions, sparse matrix operations, and linear algebra that are widely used in scientific programming. We demonstrate that a source-to-source AD framework can achieve the state-of-the-art performance by showing and benchmarking several examples. Finally, we will discuss the challenges that we face towards rigorous reversible programming, mainly from the instruction and hardware perspective.
+    This paper considers implementing automatic differentiation (AD) in a reversible embedded domain-specific language. We start by reviewing the limitations of traditional AD frameworks. To solve the issues in these frameworks, we developed a reversible eDSL NiLang in Julia that can differentiate a general program while being compatible with Julia's ecosystem. It empowers users the flexibility to tradeoff time, space, and energy. With examples, we show one can use it to obtain gradients and Hessians for a wide class of functions in scientific programming and machine learning, including elementary mathematical functions, sparse matrix operaions and linear algebras (especially unitary matrices). Managable memory allocation makes it a good tool to differentiate GPU kernels.
+By benchmarking its performance in Bessel function, graph embedding problem, gaussian mixture model and bundle adjustment, we demonstrate that the AD implemneted in a reversible programming language can achieve state-of-the-art performance in both time and space. Finally, we will discuss the challenges that we face towards rigorous reversible programming, mainly from the instruction and hardware perspective.
 \end{abstract}
 
 %\begin{multicols}{2}
@@ -540,14 +541,14 @@ julia> a, b, y
 Here, since $J(\ominus(*)) = J(\oplus(*))^{-1}$, consecutively applying them will restore the gradient fields of all variables.
 More local Jacobians and Hessians for basic instructions used in this section could be found in \App{app:jacobians}.
 
-\subsection{Differentiating complex numbers}
-To differentiate complex numbers, we re-implemented complex instructions reversiblly. For example, with the definition of complex valued log function in \Lst{lst:complex}, the complex valued log can be differentiated with no extra effort.
-
 \subsection{Second-order gradient}
 Combining the adjoint program in NiLang with dual-numbers is a simple yet efficient way to obtain Hessians.
 By wrapping the elementary type with \texttt{Dual} defined in package ForwardDiff~\cite{Revels2016} and throwing it into the gradient program defined in NiLang,
 one obtains one row/column of the Hessian matrix straightforward.
 We will show an example of using forward differentiating in Newton's trust region optimization in \Sec{sec:graph}.
+
+\subsection{Differentiating complex numbers}
+To differentiate complex numbers, we re-implemented complex instructions reversiblly. For example, with the definition of complex valued log function in \Lst{lst:complex}, the complex valued log can be differentiated with no extra effort.
 
 \subsection{Gradient on ancilla problem}
 In this subsection, we introduce an easily overlooked problem in our reversible AD framework.
