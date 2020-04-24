@@ -1,8 +1,0 @@
-println("Benchmarking Bundle Adjustment...")
-include("ba.jl")
-println("Benchmarking Gaussian Mixture Model...")
-include("gmm.jl")
-println("Benchmarking Graph Embedding...")
-include("graphembedding.jl")
-println("Benchmarking the First Kind Bessel Function...")
-include("bessel/julia_benchmark.jl")

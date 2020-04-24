@@ -12,7 +12,7 @@ suite["NiLang.AD"] = @benchmarkable NiLang.AD.gradient(Val(1), ibesselj, (0.0, 2
 suite["ReverseDiff"] = @benchmarkable ReverseDiff.gradient($(x->besselj(2, x[1])), $([1.0]))
 suite["Zygote"] = @benchmarkable Zygote.gradient($(x->besselj(2, x)), 1.0)
 suite["ForwardDiff"] = @benchmarkable besselj(2, ForwardDiff.Dual(1.0, 1.0))
-suite["Manual"] = @benchmarkable test'(Val(1), 0.0, 2, 1.0)
+suite["Manual"] = @benchmarkable run_manual'(Val(1), 0.0, 2, 1.0)
 
 tune!(suite)
 res = run(suite)
@@ -27,4 +27,6 @@ end
 
 times = analyze_res(res)
 using DelimitedFiles
-writedlm(joinpath(dirname(dirname(@__FILE__)), "data", "bench_bessel.dat"), times)
+fname = joinpath(dirname(dirname(@__FILE__)), "data", "bench_bessel.dat")
+println("Writing benchmark results to file: $fname.")
+writedlm(fname, times)

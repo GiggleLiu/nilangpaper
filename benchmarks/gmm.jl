@@ -68,4 +68,6 @@ end
 
 times = analyze_res(res)
 using DelimitedFiles
-writedlm(joinpath(dirname(@__FILE__), "data", "bench_gmm.dat"), times)
+fname = joinpath(dirname(dirname(@__FILE__)), "data", "bench_gmm.dat")
+println("Writing benchmark results to file: $fname.")
+writedlm(fname, times)
