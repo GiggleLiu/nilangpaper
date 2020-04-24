@@ -3,11 +3,16 @@ using NiBundleAdjustment
 using NiBundleAdjustment: vec2cam, vec2scam, compute_reproj_err
 using StaticArrays
 
+include("argparse.jl")
+datafolder = parse()["adbench-folder"]
+
 function load(b, n, m, p)
     #dir_in = joinpath(dirname(dirname(@__FILE__)), "data", "ba")
-    dir_in = joinpath(homedir(), "jcode", "ADBench", "data", "ba")
+    #dir_in = joinpath(homedir(), "jcode", "ADBench", "data", "ba")
+    dir_in = joinpath(datafolder, "data", "ba")
     fn = "ba$(b)_n$(n)_m$(m)_p$(p)"
     fn_in = joinpath(dir_in, fn)
+    println("loading data: $(fn_in).txt")
     NiBundleAdjustment.read_ba_instance(string(fn_in,".txt"))
 end
 

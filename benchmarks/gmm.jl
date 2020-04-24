@@ -2,9 +2,13 @@ using BenchmarkTools
 using NiGaussianMixture
 using ForwardDiff
 
+include("argparse.jl")
+datafolder = parse()["adbench-folder"]
+
 function load(d, k)
     #dir_in = joinpath(dirname(dirname(@__FILE__)), "data", "gmm")
-    dir_in = joinpath(homedir(), "jcode/ADBench", "data", "gmm")
+    #dir_in = joinpath(homedir(), "jcode", "ADBench", "data", "gmm")
+    dir_in = joinpath(datafolder, "data", "gmm")
     dir_out = dirname(@__FILE__)
     fn = joinpath("10k", "gmm_d$(d)_K$k")
 
