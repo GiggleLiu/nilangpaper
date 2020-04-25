@@ -218,10 +218,10 @@ By benchmarking its performance in Bessel function, graph embedding problem, gau
 \end{align*}
 where $x^0\in R^m$, $x^L\in R^n$, $L$ is the depth of computing.
 The Jacobian of this program is a $n\times m$ matrix $J_{ij} \equiv \frac{\partial x^L_i}{\partial x_j^0}$, where $x_j^0$ and $x_i^L$ are single elements of inputs and outputs.
-Computing part of the Jacobian automatically is what we called automatic differentiation (AD). It can be classified into three classes, the tangent mode AD, the adjoint mode AD and the mixed mode AD.~\cite{Hascoet2013}
-    The tangent mode AD computes the Jacobian matrix elements related to a single input using the chain rule $\frac{\partial \vx^k}{\partial x^0_j} = \frac{\partial \vx^k}{\partial \vx^{k-1}}\frac{\partial \vx^{k-1}}{\partial x^0_j}$ with $j$ the column index, while a adjoint mode AD computes Jacobian matrix elements related to a single output using $\frac{\partial \vx^L_i}{\partial x^{k-1}} = \frac{\partial \vx^L_i}{\partial \vx^{k}}\frac{\partial \vx^{k}}{\partial x^{k-1}}$ with $i$ the row index.
-    In variational applications where the loss function always outputs a scalar, the adjoint mode AD is preferred.
-However, implementing adjoint mode AD is harder than implementing its tangent mode counterpart, because it requires propagating the gradients in the inverse direction of computing the loss. The backpropagation of gradients requires intermediate information of a program that includes
+Computing part of the Jacobian automatically is what we called automatic differentiation (AD). It can be classified into three classes, the forward mode AD, the backward mode AD and the mixed mode AD.~\cite{Hascoet2013}
+    The forward mode AD computes the Jacobian matrix elements related to a single input using the chain rule $\frac{\partial \vx^k}{\partial x^0_j} = \frac{\partial \vx^k}{\partial \vx^{k-1}}\frac{\partial \vx^{k-1}}{\partial x^0_j}$ with $j$ the column index, while a backward mode AD computes Jacobian matrix elements related to a single output using $\frac{\partial \vx^L_i}{\partial x^{k-1}} = \frac{\partial \vx^L_i}{\partial \vx^{k}}\frac{\partial \vx^{k}}{\partial x^{k-1}}$ with $i$ the row index.
+    In variational applications where the loss function always outputs a scalar, the backward mode AD is preferred.
+However, implementing backward mode AD is harder than implementing its forward mode counterpart, because it requires propagating the gradients in the inverse direction of computing the loss. The backpropagation of gradients requires intermediate information of a program that includes
 \begin{enumerate}
     \item the computational process,
     \item and variables used in computing gradients.
@@ -475,9 +475,9 @@ Consider a computational process $\vx^{i-1} = f_{i}^{-1}(\vx^{i})$ inside a reve
         J^{\out}_{\vx^{i-1}} &= J^{\out}_{\vx^i} J^{\vx^i}_{\vx^{i-1}},
     \end{split}\label{eq:jacobian}
 \end{align}
-where $\out$ represents the outputs of the program. In adjoint mode AD, it is a scalar.
+where $\out$ represents the outputs of the program. In backward mode AD, it is a scalar.
 $J^{\out}_{\vx^i} \equiv \frac{\partial \out}{\partial \vx^i}$ is the Jacobian to be propagated, and $J^{\vx^i}_{\vx^{i-1}}$ is the local Jacobian matrix. Einstein's notation~\cite{Einsum} is used here so that the duplicated index $\vx^{i}$ in the second line is summed over.
-The algorithm to compute the adjoint mode AD can be summarized as follows.
+The algorithm to compute the backward mode AD can be summarized as follows.
 
 \begin{algorithm}[H]
     \KwResult{\grad.($\vx$)}
@@ -496,7 +496,7 @@ Finally, the gradients can be accessed with the $\grad$ dataview of output varia
 Here we emphasis that, in the backward pass, since the basic element types are changed, different instructions are called.
 The new instructions update gradient fields for variables during computing.
 This is the multiple-dispatch in Julia that a function can be dynamically dispatched based on the run time type of more than one of its arguments.
-Similar approach has been used in the tangent mode AD package ForwardDiff~\cite{Revels2016}.
+Similar approach has been used in the forward mode AD package ForwardDiff~\cite{Revels2016}.
 As an example, to bind the backward rules for instructions \texttt{$\oplus(*)$} (or \texttt{PlusEq(*)}) and \texttt{$\ominus(*)$} (or \texttt{MinusEq(*)}). One can overload \textbf{either} of them as follows.
 
 \begin{minipage}{.88\columnwidth}
@@ -549,30 +549,6 @@ We will show an example of using forward differentiating in Newton's trust regio
 
 \subsection{Differentiating complex numbers}
 To differentiate complex numbers, we re-implemented complex instructions reversiblly. For example, with the definition of complex valued log function in \Lst{lst:complex}, the complex valued log can be differentiated with no extra effort.
-
-\subsection{Gradient on ancilla problem}
-In this subsection, we introduce an easily overlooked problem in our reversible AD framework.
-An ancilla can sometimes carry a nonzero gradient when it is going to be deallocated. As a result, even if an ancilla can be uncomputed rigorously in the original program, its \texttt{GVar} wrapped version is not necessarily safely deallocated.
-In NiLang, we drop the gradient field of ancillas instead of raising an error.
-In the following, we justify our decision by proving the following theorem.
-\begin{theorem}
-    Deallocating an ancilla with constant value field and nonzero gradient field does not harm the reversibility of a function.
-\end{theorem}
-\begin{proof}
-    Consider a reversible function $\vx^i, b = f_i(\vx^{i-1}, a)$, where $a$ and $b$ are the input and output values of an ancilla.
-    Since both $a$, $b$ are constants that are indenpedent of input $\vx^{i-1}$, we have
-\begin{align}
-    \frac{\partial b}{\partial \vx^{i-1}} = \mathbf{0}.
-\end{align}
-%Suppose in the backward pass, we discard the gradient field of $b$.
-%So the question becomes does \texttt{grad(b)} have effect on the $\vx$?
-Discarding gradients should not have any effect on the \texttt{value} fields of outputs.
-    The key is to show $\texttt{grad(b)} \equiv \frac{\partial \vx^L}{\partial{b}}$ does appear in the \texttt{grad} fields of the output. It can be seen from the back-propagation rule 
-\begin{equation}
-    \frac{\partial \vx^L}{\partial \vx^{i-1}} = \frac{\partial \vx^L}{\partial \vx^i}\frac{\partial \vx^i}{\partial \vx^{i-1}} + \frac{\partial \vx^L}{\partial b}\frac{\partial b}{\partial \vx^{i-1}},
-\end{equation}
-where the second term with $\frac{\partial \vx^L}{\partial{b}}$ vanishes naturally.
-\end{proof}
 
 \section{Examples}\label{sec:example}
 
@@ -808,52 +784,6 @@ end
 
 With simple adaptation, the code becomes reversible.
 Here, the key point is using a \texttt{branch\_keeper} vector to cache branch decisions.
-In the following example, we compare the time used in the forward pass and backward pass.
-
-\begin{minipage}{\columnwidth}
-\begin{lstlisting}[multicols=2]
-julia> using BenchmarkTools
-
-julia> a = sprand(1000, 1000, 0.01);
-
-julia> b = sprand(1000, 1000, 0.01);
-
-julia> @benchmark SparseArrays.dot($a, $b)
-BenchmarkTools.Trial: 
-  memory estimate:  0 bytes
-  allocs estimate:  0
-  --------------
-  minimum time:     94.537 μs (0.00% GC)
-  median time:      96.959 μs (0.00% GC)
-  mean time:        98.188 μs (0.00% GC)
-  maximum time:     189.291 μs (0.00% GC)
-  --------------
-  samples:          10000
-  evals/sample:     1
-
-julia> out! = SparseArrays.dot(a, b)
-25.19659286755114
-
-julia> @benchmark (~dot)($(GVar(out!, 1.0)),
-        $(GVar.(a)), $(GVar.(b)))
-BenchmarkTools.Trial:   #$ TODO: remove this comment
-  memory estimate:  2.17 KiB
-  allocs estimate:  2
-  --------------
-  minimum time:     151.392 μs (0.00% GC)
-  median time:      153.153 μs (0.00% GC)
-  mean time:        155.884 μs (0.00% GC)
-  maximum time:     270.534 μs (0.00% GC)
-  --------------
-  samples:          10000
-  evals/sample:     1
-\end{lstlisting}
-\end{minipage}
-
-The time used for computing backward pass is approximately 1.6 times Julia's native forward pass.
-Here, we have turned off the reversibility check off to achieve better performance.
-By writing sparse matrix multiplication and other sparse matrix operations reversibly,
-we will have a differentiable sparse matrix library with proper performance.
 
 \subsection{Unitary Matrices}\label{sec:umm}
 A unitary matrix features uniform eigenvalues and reversibility. It is widely used as an approach to ease the gradient exploding and vanishing problem~\cite{Arjovsky2015,Wisdom2016,Li2016} and the memory wall problem~\cite{Luo2019}.
@@ -1033,8 +963,8 @@ Although training time is comparable, the converged precision of the later is mu
 \section{Benchmark}\label{sec:benchmark}
 
 \subsection{Bessel Function}
-We have different source-to-source automatic differentiation implementations of the first type Bessel function and show the benchmarks in \Tbl{tbl:besselj}.
-In the benchmark, the CPU device is Intel(R) Xeon(R) CPU E5-2680 v4 @ 2.40GHz, and the GPU device is Nvidia Titan V. The GPU time is estimated by broadcasting the gradient function on CUDA array of size $2^{17}$ and taking the average.
+We differentiate the first type Bessel function in differente frameworks and show the benchmarks in \Tbl{tbl:besselj}.
+In the benchmark, the CPU device is Intel(R) Xeon(R) Gold 6230 CPU @ 2.10GHz.
 \begin{table}[h!]\centering
 \begin{minipage}{0.8\columnwidth}
 \ra{1.3}
@@ -1042,15 +972,15 @@ In the benchmark, the CPU device is Intel(R) Xeon(R) CPU E5-2680 v4 @ 2.40GHz, a
         \begin{tabularx}{\textwidth}{X X c c}\toprule
             & \textbf{Mode} & \textbf{$T_{\rm min}$/ns} & Space/KB\\
             \hline
-            Julia & - & 17 & 0\\
-            NiLang (call/uncall) & - & 53 & 0\\
+            Julia & Call & 17 & 0\\
+            NiLang & Call/Uncall & 53 & 0\\
             ForwardDiff & Tangent & 39 & 0\\
             %Manual & Adjoint & 83 & 0\\
             NiLang.AD & Adjoint & 231 & 0\\
-            %NiLang.AD (GPU) & Adjoint & 1.4 & 0\\
+            NiLang.AD (GPU) & Adjoint & 1.4 & 0\\
             ReverseDiff & Adjoint & 7198 & 7.3\\
             Zygote & Adjoint & 22561 & 13.47\\
-            Tapenade & - & 32 & 0\\
+            Tapenade & Call & 32 & 0\\
             Tapenade & Tangent & 30 & 0\\
             Tapenade & Adjoint & 111 & > 0\\
             \hline
@@ -1064,24 +994,20 @@ In the benchmark, the CPU device is Intel(R) Xeon(R) CPU E5-2680 v4 @ 2.40GHz, a
 
 In the table, Julia is the CPU time used for running the irreversible forward program. It is the baseline for benchmarking.
 NiLang (call/uncall) is the time of reversible call or uncall. Both of them are $\sim 3$ times slower than its irreversible counterpart. Here, we have removed the reversibility check to avoid overheads. One can always turn off this check after debugging.
-In this case, Tangent mode AD tools are faster than reverse mode AD, both ForwardDiff and Tapenade have the 
-It is even faster than manually derived gradients
-\begin{equation}
-    J_{\nu}'(z) = \frac{J_{\nu-1} - J_{\nu+1}}{2}.
-\end{equation}
-Besides the efficient implementation, its high performance also lies in the fact that this function fit for tangent mode AD which has only one input.
-NiLang.AD represents the reversible AD in NiLang, and it takes 12.3 times the original program, which is still much faster than naive checkpointing.
-In Zygote, the memory allocation on the heap is 13.47KB. They are not all for checkpointing. Some of them are related to type instability, where Julia compiler fails to infer types.
-Using closures to handle checkpointing can induce poor performance because external type instability sometimes can propagate to the interior.
-NiLang uses uncomputing to manage memory rather than closure, which does not frequently involve external variables in the function.
-Hence it is more friendly to type inference in Julia compiler.
-%Tapenade \blue{needs your effort, @MLS}
-We also include a CUDA benchmark. Our reversible programming is compatible with CUDA programming so that the differentiable kernel can be executed on GPU.
-For people who are interested in CUDA programming, we prepared another example in \App{app:cuda}, which implements a differentiable quantum simulation kernel on GPU.
-So far, the generated backward rule faces the shared write problem, which requires further investigation.
+Since Bessel function has only one input argument, Tangent mode AD tools are faster than reverse mode AD, both source-to-source framework ForwardDiff and operator overloading framework Tapenade have the a comparable computing time with the pure function call.
+%It is even faster than manually derived gradients
+%\begin{equation}
+%    J_{\nu}'(z) = \frac{J_{\nu-1} - J_{\nu+1}}{2}.
+%\end{equation}
+%Besides the efficient implementation, its high performance also lies in the fact that this function fit for forward mode AD which has only one input.
+NiLang.AD is the reverse mode AD submodule in NiLang, and it takes 13.6 times the native Julia program, and is also 2 times slower than Tapenade. However, the key point is, there is no extra memory allocation like stack operations in the whole computation. The controllable memory allocation of NiLang makes it compatible with CUDA program.
+%For people who are interested in CUDA programming, we prepared another example in \App{app:cuda}, which implements a differentiable quantum simulation kernel on GPU.
+%So far, the generated backward rule faces the shared write problem, which requires further investigation.
+%, and the GPU device is Nvidia Titan V. The GPU time is estimated by broadcasting the gradient function on CUDA array of size $2^{17}$ and taking the average.
+In other backward mode AD like Zygote, ReverseDiff and Tapenade, the memory allocation in heap is nonzero due to the checkpointing and possible failure of type inference of Julia language. NiLang is friendly to type inference because it is closure free.
 
-\subsubsection{Graph embedding problem}
-Since the ForwardDiff itself provides the Hessian for users, it is interesting to benchmark how much performance we can get by forward differentiating an adjoint program comparing with forward differentiating a forward AD program. In the following benchmark, we also compare other adjoint mode AD packages.
+\subsection{Graph embedding problem}
+Since the ForwardDiff itself provides the Hessian for users, it is interesting to benchmark how much performance we can get by forward differentiating an adjoint program comparing with forward differentiating a forward AD program. In the following benchmark, we also compare other backward mode AD packages.
 \begin{figure}
     \centerline{\includegraphics[width=0.8\columnwidth,trim={0 0 0 0},clip]{fig7.pdf}}
     \caption{The time used to (a) call/uncall, (b) compute gradients and (c) compute Hessians for the loss of the graph embedding problem.}\label{fig:bench-embedding}
@@ -1090,9 +1016,58 @@ The benchmark is executed on CPU with the same setup as previous benchmarks.
 In this application, the number of input parameters scales as $10 \times k$, where $k$ is the embedding dimension of the graph.
 In \Fig{fig:bench-embedding}, we show the the performance of different implementations by varying the dimension $k$.
 As the baseline, (a) shows the time for computing the 0th-order gradient, or the function call. We have reversible and irreversible implementations, where the reversible program is slower than the irreversible native Julia program by a factor of $\sim2$.
-(b) shows the time for computing the first-order gradients. The reversible program shows the advantage of obtaining gradients when the dimension $k \geq 3$. The larger the number of inputs, the more advantage it shows due to the overhead proportional to input size in tangent mode AD.
-The same reason applies to computing Hessians. The mixed-mode AD gives better performance when $k \geq 3$ comparing with pure tangent mode AD.
-Comparing with other adjoint mode AD packages ReverseDiff and Zygote, NiLang is approximately one order more efficient for the same reason we discussed in \Sec{sec:bessel}.
+(b) shows the time for computing the first-order gradients. The reversible program shows the advantage of obtaining gradients when the dimension $k \geq 3$. The larger the number of inputs, the more advantage it shows due to the overhead proportional to input size in forward mode AD.
+The same reason applies to computing Hessians. The mixed-mode AD gives better performance when $k \geq 3$ comparing with pure forward mode AD.
+Comparing with other backward mode AD packages ReverseDiff and Zygote, NiLang is approximately one order more efficient for the same reason we discussed in \Sec{sec:bessel}.
+
+\subsection{Sparse matrices}
+In the following example, we compare the time used in the forward pass and backward pass.
+
+\begin{minipage}{\columnwidth}
+\begin{lstlisting}[multicols=2]
+julia> using BenchmarkTools
+
+julia> a = sprand(1000, 1000, 0.01);
+
+julia> b = sprand(1000, 1000, 0.01);
+
+julia> @benchmark SparseArrays.dot($a, $b)
+BenchmarkTools.Trial: 
+  memory estimate:  0 bytes
+  allocs estimate:  0
+  --------------
+  minimum time:     94.537 μs (0.00% GC)
+  median time:      96.959 μs (0.00% GC)
+  mean time:        98.188 μs (0.00% GC)
+  maximum time:     189.291 μs (0.00% GC)
+  --------------
+  samples:          10000
+  evals/sample:     1
+
+julia> out! = SparseArrays.dot(a, b)
+25.19659286755114
+
+julia> @benchmark (~dot)($(GVar(out!, 1.0)),
+        $(GVar.(a)), $(GVar.(b)))
+BenchmarkTools.Trial:   #$ TODO: remove this comment
+  memory estimate:  2.17 KiB
+  allocs estimate:  2
+  --------------
+  minimum time:     151.392 μs (0.00% GC)
+  median time:      153.153 μs (0.00% GC)
+  mean time:        155.884 μs (0.00% GC)
+  maximum time:     270.534 μs (0.00% GC)
+  --------------
+  samples:          10000
+  evals/sample:     1
+\end{lstlisting}
+\end{minipage}
+
+The time used for computing backward pass is approximately 1.6 times Julia's native forward pass.
+Here, we have turned off the reversibility check off to achieve better performance.
+By writing sparse matrix multiplication and other sparse matrix operations reversibly,
+we will have a differentiable sparse matrix library with proper performance.
+
 
 \subsection{Gaussian mixture model and bundle adjustment}
 We reproduced the benchmarks for Gaussian mixture model (GMM) and bundle adjustment (BA) in ~\cite{Srajer2018} by re-writting the programs in a reversible way, and show the results bellow.
@@ -1144,7 +1119,7 @@ We reproduced the benchmarks for Gaussian mixture model (GMM) and bundle adjustm
 
 
 \section{Discussion and outlook}\label{sec:discussion}
-In this paper, we show how to realize a reversible programming eDSL and how to implement source-to-source adjoint mode AD on top of it.
+In this paper, we show how to realize a reversible programming eDSL and how to implement source-to-source backward mode AD on top of it.
 It gives the user more flexibility to tradeoff memory and computing time comparing with traditional checkpointing.
 The Julia implementation NiLang gives the state-of-the-art performance and memory efficiency in obtaining first and second-order gradients in applications, including first type Bessel function, sparse matrix manipulations, linear algebra functions and, a practical one, the application graph embedding problem.
 %In a reversible programming language, we proposed to use ``approximate uncomputing'' trick to avoid the overhead of a reversible program in many practical cases.
@@ -1253,6 +1228,92 @@ It is technically more smooth to have a reversible computing device to bridge th
 By introducing entanglement little by little, we can accelerate some elementary components in reversible computing. For example, quantum Fourier transformation provides an alternative to the reversible adders and multipliers by introducing the CPHASE quantum gate~\cite{RuizPerez2017}.
 Currently, most quantum programming language preassumes a classical coprocessor and uses classical control flows~\cite{Svore2018} in universal quantum computing.
 However, we believe reversible compiling technologies, including reversible control flows, are also very important to a universal quantum computer.
+
+\subsection{Gradient on ancilla problem}
+In this subsection, we introduce an easily overlooked problem in our reversible AD framework.
+An ancilla can sometimes carry a nonzero gradient when it is going to be deallocated. As a result, even if an ancilla can be uncomputed rigorously in the original program, its \texttt{GVar} wrapped version is not necessarily safely deallocated.
+In NiLang, we drop the gradient field of ancillas instead of raising an error.
+In the following, we justify our decision by proving the following theorem.
+\begin{theorem}
+    Deallocating an ancilla with constant value field and nonzero gradient field does not harm the reversibility of a function.
+\end{theorem}
+\begin{proof}
+    Consider a reversible function $\vx^i, b = f_i(\vx^{i-1}, a)$, where $a$ and $b$ are the input and output values of an ancilla.
+    Since both $a$, $b$ are constants that are indenpedent of input $\vx^{i-1}$, we have
+\begin{align}
+    \frac{\partial b}{\partial \vx^{i-1}} = \mathbf{0}.
+\end{align}
+%Suppose in the backward pass, we discard the gradient field of $b$.
+%So the question becomes does \texttt{grad(b)} have effect on the $\vx$?
+Discarding gradients should not have any effect on the \texttt{value} fields of outputs.
+    The key is to show $\texttt{grad(b)} \equiv \frac{\partial \vx^L}{\partial{b}}$ does appear in the \texttt{grad} fields of the output. It can be seen from the back-propagation rule 
+\begin{equation}
+    \frac{\partial \vx^L}{\partial \vx^{i-1}} = \frac{\partial \vx^L}{\partial \vx^i}\frac{\partial \vx^i}{\partial \vx^{i-1}} + \frac{\partial \vx^L}{\partial b}\frac{\partial b}{\partial \vx^{i-1}},
+\end{equation}
+where the second term with $\frac{\partial \vx^L}{\partial{b}}$ vanishes naturally.
+\end{proof}
+
+\subsection{Shared read and write problem}
+Let's first consider the following expression.
+
+\begin{minipage}{.88\columnwidth}
+\begin{lstlisting}
+y += x * y
+\end{lstlisting}
+\end{minipage}
+
+Most people will agree that this statement is not reversible and should not be allowed because it changes input variables.
+We call it the \textit{simultaneous read-and-write} issue.
+However, the following expression with two same inputs is a bit subtle.
+
+\begin{minipage}{.88\columnwidth}
+\begin{lstlisting}
+y += x * x
+\end{lstlisting}
+\end{minipage}
+
+It is reversible, but should not be allowed in an AD program because of the \textit{shared write} issue.
+It can be seen directly from the expanded expression.
+
+\begin{minipage}{.88\columnwidth}
+\begin{lstlisting}
+julia> macroexpand(Main, :(@instr y += x * x))
+quote
+    var"##253" = ((PlusEq)(*))(y, x, x)
+    begin
+        y = ((NiLangCore.wrap_tuple)(var"##253"))[1]
+        x = ((NiLangCore.wrap_tuple)(var"##253"))[2]
+        x = ((NiLangCore.wrap_tuple)(var"##253"))[3]
+    end
+end
+\end{lstlisting}
+\end{minipage}
+
+In an AD program, the gradient field of \texttt{x} will be updated.
+The later assignment to $x$ will overwrite the former one and introduce an incorrect gradient.
+One can get free of this issue by avoiding using same variable in a single instruction
+
+\begin{minipage}{.88\columnwidth}
+\begin{lstlisting}
+anc ← zero(x)
+anc += identity(x)
+y += x * anc
+anc -= identity(x)
+\end{lstlisting}
+\end{minipage}
+
+or equivalently,
+
+\begin{minipage}{.88\columnwidth}
+\begin{lstlisting}
+y += x ^ 2
+\end{lstlisting}
+\end{minipage}
+
+Share variables in an instuction can be easily identified by the compiler easily.
+However, it becomes tricky when one runs the program in a parallel way.
+For example, in CUDA programming, every thread may want to write to the same gradient field of a scalar.
+How to solve the shared write in CUDA programming is still an open problem, which limits the power of AD on GPU.
 
 \subsection{Outlook}\label{sec:outlook}
 
