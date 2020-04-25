@@ -69,6 +69,6 @@ end
 
 times = analyze_res(res)
 using DelimitedFiles
-fname = joinpath(dirname(dirname(@__FILE__)), "data", "bench_graphembedding.dat")
+fname = joinpath(@__DIR__, "data", "bench_graphembedding.dat")
 println("Writing benchmark results to file: $fname.")
 writedlm(fname, times)

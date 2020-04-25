@@ -13,6 +13,9 @@ elseif obj == "GE"
 elseif obj == "Bessel"
     println("Benchmarking the First Kind Bessel Function...")
     include("bessel/julia_benchmark.jl")
+elseif obj == "Sparse"
+    println("Benchmarking the Sparse functions...")
+    include("sparse.jl")
 else
     error("unkown objective: $obj, must be one of `GMM`, `BA`, `GE` and `Bessel`.")
 end

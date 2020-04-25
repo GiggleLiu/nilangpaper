@@ -1,5 +1,6 @@
 using NiLang.AD, NiLang
 using SparseArrays
+using SparseArrays: getcolptr
 
 @i function imul!(C::StridedVecOrMat, A::AbstractSparseMatrix, B::StridedVector{T}, α::Number, β::Number) where T
     @safe size(A, 2) == size(B, 1) || throw(DimensionMismatch())
@@ -69,15 +70,15 @@ suite = BenchmarkGroup()
 a = sprand(1000, 1000, 0.05);
 b = sprand(1000, 1000, 0.05);
 suite["Julia-dot"] = @benchmarkable SparseArrays.dot($a, $b)
-suite["Nilang-dot"] = @benchmarkable idot(0.0, $a, $b)
-suite["NiLang.AD-dot"] = @benchmarkable (~idot)(Val(1), GVar(0.0), $(GVar(a)), $(GVar(b)))
+suite["NiLang-dot"] = @benchmarkable idot(0.0, $a, $b)
+suite["NiLang.AD-dot"] = @benchmarkable (~idot)($(GVar(SparseArrays.dot(a, b))), $(GVar(a)), $(GVar(b)))
 
 A = sprand(ComplexF64, 1000, 1000, 0.05);
 v = randn(ComplexF64, 1000);
 out = zeros(ComplexF64, 1000);
 suite["Julia-mul!"] = @benchmarkable SparseArrays.mul!($(copy(out)), $A, $v, 0.5+0im, 1)
 suite["NiLang-mul!"] = @benchmarkable imul!($(copy(out)), $A, $v, 0.5+0im, 1)
-suite["NiLang.AD-mul!"] = @benchmarkable (~imul!)($(GVar(out)), $(GVar(A)), $(GVar(v)), $(GVar(0.5+0.0im)), 1)
+suite["NiLang.AD-mul!"] = @benchmarkable (~imul!)($(GVar(SparseArrays.mul!((copy(out)), A, v, 0.5+0im, 1))), $(GVar(A)), $(GVar(v)), $(GVar(0.5+0.0im)), 1)
 
 tune!(suite)
 res = run(suite)
@@ -93,6 +94,6 @@ end
 
 times = analyze_res(res)
 using DelimitedFiles
-fname = joinpath(dirname(dirname(@__FILE__)), "data", "bench_sparse.dat")
+fname = joinpath(@__DIR__, "data", "bench_sparse.dat")
 println("Writing benchmark results to file: $fname.")
 writedlm(fname, times)
