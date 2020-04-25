@@ -203,7 +203,7 @@ Department of Computer Science, University of Tsukuba\\
 \maketitle
 
 \begin{abstract}
-    This paper considers implementing automatic differentiation (AD) in a reversible embedded domain-specific language. We start by reviewing the limitations of traditional AD frameworks. To solve the issues in these frameworks, we developed a reversible eDSL NiLang in Julia that can differentiate a general program while being compatible with Julia's ecosystem. It empowers users the flexibility to tradeoff time, space, and energy. With examples, we show one can use it to obtain gradients and Hessians for a wide class of functions in scientific programming and machine learning, including elementary mathematical functions, sparse matrix operaions and linear algebras (especially unitary matrices). Managable memory allocation makes it a good tool to differentiate GPU kernels.
+    This paper considers implementing automatic differentiation (AD) in a reversible embedded domain-specific language. We start by reviewing the limitations of traditional AD frameworks. To solve the issues in these frameworks, we developed an open source reversible eDSL NiLang in Julia that can differentiate a general program while being compatible with Julia's ecosystem. It empowers users the flexibility to tradeoff time, space, and energy. With examples, we show one can use it to obtain gradients and Hessians for a wide class of functions in scientific programming and machine learning, including elementary mathematical functions, sparse matrix operaions and linear algebras (especially unitary matrices). Managable memory allocation makes it a good tool to differentiate GPU kernels.
 By benchmarking its performance in Bessel function, graph embedding problem, gaussian mixture model and bundle adjustment, we demonstrate that the AD implemneted in a reversible programming language can achieve state-of-the-art performance in both time and space. Finally, we will discuss the challenges that we face towards rigorous reversible programming, mainly from the instruction and hardware perspective.
 \end{abstract}
 
@@ -974,15 +974,15 @@ In the benchmark, the CPU device is Intel(R) Xeon(R) Gold 6230 CPU @ 2.10GHz.
             \hline
             Julia & Call & 17 & 0\\
             NiLang & Call/Uncall & 53 & 0\\
-            ForwardDiff & Tangent & 39 & 0\\
-            %Manual & Adjoint & 83 & 0\\
-            NiLang.AD & Adjoint & 231 & 0\\
-            NiLang.AD (GPU) & Adjoint & 1.4 & 0\\
-            ReverseDiff & Adjoint & 7198 & 7.3\\
-            Zygote & Adjoint & 22561 & 13.47\\
+            ForwardDiff & Forward & 39 & 0\\
+            %Manual & Backward & 83 & 0\\
+            NiLang.AD & Backward & 231 & 0\\
+            NiLang.AD (GPU) & Backward & 1.4 & 0\\
+            ReverseDiff & Backward & 7198 & 7.3\\
+            Zygote & Backward & 22561 & 13.47\\
             Tapenade & Call & 32 & 0\\
-            Tapenade & Tangent & 30 & 0\\
-            Tapenade & Adjoint & 111 & > 0\\
+            Tapenade & Forward & 30 & 0\\
+            Tapenade & Backward & 111 & > 0\\
             \hline
             \bottomrule
         \end{tabularx}
@@ -994,7 +994,7 @@ In the benchmark, the CPU device is Intel(R) Xeon(R) Gold 6230 CPU @ 2.10GHz.
 
 In the table, Julia is the CPU time used for running the irreversible forward program. It is the baseline for benchmarking.
 NiLang (call/uncall) is the time of reversible call or uncall. Both of them are $\sim 3$ times slower than its irreversible counterpart. Here, we have removed the reversibility check to avoid overheads. One can always turn off this check after debugging.
-Since Bessel function has only one input argument, Tangent mode AD tools are faster than reverse mode AD, both source-to-source framework ForwardDiff and operator overloading framework Tapenade have the a comparable computing time with the pure function call.
+Since Bessel function has only one input argument, forward mode AD tools are faster than reverse mode AD, both source-to-source framework ForwardDiff and operator overloading framework Tapenade have the a comparable computing time with the pure function call.
 %It is even faster than manually derived gradients
 %\begin{equation}
 %    J_{\nu}'(z) = \frac{J_{\nu-1} - J_{\nu+1}}{2}.
