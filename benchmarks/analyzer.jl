@@ -3,6 +3,7 @@ using Printf
 
 bares() = readdlm("data/bench_ba.dat")'./1e9
 gmmres() = readdlm("data/bench_gmm.dat")'./1e9
+geres() = readdlm("data/bench_graphembedding.dat")'./1e9
 function tapenade_gmmres()
     arglist = [(2, 5), (10, 5), (2, 200), (10, 50), (64, 5), (64, 10), (64, 25), (64, 200)]
     res = zeros(Float64, 2, arglist |> length)
@@ -32,4 +33,16 @@ function showres(res)
         @printf "%.3e  " res[i,j] end
         println()
     end
+end
+
+function latexres(res)
+    for i=1:size(res,1) for j=1:size(res, 2)
+        token = j==size(res, 2) ? "\\\\" : "&"
+        @printf "%.3e  %s " res[i,j] token end
+        println()
+    end
+end
+
+function formatres(res)
+    map(x->(@sprintf "%.3e  " x), res)
 end

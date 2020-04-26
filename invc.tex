@@ -962,32 +962,35 @@ Although training time is comparable, the converged precision of the later is mu
 
 \section{Benchmark}\label{sec:benchmark}
 
+In the following benchmarks the CPU device is Intel(R) Xeon(R) Gold 6230 CPU @ 2.10GHz, and the GPU device is Nvidia Titan V.
+% the GPU time is estimated by broadcasting the gradient function on CUDA array of size $2^{17}$ and taking the average.
+For NiLang benchmarks, we have turned off the reversibility check off to achieve better performance.
+
 \subsection{Bessel Function}
-We differentiate the first type Bessel function in differente frameworks and show the benchmarks in \Tbl{tbl:besselj}.
-In the benchmark, the CPU device is Intel(R) Xeon(R) Gold 6230 CPU @ 2.10GHz.
+We differentiate the first type Bessel function in \Sec{sec:bessel} and show the benchmarks in \Tbl{tbl:besselj}.
 \begin{table}[h!]\centering
 \begin{minipage}{0.8\columnwidth}
 \ra{1.3}
     \scalebox{1.0}{
-        \begin{tabularx}{\textwidth}{X X c c}\toprule
-            & \textbf{Mode} & \textbf{$T_{\rm min}$/ns} & Space/KB\\
+        \begin{tabularx}{\textwidth}{X X c}\toprule
+            & $T_{\rm min}$/ns & Space/KB\\
             \hline
-            Julia & Call & 17 & 0\\
-            NiLang & Call/Uncall & 53 & 0\\
-            ForwardDiff & Forward & 39 & 0\\
+            Julia O & 17 & 0\\
+            NiLang O & 53 & 0\\
+            ForwardDiff G & 39 & 0\\
             %Manual & Backward & 83 & 0\\
-            NiLang.AD & Backward & 231 & 0\\
-            NiLang.AD (GPU) & Backward & 1.4 & 0\\
-            ReverseDiff & Backward & 7198 & 7.3\\
-            Zygote & Backward & 22561 & 13.47\\
-            Tapenade & Call & 32 & 0\\
-            Tapenade & Forward & 30 & 0\\
-            Tapenade & Backward & 111 & > 0\\
+            NiLang G & 231 & 0\\
+            NiLang G (GPU) & 1.4 & 0\\
+            ReverseDiff & 7198 & 7.3\\
+            Zygote G & 22561 & 13.47\\
+            Tapenade O & 32 & 0\\
+            Tapenade G (Forward) & 30 & 0\\
+            Tapenade G (Backward) & 111 & > 0\\
             \hline
             \bottomrule
         \end{tabularx}
     }
-    \caption{Time and space used for computing gradients of the first kind Bessel function $J_2(1.0)$.
+    \caption{Time and space used for computing objective (O) and gradient (G) of the first kind Bessel function $J_2(1.0)$.
 }\label{tbl:besselj}
 \end{minipage}
 \end{table}
@@ -1003,73 +1006,75 @@ Since Bessel function has only one input argument, forward mode AD tools are fas
 NiLang.AD is the reverse mode AD submodule in NiLang, and it takes 13.6 times the native Julia program, and is also 2 times slower than Tapenade. However, the key point is, there is no extra memory allocation like stack operations in the whole computation. The controllable memory allocation of NiLang makes it compatible with CUDA program.
 %For people who are interested in CUDA programming, we prepared another example in \App{app:cuda}, which implements a differentiable quantum simulation kernel on GPU.
 %So far, the generated backward rule faces the shared write problem, which requires further investigation.
-%, and the GPU device is Nvidia Titan V. The GPU time is estimated by broadcasting the gradient function on CUDA array of size $2^{17}$ and taking the average.
+%, and 
 In other backward mode AD like Zygote, ReverseDiff and Tapenade, the memory allocation in heap is nonzero due to the checkpointing and possible failure of type inference of Julia language. NiLang is friendly to type inference because it is closure free.
 
 \subsection{Graph embedding problem}
-Since the ForwardDiff itself provides the Hessian for users, it is interesting to benchmark how much performance we can get by forward differentiating an adjoint program comparing with forward differentiating a forward AD program. In the following benchmark, we also compare other backward mode AD packages.
-\begin{figure}
-    \centerline{\includegraphics[width=0.8\columnwidth,trim={0 0 0 0},clip]{fig7.pdf}}
-    \caption{The time used to (a) call/uncall, (b) compute gradients and (c) compute Hessians for the loss of the graph embedding problem.}\label{fig:bench-embedding}
-\end{figure}
-The benchmark is executed on CPU with the same setup as previous benchmarks.
+Since the ForwardDiff itself provides the Hessian for users, it is interesting to benchmark how much performance we can get by forward differentiating an adjoint program comparing with forward differentiating a forward AD program. In the following benchmark, we show the benchmark for the graph embedding problem in \Sec{sec:graph}.
+
+\begin{table}[h!]\centering
+    \small
+\begin{minipage}{\columnwidth}
+\ra{1.3}
+    \scalebox{1.0}{
+        \begin{tabularx}{\textwidth}{bssssssssss}\toprule
+            \textbf{}                  & 2          & 4          & 6          & 8          & 10         \\
+            \hline
+            Julia (O)                  & 4.477e-06  & 4.729e-06  & 4.959e-06  & 5.196e-06  & 5.567e-06  \\
+            NiLang (O)                 & 7.173e-06  & 7.783e-06  & 8.558e-06  & 9.212e-06  & 1.002e-05  \\
+            NiLang (~O)                & 7.453e-06  & 7.839e-06  & 8.464e-06  & 9.298e-06  & 1.054e-05  \\
+            NiLang (G)                 & 1.509e-05  & 1.690e-05  & 1.872e-05  & 2.076e-05  & 2.266e-05  \\
+            ForwardDiff (G)            & 1.518e-05  & 4.053e-05  & 6.732e-05  & 1.184e-04  & 1.701e-04  \\
+            ReverseDiff (G)            & 1.384e-04  & 1.928e-04  & 2.392e-04  & 2.893e-04  & 3.556e-04  \\
+            Zygote (G)                 & 5.315e-04  & 5.570e-04  & 5.811e-04  & 6.096e-04  & 6.396e-04  \\
+            NiLang + F (H)             & 4.528e-04  & 1.025e-03  & 1.740e-03  & 2.577e-03  & 3.558e-03  \\
+            ForwardDiff (H)            & 2.378e-04  & 2.380e-03  & 6.903e-03  & 1.967e-02  & 3.978e-02  \\
+            ReverseDiff + F (H)        & 1.966e-03  & 6.058e-03  & 1.225e-02  & 2.035e-02  & 3.140e-02  \\
+            \hline
+            \bottomrule
+        \end{tabularx}
+    }
+    \caption{Absolute runtimes in seconds for computing the objectives (O), uncall objective (~O), gradients (G) and Hessians (H) of the graph embedding program. The matrix size is $1000 \times 1000$, and the element density is $0.05$. The total time used in computing gradient can be estimated as a sum of ``O'' (reversible or not) and ``G-B''.
+    }\label{tbl:graphembedding}
+\end{minipage}
+\end{table}
+
 In this application, the number of input parameters scales as $10 \times k$, where $k$ is the embedding dimension of the graph.
-In \Fig{fig:bench-embedding}, we show the the performance of different implementations by varying the dimension $k$.
+In \Tbl{tbl:graphembedding}, we show the the performance of different implementations by varying the dimension $k$.
 As the baseline, (a) shows the time for computing the 0th-order gradient, or the function call. We have reversible and irreversible implementations, where the reversible program is slower than the irreversible native Julia program by a factor of $\sim2$.
 (b) shows the time for computing the first-order gradients. The reversible program shows the advantage of obtaining gradients when the dimension $k \geq 3$. The larger the number of inputs, the more advantage it shows due to the overhead proportional to input size in forward mode AD.
 The same reason applies to computing Hessians. The mixed-mode AD gives better performance when $k \geq 3$ comparing with pure forward mode AD.
 Comparing with other backward mode AD packages ReverseDiff and Zygote, NiLang is approximately one order more efficient for the same reason we discussed in \Sec{sec:bessel}.
 
 \subsection{Sparse matrices}
-In the following example, we compare the time used in the forward pass and backward pass.
+We benchmarked the call, uncall and backward time used for sparse matrix dot product and matrix multiplication.
+Here, we estimate the time for back propagating gradients rather than including both forward and backward.
+This is prefered because \texttt{mul!} usually plays a role of an intermediate step of computing, which does not output a scalar as loss.
 
-\begin{minipage}{\columnwidth}
-\begin{lstlisting}[multicols=2]
-julia> using BenchmarkTools
-
-julia> a = sprand(1000, 1000, 0.01);
-
-julia> b = sprand(1000, 1000, 0.01);
-
-julia> @benchmark SparseArrays.dot($a, $b)
-BenchmarkTools.Trial: 
-  memory estimate:  0 bytes
-  allocs estimate:  0
-  --------------
-  minimum time:     94.537 μs (0.00% GC)
-  median time:      96.959 μs (0.00% GC)
-  mean time:        98.188 μs (0.00% GC)
-  maximum time:     189.291 μs (0.00% GC)
-  --------------
-  samples:          10000
-  evals/sample:     1
-
-julia> out! = SparseArrays.dot(a, b)
-25.19659286755114
-
-julia> @benchmark (~dot)($(GVar(out!, 1.0)),
-        $(GVar.(a)), $(GVar.(b)))
-BenchmarkTools.Trial:   #$ TODO: remove this comment
-  memory estimate:  2.17 KiB
-  allocs estimate:  2
-  --------------
-  minimum time:     151.392 μs (0.00% GC)
-  median time:      153.153 μs (0.00% GC)
-  mean time:        155.884 μs (0.00% GC)
-  maximum time:     270.534 μs (0.00% GC)
-  --------------
-  samples:          10000
-  evals/sample:     1
-\end{lstlisting}
+\begin{table}[h!]\centering
+\begin{minipage}{0.8\columnwidth}
+\ra{1.3}
+    \scalebox{1.0}{
+        \begin{tabularx}{\textwidth}{bsb}\toprule
+            \textbf{}     & dot         & mul! (complex valued) \\
+            \hline
+            Julia O       & 3.493e-04   & 8.005e-05\\
+            NiLang O      & 4.675e-04   & 9.332e-05\\
+            NiLang G-B      & 5.821e-04   & 2.214e-04\\
+            \hline
+            \bottomrule
+        \end{tabularx}
+    }
+    \caption{Absolute runtimes in seconds for computing the objectives (O) and the backward pass (G-B) of sparse matrix operations. The matrix size is $1000 \times 1000$, and the element density is $0.05$. The total time used in computing gradient can be estimated as a sum of ``O'' (reversible or not) and ``G-B''.
+    }\label{tbl:interp}
 \end{minipage}
+\end{table}
 
-The time used for computing backward pass is approximately 1.6 times Julia's native forward pass.
-Here, we have turned off the reversibility check off to achieve better performance.
-By writing sparse matrix multiplication and other sparse matrix operations reversibly,
-we will have a differentiable sparse matrix library with proper performance.
-
+The time used for computing backward pass is approximately 1.5-3 times the Julia's native forward pass.
+This is because the instruction length of differentiating basic arithemetic instructions is longer than pure computing by a factor of 2 or more.
 
 \subsection{Gaussian mixture model and bundle adjustment}
+
 We reproduced the benchmarks for Gaussian mixture model (GMM) and bundle adjustment (BA) in ~\cite{Srajer2018} by re-writting the programs in a reversible way, and show the results bellow.
 
 \begin{table}[h!]\centering
@@ -1078,7 +1083,7 @@ We reproduced the benchmarks for Gaussian mixture model (GMM) and bundle adjustm
 \ra{1.3}
     \scalebox{1.0}{
         \begin{tabularx}{\textwidth}{bssssssss}\toprule
-            \textbf{\# parameters} & 3.00e+1 & 3.30e+3 & 1.20e+3 & 3.30e+3 & 1.07e+4 & 2.15e+4 & 5.36e+4 & 4.29e+5\\
+            \textbf{\# parameters} & 3.00e+1 & 3.30e+2 & 1.20e+3 & 3.30e+3 & 1.07e+4 & 2.15e+4 & 5.36e+4 & 4.29e+5\\
             \hline
             Julia O       & 9.189e-03 & 1.193e-02 & 2.494e-01 & 8.618e-02 & 3.523e-02 & 7.641e-02 & 2.254e-01 & 3.404e+00\\
             NiLang O      & 1.657e-02 & 5.009e-02 & 4.902e-01 & 4.625e-01 & 3.036e-01 & 6.095e-01 & 1.594e+00 & 1.529e+01\\
@@ -1090,7 +1095,7 @@ We reproduced the benchmarks for Gaussian mixture model (GMM) and bundle adjustm
             \bottomrule
         \end{tabularx}
     }
-    \caption{Absolute runtimes for GMM with 10k data points.}\label{tbl:interp}
+    \caption{Absolute runtimes in seconds for computing the objective (O) and gradients (G) of GMM with 10k data points.}\label{tbl:interp}
 \end{minipage}
 \end{table}
 
@@ -1112,11 +1117,11 @@ We reproduced the benchmarks for Gaussian mixture model (GMM) and bundle adjustm
             \bottomrule
         \end{tabularx}
     }
-    \caption{Absolute runtimes for bundle adjustment with 10k data points.}\label{tbl:interp}
+    \caption{Absolute runtimes in seconds for computing the objective (O) and Jacobians (J) in bundle adjustment.}\label{tbl:interp}
 \end{minipage}
 \end{table}
 
-
+In this case, NiLang shows slight advantage over forward mode AD because the bottleneck of computing this large sparse Jacobian is computing the Jacobian of a elementary function with 15 input arguments and 2 output arguments, where input space is larger than output space.
 
 \section{Discussion and outlook}\label{sec:discussion}
 In this paper, we show how to realize a reversible programming eDSL and how to implement source-to-source backward mode AD on top of it.
