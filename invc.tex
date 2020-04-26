@@ -975,18 +975,18 @@ We differentiate the first type Bessel function in \Sec{sec:bessel} and show the
         \begin{tabularx}{\textwidth}{X X c}\toprule
             & $T_{\rm min}$/ns & Space/KB\\
             \hline
-            Julia O & 17 & 0\\
-            NiLang O & 53 & 0\\
-            Tapenade O & 32 & 0\\
+            Julia-O & 17 & 0\\
+            NiLang-O & 53 & 0\\
+            Tapenade-O & 32 & 0\\
             \hline
-            ForwardDiff G & 39 & 0\\
+            ForwardDiff-G & 39 & 0\\
             %Manual & Backward & 83 & 0\\
-            NiLang G & 231 & 0\\
-            NiLang G (CUDA) & 1.4 & 0\\
-            ReverseDiff G & 7198 & 7.3\\
-            Zygote G & 22561 & 13.47\\
-            Tapenade G (Forward) & 30 & 0\\
-            Tapenade G (Backward) & 111 & > 0\\
+            NiLang-G & 231 & 0\\
+            NiLang-G (CUDA) & 1.4 & 0\\
+            ReverseDiff-G & 7198 & 7.3\\
+            Zygote-G & 22561 & 13.47\\
+            Tapenade-G (Forward) & 30 & 0\\
+            Tapenade-G (Backward) & 111 & > 0\\
             \bottomrule
         \end{tabularx}
     }
@@ -1020,22 +1020,22 @@ Since the ForwardDiff itself provides the Hessian for users, it is interesting t
         \begin{tabularx}{\textwidth}{bssssssssss}\toprule
             \textbf{}                & 2          & 4          & 6          & 8          & 10         \\
             \hline
-            Julia O                  & 4.477e-06  & 4.729e-06  & 4.959e-06  & 5.196e-06  & 5.567e-06  \\
-            NiLang O                 & 7.173e-06  & 7.783e-06  & 8.558e-06  & 9.212e-06  & 1.002e-05  \\
-            NiLang $\sim$O                & 7.453e-06  & 7.839e-06  & 8.464e-06  & 9.298e-06  & 1.054e-05  \\
+            Julia-O                  & 4.477e-06  & 4.729e-06  & 4.959e-06  & 5.196e-06  & 5.567e-06  \\
+            NiLang-O                 & 7.173e-06  & 7.783e-06  & 8.558e-06  & 9.212e-06  & 1.002e-05  \\
+            NiLang-U                 & 7.453e-06  & 7.839e-06  & 8.464e-06  & 9.298e-06  & 1.054e-05  \\
             \hline
-            NiLang G                 & 1.509e-05  & 1.690e-05  & 1.872e-05  & 2.076e-05  & 2.266e-05  \\
-            ForwardDiff G            & 1.518e-05  & 4.053e-05  & 6.732e-05  & 1.184e-04  & 1.701e-04  \\
-            ReverseDiff G            & 1.384e-04  & 1.928e-04  & 2.392e-04  & 2.893e-04  & 3.556e-04  \\
-            Zygote G                 & 5.315e-04  & 5.570e-04  & 5.811e-04  & 6.096e-04  & 6.396e-04  \\
+            NiLang-G                 & 1.509e-05  & 1.690e-05  & 1.872e-05  & 2.076e-05  & 2.266e-05  \\
+            ForwardDiff-G            & 1.518e-05  & 4.053e-05  & 6.732e-05  & 1.184e-04  & 1.701e-04  \\
+            ReverseDiff-G            & 1.384e-04  & 1.928e-04  & 2.392e-04  & 2.893e-04  & 3.556e-04  \\
+            Zygote-G                 & 5.315e-04  & 5.570e-04  & 5.811e-04  & 6.096e-04  & 6.396e-04  \\
             \hline
-            NiLang + F H             & 4.528e-04  & 1.025e-03  & 1.740e-03  & 2.577e-03  & 3.558e-03  \\
-            ForwardDiff H            & 2.378e-04  & 2.380e-03  & 6.903e-03  & 1.967e-02  & 3.978e-02  \\
-            ReverseDiff + F H        & 1.966e-03  & 6.058e-03  & 1.225e-02  & 2.035e-02  & 3.140e-02  \\
+            (NiLang+F)-H             & 4.528e-04  & 1.025e-03  & 1.740e-03  & 2.577e-03  & 3.558e-03  \\
+            ForwardDiff-H            & 2.378e-04  & 2.380e-03  & 6.903e-03  & 1.967e-02  & 3.978e-02  \\
+            (ReverseDiff+F)-H        & 1.966e-03  & 6.058e-03  & 1.225e-02  & 2.035e-02  & 3.140e-02  \\
             \bottomrule
         \end{tabularx}
     }
-    \caption{Absolute runtimes in seconds for computing the objectives (O), uncall objective ($\sim$O), gradients (G) and Hessians (H) of the graph embedding program.
+    \caption{Absolute runtimes in seconds for computing the objectives (O), uncall objective (U), gradients (G) and Hessians (H) of the graph embedding program.
     }\label{tbl:graphembedding}
 \end{minipage}
 \end{table}
@@ -1059,14 +1059,14 @@ This is prefered because \texttt{mul!} usually plays a role of an intermediate s
         \begin{tabularx}{\textwidth}{bsb}\toprule
             \textbf{}     & dot         & mul! (complex valued) \\
             \hline
-            Julia O       & 3.493e-04   & 8.005e-05\\
-            NiLang O      & 4.675e-04   & 9.332e-05\\
+            Julia-O       & 3.493e-04   & 8.005e-05\\
+            NiLang-O      & 4.675e-04   & 9.332e-05\\
             \hline
-            NiLang G-B      & 5.821e-04   & 2.214e-04\\
+            NiLang-B      & 5.821e-04   & 2.214e-04\\
             \bottomrule
         \end{tabularx}
     }
-    \caption{Absolute runtimes in seconds for computing the objectives (O) and the backward pass (G-B) of sparse matrix operations. The matrix size is $1000 \times 1000$, and the element density is $0.05$. The total time used in computing gradient can be estimated as a sum of times in row ``O'' (reversible or not) and row ``G-B''.
+    \caption{Absolute runtimes in seconds for computing the objectives (O) and the backward pass (B) of sparse matrix operations. The matrix size is $1000 \times 1000$, and the element density is $0.05$. The total time used in computing gradient can be estimated as a sum of times in row ``O'' (reversible or not) and row ``B''.
     }\label{tbl:sparse}
 \end{minipage}
 \end{table}
@@ -1086,13 +1086,13 @@ We reproduced the benchmarks for Gaussian mixture model (GMM) and bundle adjustm
         \begin{tabularx}{\textwidth}{bssssssss}\toprule
             \textbf{\# parameters} & 3.00e+1 & 3.30e+2 & 1.20e+3 & 3.30e+3 & 1.07e+4 & 2.15e+4 & 5.36e+4 & 4.29e+5\\
             \hline
-            Julia O       & 9.189e-03 & 1.193e-02 & 2.494e-01 & 8.618e-02 & 3.523e-02 & 7.641e-02 & 2.254e-01 & 3.404e+00\\
-            NiLang O      & 1.657e-02 & 5.009e-02 & 4.902e-01 & 4.625e-01 & 3.036e-01 & 6.095e-01 & 1.594e+00 & 1.529e+01\\
-            Tapende O     & 1.484e-03 & 3.747e-03 & 4.836e-02 & 3.578e-02 & 5.314e-02 & 1.069e-01 & 2.583e-01 & 2.200e+00\\
+            Julia-O       & 9.189e-03 & 1.193e-02 & 2.494e-01 & 8.618e-02 & 3.523e-02 & 7.641e-02 & 2.254e-01 & 3.404e+00\\
+            NiLang-O      & 1.657e-02 & 5.009e-02 & 4.902e-01 & 4.625e-01 & 3.036e-01 & 6.095e-01 & 1.594e+00 & 1.529e+01\\
+            Tapende-O     & 1.484e-03 & 3.747e-03 & 4.836e-02 & 3.578e-02 & 5.314e-02 & 1.069e-01 & 2.583e-01 & 2.200e+00\\
             \hline
-            ForwardDiff G & 3.360e-02 & 1.240e+00 & 3.984e+01 & 1.429e+02 & -         & -         & -         &  -       \\
-            NiLang G      & 3.510e-02 & 1.136e-01 & 1.064e+00 & 1.066e+00 & 1.700e+00 & 3.328e+00 & 8.643e+00 & 7.354e+01\\
-            Tapenade G    & 5.484e-03 & 1.434e-02 & 2.205e-01 & 1.497e-01 & 4.396e-01 & 9.588e-01 & 2.586e+00 & 2.442e+01\\
+            ForwardDiff-G & 3.360e-02 & 1.240e+00 & 3.984e+01 & 1.429e+02 & -         & -         & -         &  -       \\
+            NiLang-G      & 3.510e-02 & 1.136e-01 & 1.064e+00 & 1.066e+00 & 1.700e+00 & 3.328e+00 & 8.643e+00 & 7.354e+01\\
+            Tapenade-G    & 5.484e-03 & 1.434e-02 & 2.205e-01 & 1.497e-01 & 4.396e-01 & 9.588e-01 & 2.586e+00 & 2.442e+01\\
             \bottomrule
         \end{tabularx}
     }
@@ -1108,13 +1108,13 @@ We reproduced the benchmarks for Gaussian mixture model (GMM) and bundle adjustm
         \begin{tabularx}{\textwidth}{bsssssss}\toprule
             \textbf{\# measurements} & 3.18e+4 & 2.04e+5 & 2.87e+5 & 5.64e+5 & 1.09e+6 & 4.75e+6 & 9.13e+6\\
             \hline
-            Julia O       & 2.020e-03 & 1.292e-02 & 1.812e-02 & 3.563e-02 & 6.904e-02 & 3.447e-01 & 6.671e-01\\
-            NiLang O      & 2.708e-03 & 1.757e-02 & 2.438e-02 & 4.877e-02 & 9.536e-02 & 4.170e-01 & 8.020e-01\\
-            Tapenade O    & 1.632e-03 & 1.056e-02 & 1.540e-02 & 2.927e-02 & 5.687e-02 & 2.481e-01 & 4.780e-01\\
+            Julia-O       & 2.020e-03 & 1.292e-02 & 1.812e-02 & 3.563e-02 & 6.904e-02 & 3.447e-01 & 6.671e-01\\
+            NiLang-O      & 2.708e-03 & 1.757e-02 & 2.438e-02 & 4.877e-02 & 9.536e-02 & 4.170e-01 & 8.020e-01\\
+            Tapenade-O    & 1.632e-03 & 1.056e-02 & 1.540e-02 & 2.927e-02 & 5.687e-02 & 2.481e-01 & 4.780e-01\\
             \hline
-            ForwardDiff J & 6.579e-02 & 5.342e-01 & 7.369e-01 & 1.469e+00 & 2.878e+00 & 1.294e+01 & 2.648e+01\\
-            NiLang J      & 1.651e-02 & 1.182e-01 & 1.668e-01 & 3.273e-01 & 6.375e-01 & 2.785e+00 & 5.535e+00\\
-            Tapenade J    & 1.940e-02 & 1.255e-01 & 1.769e-01 & 3.489e-01 & 6.720e-01 & 2.935e+00 & 6.027e+00\\
+            ForwardDiff-J & 6.579e-02 & 5.342e-01 & 7.369e-01 & 1.469e+00 & 2.878e+00 & 1.294e+01 & 2.648e+01\\
+            NiLang-J      & 1.651e-02 & 1.182e-01 & 1.668e-01 & 3.273e-01 & 6.375e-01 & 2.785e+00 & 5.535e+00\\
+            Tapenade-J    & 1.940e-02 & 1.255e-01 & 1.769e-01 & 3.489e-01 & 6.720e-01 & 2.935e+00 & 6.027e+00\\
             \bottomrule
         \end{tabularx}
     }
