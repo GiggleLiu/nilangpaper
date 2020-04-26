@@ -983,7 +983,7 @@ We differentiate the first type Bessel function in \Sec{sec:bessel} and show the
             %Manual & Backward & 83 & 0\\
             NiLang G & 231 & 0\\
             NiLang G (CUDA) & 1.4 & 0\\
-            ReverseDiff & 7198 & 7.3\\
+            ReverseDiff G & 7198 & 7.3\\
             Zygote G & 22561 & 13.47\\
             Tapenade G (Forward) & 30 & 0\\
             Tapenade G (Backward) & 111 & > 0\\
@@ -1018,20 +1018,20 @@ Since the ForwardDiff itself provides the Hessian for users, it is interesting t
 \ra{1.3}
     \scalebox{1.0}{
         \begin{tabularx}{\textwidth}{bssssssssss}\toprule
-            \textbf{}                  & 2          & 4          & 6          & 8          & 10         \\
+            \textbf{}                & 2          & 4          & 6          & 8          & 10         \\
             \hline
-            Julia (O)                  & 4.477e-06  & 4.729e-06  & 4.959e-06  & 5.196e-06  & 5.567e-06  \\
-            NiLang (O)                 & 7.173e-06  & 7.783e-06  & 8.558e-06  & 9.212e-06  & 1.002e-05  \\
-            NiLang ($\sim$O)                & 7.453e-06  & 7.839e-06  & 8.464e-06  & 9.298e-06  & 1.054e-05  \\
+            Julia O                  & 4.477e-06  & 4.729e-06  & 4.959e-06  & 5.196e-06  & 5.567e-06  \\
+            NiLang O                 & 7.173e-06  & 7.783e-06  & 8.558e-06  & 9.212e-06  & 1.002e-05  \\
+            NiLang $\sim$O                & 7.453e-06  & 7.839e-06  & 8.464e-06  & 9.298e-06  & 1.054e-05  \\
             \hline
-            NiLang (G)                 & 1.509e-05  & 1.690e-05  & 1.872e-05  & 2.076e-05  & 2.266e-05  \\
-            ForwardDiff (G)            & 1.518e-05  & 4.053e-05  & 6.732e-05  & 1.184e-04  & 1.701e-04  \\
-            ReverseDiff (G)            & 1.384e-04  & 1.928e-04  & 2.392e-04  & 2.893e-04  & 3.556e-04  \\
-            Zygote (G)                 & 5.315e-04  & 5.570e-04  & 5.811e-04  & 6.096e-04  & 6.396e-04  \\
+            NiLang G                 & 1.509e-05  & 1.690e-05  & 1.872e-05  & 2.076e-05  & 2.266e-05  \\
+            ForwardDiff G            & 1.518e-05  & 4.053e-05  & 6.732e-05  & 1.184e-04  & 1.701e-04  \\
+            ReverseDiff G            & 1.384e-04  & 1.928e-04  & 2.392e-04  & 2.893e-04  & 3.556e-04  \\
+            Zygote G                 & 5.315e-04  & 5.570e-04  & 5.811e-04  & 6.096e-04  & 6.396e-04  \\
             \hline
-            NiLang + F (H)             & 4.528e-04  & 1.025e-03  & 1.740e-03  & 2.577e-03  & 3.558e-03  \\
-            ForwardDiff (H)            & 2.378e-04  & 2.380e-03  & 6.903e-03  & 1.967e-02  & 3.978e-02  \\
-            ReverseDiff + F (H)        & 1.966e-03  & 6.058e-03  & 1.225e-02  & 2.035e-02  & 3.140e-02  \\
+            NiLang + F H             & 4.528e-04  & 1.025e-03  & 1.740e-03  & 2.577e-03  & 3.558e-03  \\
+            ForwardDiff H            & 2.378e-04  & 2.380e-03  & 6.903e-03  & 1.967e-02  & 3.978e-02  \\
+            ReverseDiff + F H        & 1.966e-03  & 6.058e-03  & 1.225e-02  & 2.035e-02  & 3.140e-02  \\
             \bottomrule
         \end{tabularx}
     }
