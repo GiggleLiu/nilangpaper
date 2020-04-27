@@ -2,6 +2,7 @@ using BenchmarkTools
 using NiBundleAdjustment
 using NiBundleAdjustment: vec2cam, vec2scam, compute_reproj_err
 using StaticArrays
+using KernelAbstractions, CuArrays
 
 include("argparse.jl")
 datafolder = parse()["adbench-folder"]
@@ -37,7 +38,7 @@ for args in arglist
                 $reproj_err_cache!, $CAMS, $XX, $w, $obs, $FEATS)
     suite["ForwardDiff"][args] = @benchmarkable compute_ba_J(Val(:ForwardDiff), $cams, $X, $w, $obs, $feats)
     suite["NiLang-AD"][args] = @benchmarkable compute_ba_J(Val(:NiLang), $CAMS, $XX, $w, $obs, $FEATS)
-    suite["NiLang-AD-CUDA"][args] = @benchmarkable compute_ba_J_cuda(Val(:NiLang), $CAMS, $XX, $w, $obs, $FEATS; blockdim=256)
+    suite["NiLang-AD-CUDA"][args] = @benchmarkable compute_ba_J_cuda(Val(:NiLang), $(CuArray(CAMS)), $(CuArray(XX)), $(CuArray(w)), $(CuArray(obs)), $(CuArray(FEATS)); blockdim=256)
 end
 
 tune!(suite)
