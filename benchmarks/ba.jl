@@ -17,7 +17,7 @@ function load(b, n, m, p)
 end
 
 suite = BenchmarkGroup()
-cases = ["Julia", "NiLang", "ForwardDiff", "NiLang-AD"]
+cases = ["Julia", "NiLang", "ForwardDiff", "NiLang-AD", "NiLang-AD-CUDA"]
 for case in cases
     suite[case] = BenchmarkGroup()
 end
@@ -37,6 +37,7 @@ for args in arglist
                 $reproj_err_cache!, $CAMS, $XX, $w, $obs, $FEATS)
     suite["ForwardDiff"][args] = @benchmarkable compute_ba_J(Val(:ForwardDiff), $cams, $X, $w, $obs, $feats)
     suite["NiLang-AD"][args] = @benchmarkable compute_ba_J(Val(:NiLang), $CAMS, $XX, $w, $obs, $FEATS)
+    suite["NiLang-AD-CUDA"][args] = @benchmarkable compute_ba_J_cuda(Val(:NiLang), $CAMS, $XX, $w, $obs, $FEATS; blockdim=256)
 end
 
 tune!(suite)
