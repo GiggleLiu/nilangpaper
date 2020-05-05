@@ -27,7 +27,7 @@ end
 
 out, x, θ = Loss(0.0), randn(4), randn(6);
 x
-@instr test!'(out, x, θ)
+@instr Grad(test!)(out, x, θ)
 x
-@instr (~test!')(out, x, θ)
+@instr (~Grad(test!))(out, x, θ)
 x

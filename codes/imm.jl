@@ -53,4 +53,4 @@ B = randn(200, 300)
 out! = randn(100, 300)
 
 # 44ms, uncomputing costs 20ms, 24ms for obtaining gradients.
-@benchmark loss!'(Loss(0.0), out!, A, B)
+@benchmark Grad(loss!)(Loss(0.0), out!, A, B)
