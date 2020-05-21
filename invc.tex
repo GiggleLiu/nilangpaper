@@ -203,7 +203,7 @@ Department of Computer Science, University of Tsukuba\\
 \maketitle
 
 \begin{abstract}
-    This paper considers implementing automatic differentiation (AD) in a reversible embedded domain-specific language. We start by reviewing the limitations of traditional AD frameworks. To solve the issues in these frameworks, we developed an open source reversible eDSL NiLang in Julia that can differentiate a general program while being compatible with Julia's ecosystem. It empowers users the flexibility to tradeoff time, space, and energy rather than hidding cached data into a global tape. With examples, we show one can use reversible programming AD to obtain gradients and Hessians for a wide class of functions in scientific programming and machine learning, including elementary mathematical functions, sparse matrix operaions and linear algebras (especially unitary matrices). Managable memory allocation makes it a good tool to differentiate GPU kernel functions.
+    This paper considers implementing automatic differentiation (AD) in a reversible embedded domain-specific language. We start by reviewing the limitations of traditional AD frameworks. To solve the issues in these frameworks, we developed an open source reversible eDSL NiLang in Julia that can differentiate a general program while being compatible with Julia's ecosystem. It empowers users the flexibility to tradeoff time, space, and energy rather than hidding cached data into a global tape. With examples, we show one can use reversible programming AD to obtain gradients and Hessians for a wide class of functions in scientific programming and machine learning, including elementary mathematical functions, sparse matrix operaions and linear algebras. Managable memory allocation makes it a good tool to differentiate GPU kernel functions.
 By benchmarking its performance in differentiating Bessel function, graph embedding, gaussian mixture model and bundle adjustment, we demonstrate that the AD implemneted in a reversible programming language can achieve state-of-the-art performance in both time and space. Finally, we will discuss the challenges that we face towards rigorous reversible programming, mainly from the instruction and hardware perspective.
 \end{abstract}
 
@@ -256,8 +256,8 @@ There have been many prototypes of reversible languages like Janus~\cite{Lutz198
 
     In this paper, we first introduce the language design of a reversible programming language and introduce our reversible eDSL NiLang in \Sec{sec:lang}.
     In \Sec{sec:bp}, we explain the implementation of automatic differentiation in this eDSL.
-    In \Sec{sec:example}, we show several examples, including Bessel function, the dot product between sparse matrices, unitary matrix multiplication, and QR decomposition. We show how to generate first-order and second-order backward rules for these functions. We also show a practical application that solves the graph embedding problem.
-    In \Sec{sec:benchmark}, we benchmark the performance of NiLang with other AD Julia AD packages and Tapenade.
+    In \Sec{sec:example}, we show several examples, and introduce the concept of memory oriented computational graph.
+    In \Sec{sec:benchmark}, we benchmark the performance of NiLang with other AD packages.
     In \Sec{sec:discussion}, we discuss several important issues, the time-space  tradeoff, reversible instructions and hardware, and finally, an outlook to some open problems to be solved.
     In the appendix, we show the grammar of NiLang and other technical details.
 
@@ -282,7 +282,7 @@ There have been many prototypes of reversible languages like Janus~\cite{Lutz198
 Knowing the contents in the memory when deallocating is not easy. Hence Charles H. Bennett introduced the famous compute-copy-uncompute paradigm~\cite{Bennett1973} for reversible programming.
 To explain how it works, we introduce the memory oriented computational graph, as shown in \Fig{fig:ccu}.
 Notations are highly inspired by quantum circuit representations. A vertical line is a variable, and it can be used by multiple operations. Hence it is a hypergraph rather than a simple graph (i.e. the DAG). When a variable is used by a function, depending on whether its value is changed or not, we put a box or a dot at the line cross.
-In panel (a). The subprogram in dashed box \texttt{X} is executed on space $x_{1\colon3}$ represents the computing stage. In the copying stage, the content in $x_3$ is read out to a pre-emptied memory $x_4$ through addition operation $(\colon+=)$. Since this copy operation does not change contents of $x_{1\colon3}$, we can use the uncomputing operation \texttt{$\sim$X} to undo all the changes to these registers. Now we computing the result $x_4$ without modifying the contents in $x_{1\colon3}$. If any of them is in a known state, it can be deallocated immediately.
+In panel (a). The subprogram in dashed box \texttt{X} is executed on space $x_{1\colon3}$ represents the computing stage. In the copying stage, the content in $x_3$ is read out to a pre-emptied memory $x_4$ through inplace add \texttt{+=}. Since this copy operation does not change contents of $x_{1\colon3}$, we can use the uncomputing operation \texttt{$\sim$X} to undo all the changes to these registers. Now we computing the result $x_4$ without modifying the contents in $x_{1\colon3}$. If any of them is in a known state, it can be deallocated immediately.
 In panel (b), we can use the subprogram defined in (a) maked as Y to generate $x_{5\colon n}$ without modifying the contents of variables $x_{1\colon 4}$.
 It is easy to see that although this uncompute-copy-uncompute design pattern can restore memories to known state, it has computational overhead.
 Both $X$ and $\sim X$ are executed twice in the program (b), which is not necessary. We can cancel a pair of $X$ and $\sim X$ (the gray boxes). By doing this, we are not allowed to deallocate the memory $x_{1\colon3}$ during computing $f(x_{5\colon n})$. This is the famous time-space tradeoff that playing the central role in reversible programming. The trade off strategy will be discussed in detail in \Sec{sec:timespace}.
@@ -397,8 +397,6 @@ In the \textit{reversing} stage, based on this symmetric and reversible IR, the 
             \hline
             \texttt{<a> $\leftarrow$ <expr>} & \texttt{<a> $\rightarrow$ <expr>}\\
             \hline
-            \texttt{(<T1> => <T2>)(<x>)} & \texttt{(<T2> => <T1>)(<x>)}\\
-            \hline
             \texttt{begin}\newline \texttt{$\cquad$<stmts>}\newline \texttt{end} & \texttt{begin}\newline \texttt{$\cquad$ $\sim$(<stmts>)}\newline \texttt{end}\\
             \hline
             \texttt{if (<pre>, <post>)}\linebreak \texttt{$\cquad$<stmts1>}\newline \texttt{else}\newline \texttt{$\cquad$<stmts2>}\newline \texttt{end} & \texttt{if (<post>, <pre>)}\newline \texttt{$\cquad$$\sim$(<stmts1>)}\newline \texttt{else}\newline \texttt{$\cquad$ $\sim$(<stmts2>)}\newline \texttt{end}\\
@@ -406,8 +404,6 @@ In the \textit{reversing} stage, based on this symmetric and reversible IR, the 
             \texttt{while (<pre>, <post>)}\newline \texttt{$\cquad$<stmts>} \newline \texttt{end} & \texttt{while (<post>, <pre>)}\newline $\cquad$  \texttt{$\sim$(<stmts>)}\newline \texttt{end}\\
             \hline
             \texttt{for <i>=<m>:<s>:<n>}\newline $\cquad$\texttt{<stmts>}\newline \texttt{end} & \texttt{for <i>=<m>:-<s>:<n>}\newline $\cquad$ \texttt{$\sim$(<stmts>)}\newline \texttt{end}\\
-            \hline
-            \texttt{@safe <expr>} & \texttt{@safe <expr>}\\
             \bottomrule
         \end{tabularx}
     }
@@ -417,9 +413,6 @@ In the \textit{reversing} stage, based on this symmetric and reversible IR, the 
     \texttt{<pre>} stands for precondition, and \texttt{<post>} stands for postcondition
 ``\texttt{begin <stmts> end}'' is the code block statement in Julia.
 It can be inverted by reversing the order as well as each element in it.
-We allow users to put an arbituary external statement inside a reversible context by putting a macro \texttt{@safe} in front of it.
-This statement is not reversible, but provides convenience.
-For example, one can use \texttt{@safe @show <var>} for debugging.
 }\label{tbl:revstatements}
 \end{minipage}
 \end{table}
@@ -442,20 +435,21 @@ end
 
 Here, the function \texttt{chfield} returns a complex number with an updated \texttt{re} field. This updated value is then assigned back to \texttt{y!}.
 In other words, this macro simulates ``inplace'' operations on immutable types.
-Except immutable field, one can also simulate mutability on function call and indexing. We call an expression that directly modifiable in NiLang a \textit{dataview}, it can be a variable itself, a field or an element of a dataview, or a bijective mapping of a dataview. The following are some examples of dataviews
+Except immutable field, one can also simulate mutability on function call and indexing. We call an expression that directly modifiable in NiLang a \textit{dataview}, it can be a variable itself, a field or an element of a dataview, or a bijective mapping of a dataview.
 
-\begin{minipage}{.88\columnwidth}
-\begin{lstlisting}
-real(x)
-x.re
-x[3]
-x'
-real.(x)
-(x, y, z)
-tget(x, 2)  # tuple get index
--x[2].re'
-\end{lstlisting}
-\end{minipage}
+The following are some examples of dataviews\\
+\begin{multicols}{2}
+\begin{list}{$\circ$}{}
+\item real(x)
+\item x.re
+\item x[3]
+\item x'
+\item real.(x)
+\item (x, y, z)
+\item tget(x, 2)  \# tuple get index
+\item -x[2].re'
+\end{list}
+\end{multicols}
 
 One can skip the assign back operation by inserting \texttt{@skip!} macro before a variable like \texttt{f(y, @skip! x)} to avoid automatic assigning back.
 
@@ -466,10 +460,29 @@ One can also define a reversible constructor and destructor, we put this part in
 \section{Reversible automatic differentiation}\label{sec:bp}
 
 \subsection{First order gradient}\label{sec:jacobian}
-The computation of gradients in NiLang contains two parts, computing and uncomputing. In the computing stage, the program marches forward and comput outputs.
+The computation of gradients in NiLang contains two parts, computing and uncomputing. In the computing stage, the program marches forward and computes outputs.
 In the uncomputing stage, we attach each scalar with an extra gradient field and obtain a composite data type called \texttt{GVar}. We binding the adjoint program of a forward function to its inverse as shown in \Fig{fig:reversead}.
 When a instruction is uncalled, we first uncompute the value field of \texttt{GVar}s to $x_1$ and $y_1$, using the input information, we then update the gradient fields according to the formula in the right panel (for full list, see \App{app:jacobians}). The binding utilizes the multiple dispatch in Julia, where a function can be dynamically dispatched based on the run time type of more than one of its arguments. Here, we dispatch a inverse instruction with input type \texttt{GVar} to a function that corresponds to the above uncall procedure.
 Similar approach has been used in the forward mode AD package ForwardDiff~\cite{Revels2016}.
+For this example, to bind the backward rules for instructions \texttt{(:+=)(exp)} (or \texttt{PlusEq(exp)}) and \texttt{(:-=)(exp)} (or \texttt{MinusEq(exp)}). One can overload \textbf{either} of them as follows.
+
+\begin{minipage}{.88\columnwidth}
+\begin{lstlisting}[mathescape=true]
+@i @inline function (:-=)(exp)(out!::GVar, x::GVar{T}) where T
+    @routine @invcheckoff begin
+        anc1 ← zero(value(x))
+        anc1 += exp(value(x))
+    end
+    value(out!) -= identity(anc1)
+    grad(x) += grad(out!) * anc1
+    ~@routine
+end
+\end{lstlisting}
+\end{minipage}
+
+Here, the first four lines (the \texttt{@routine} statement) in the function body computes $e^{x_2}$ and store it in an ancilla. The 5th line update the \texttt{value} dataview of \texttt{out!}. The 6th line updates the gradient fields of \texttt{x} and \texttt{y}, where update rule corresponds to the adjoint rule of \texttt{(:+=)(exp)}. Finally, \texttt{~@routine} uncomputes \texttt{anc1} so that it can be returned to the ``memory pool''.
+The update rule defined on \texttt{(:+=)(exp)} is automatically generated by macro \texttt{@i}, which reflects the fact that taking inverse and computing gradients commute~\cite{Mcinerney2015}.
+
 \begin{figure}
     \centerline{\includegraphics[width=0.8\columnwidth,trim={0 0cm 0 0cm},clip]{reversead.pdf}}
     \caption{Binding the adjoint rule of \texttt{y+=exp(x)} to its uncomputing program.}\label{fig:reversead}
@@ -499,24 +512,6 @@ Similar approach has been used in the forward mode AD package ForwardDiff~\cite{
 %We first compute the results with the forward pass $f(x)$.
 %Then we wrap each output with a gradient field $\delta_{k, \rm iloss}$, which is the Dirac delta notation. The gradient field is initialized to 1 if the variable is the loss else 0. The new number type with a gradient field is called \texttt{GVar}. If the \texttt{GVar} constructor meets an array, it will be broadcasted to each element of this array. Then we feed these \texttt{GVar} instances into the backward pass $f^{-1}$.
 %Finally, the gradients can be accessed with the $\grad$ dataview of output variables.
-As an example, to bind the backward rules for instructions \texttt{(:+=)(*)} (or \texttt{PlusEq(*)}) and \texttt{(:-=)(*)} (or \texttt{MinusEq(*)}). One can overload \textbf{either} of them as follows.
-
-\begin{minipage}{.88\columnwidth}
-\begin{lstlisting}[mathescape=true]
-@i @inline function ⊖(exp)(out!::GVar, x::GVar{T}) where T
-    @routine @invcheckoff begin
-        anc1 ← zero(value(x))
-        anc1 += exp(value(x))
-    end
-    value(out!) -= identity(anc1)
-    grad(x) += grad(out!) * anc1
-    ~@routine
-end
-\end{lstlisting}
-\end{minipage}
-
-Here, the first four lines (the \texttt{@routine} statement) in the function body computes $e^{x_2}$ and store it in an ancilla. The 5th line update the \texttt{value} dataview of \texttt{out!}. The 6th line updates the gradient fields of \texttt{x} and \texttt{y}, where update rule corresponds to the adjoint rule of \texttt{(:+=)(exp)}. Finally, \texttt{~@routine} uncomputes \texttt{anc1} so that it can be returned to the ``memory pool''.
-The update rule defined on \texttt{(:+=)(*)} is automatically generated by macro \texttt{@i}, which reflects the fact that taking inverse and computing gradients commute~\cite{Mcinerney2015}.
 %When gradients are not used anymore, the reversible way to deallocate gradients is uncomputing the whole process of obtaining them.
 %, which increases the hyrachy by 1. Whenever the hyrachy increase by 1, the computational overhead doubles comparing with its irreversible counter part.
 %One can check the correctness of this definition as follows.
@@ -559,12 +554,69 @@ To differentiate complex numbers, we re-implemented complex instructions reversi
 \section{Examples}\label{sec:example}
 
 In this section, we introduce several examples.
-We will discuss the first example, the first kind Bessel function, in detail.
-We compare the difference between the irreversible and reversible implementations of this function, as well as the difference between regular computational graph and memory oriented computational graph.
-Then we show how to obtain first and second-order gradients automatically in the reversible AD framework.
-We benchmark different source-to-source AD implementations of the Bessel function.
-Then we show how to differentiate sparse matrix operations, unitary matrix multiplication, and QR decomposition.
-Finally, we show how to solve the graph embedding problem variationally.
+\begin{list}{$\circ$}{}
+\item sparse matrix dot product,
+\item first kind bessel function and memory oriented computational graph,
+\item solving the graph embedding problem.
+\end{list}
+
+\subsection{Sparse Matrices}
+Source to source automatic differentiation is useful in differentiating sparse matrices. It is a well-known problem that sparse matrix operations can not benefit directly from generic backward rules for dense matrix because general rules do not keep the sparse structure.
+In the following, we will show that reversible AD can differentiate the Frobenius dot product between two sparse matrices with the state-of-the-art performance. Here, the Frobenius dot product is defined as \texttt{trace(A'B)}.
+This following reversible implementation is adapted from the irreversible implementation in Julia package \texttt{SparseArrays}.
+
+\begin{minipage}{\columnwidth}
+\begin{lstlisting}[multicols=2]
+using SparseArrays
+
+@i function dot(r::T, A::SparseMatrixCSC{T}, B::SparseMatrixCSC{T}) where {T}
+    m ← size(A, 1)
+    n ← size(A, 2)
+    @invcheckoff branch_keeper ← zeros(Bool,2*m)
+    @safe size(B) == (m,n) || throw(DimensionMismatch("matrices must have the same dimensions"))
+    @invcheckoff @inbounds for j = 1:n
+        ia1 ← A.colptr[j]
+        ib1 ← B.colptr[j]
+        ia2 ← A.colptr[j+1]
+        ib2 ← B.colptr[j+1]
+        ia ← ia1
+        ib ← ib1
+        @inbounds for i=1:ia2-ia1+ib2-ib1-1
+            ra ← A.rowval[ia]
+            rb ← B.rowval[ib]
+            if (ra == rb, ~)
+                r += A.nzval[ia]'*B.nzval[ib]
+            end
+            # b move -> true, a move -> false
+            branch_keeper[i] ⊻= ia==ia2-1 ||
+                ra > rb
+            ra → A.rowval[ia]
+            rb → B.rowval[ib]
+            if (branch_keeper[i], ~)
+                ib += identity(1)
+            else
+                ia += identity(1)
+            end
+        end
+
+        ~@inbounds for i=1:ia2-ia1+ib2-ib1-1
+            # b move -> true, a move -> false
+            branch_keeper[i] ⊻= ia==ia2-1 ||
+                A.rowval[ia] > B.rowval[ib]
+            if (branch_keeper[i], ~)
+                ib += identity(1)
+            else
+                ia += identity(1)
+            end
+        end
+    end
+    @invcheckoff branch_keeper → zeros(Bool, 2*m)
+end
+\end{lstlisting}
+\end{minipage}
+
+With simple adaptation, the code becomes reversible.
+Here, the key point is using a \texttt{branch\_keeper} vector to cache branch decisions.
 
 \subsection{The first kind Bessel function}\label{sec:bessel}
 A Bessel function of the first kind of order $\nu$ can be computed using Taylor expansion
@@ -731,213 +783,6 @@ julia> grad(hxx).partials[1]
 Here, the gradient field of \texttt{hxx} is defined as $\frac{\partial {\rm out!}}{\partial x}$, which is a Dual number.
 It has a field partials that store the derivative for \texttt{x}.
 It corresponds to the Hessian $\frac{\partial{\rm out!}^2}{\partial x^2}$ that we need.
-
-\subsection{Sparse Matrices}
-Source to source automatic differentiation is useful in differentiating sparse matrices. It is a well-known problem that sparse matrix operations can not benefit directly from generic backward rules for dense matrix because general rules do not keep the sparse structure.
-In the following, we will show that reversible AD can differentiate the Frobenius dot product between two sparse matrices with the state-of-the-art performance. Here, the Frobenius dot product is defined as \texttt{trace(A'B)}.
-This following reversible implementation is adapted from the irreversible implementation in Julia package \texttt{SparseArrays}.
-
-\begin{minipage}{\columnwidth}
-\begin{lstlisting}[multicols=2]
-using SparseArrays
-
-@i function dot(r::T, A::SparseMatrixCSC{T}, B::SparseMatrixCSC{T}) where {T}
-    m ← size(A, 1)
-    n ← size(A, 2)
-    @invcheckoff branch_keeper ← zeros(Bool,2*m)
-    @safe size(B) == (m,n) || throw(DimensionMismatch("matrices must have the same dimensions"))
-    @invcheckoff @inbounds for j = 1:n
-        ia1 ← A.colptr[j]
-        ib1 ← B.colptr[j]
-        ia2 ← A.colptr[j+1]
-        ib2 ← B.colptr[j+1]
-        ia ← ia1
-        ib ← ib1
-        @inbounds for i=1:ia2-ia1+ib2-ib1-1
-            ra ← A.rowval[ia]
-            rb ← B.rowval[ib]
-            if (ra == rb, ~)
-                r += A.nzval[ia]'*B.nzval[ib]
-            end
-            # b move -> true, a move -> false
-            branch_keeper[i] ⊻= ia==ia2-1 ||
-                ra > rb
-            ra → A.rowval[ia]
-            rb → B.rowval[ib]
-            if (branch_keeper[i], ~)
-                ib += identity(1)
-            else
-                ia += identity(1)
-            end
-        end
-
-        ~@inbounds for i=1:ia2-ia1+ib2-ib1-1
-            # b move -> true, a move -> false
-            branch_keeper[i] ⊻= ia==ia2-1 ||
-                A.rowval[ia] > B.rowval[ib]
-            if (branch_keeper[i], ~)
-                ib += identity(1)
-            else
-                ia += identity(1)
-            end
-        end
-    end
-    @invcheckoff branch_keeper → zeros(Bool, 2*m)
-end
-\end{lstlisting}
-\end{minipage}
-
-With simple adaptation, the code becomes reversible.
-Here, the key point is using a \texttt{branch\_keeper} vector to cache branch decisions.
-
-\subsection{Unitary Matrices}\label{sec:umm}
-A unitary matrix features uniform eigenvalues and reversibility. It is widely used as an approach to ease the gradient exploding and vanishing problem~\cite{Arjovsky2015,Wisdom2016,Li2016} and the memory wall problem~\cite{Luo2019}.
-One of the simplest ways to parametrize a unitary matrix is representing a unitary matrix as a product of two-level unitary operations~\cite{Li2016}. A real unitary matrix of size $N$ can be parametrized compactly by $N(N-1)/2$ rotation operations~\cite{Li2013}
-\begin{align}
-    {\rm ROT}(a!, b!, \theta)  = \left(\begin{matrix}
-        \cos(\theta) & - \sin(\theta)\\
-        \sin(\theta)  & \cos(\theta)
-    \end{matrix}\right)
-    \left(\begin{matrix}
-        a!\\
-        b!
-    \end{matrix}\right),
-\end{align}
-where \texttt{$\theta$} is the rotation angle, \texttt{a!} and \texttt{b!} are target registers.
-
-\begin{minipage}{.88\columnwidth}
-\begin{lstlisting}[mathescape=true]
-using NiLang, NiLang.AD
-
-@i function umm!(x!, θ)
-    @safe @assert length(θ) == 
-            length(x!)*(length(x!)-1)/2
-    k ← 0
-    for j=1:length(x!)
-        for i=length(x!)-1:-1:j
-            k += identity(1)
-            ROT(x![i], x![i+1], θ[k])
-        end
-    end
-
-    k → length(θ)
-end
-\end{lstlisting}
-\end{minipage}
-
-Here, the ancilla \texttt{k} is deallocated manually by specifying its value, because we know the loop size is $N(N-1)/2$.
-We define the test functions in order to check gradients.
-
-\begin{minipage}{\columnwidth}
-\begin{lstlisting}[mathescape=true,multicols=2]
-julia> @i function test!(out!, x!::Vector, θ::Vector)
-           umm!(x!, θ)
-           isum(out!, x!)
-       end
-
-julia> out, x, θ = 0.0, randn(4), randn(6);
-
-julia> @instr Grad(test!)(Val(1), out, x, θ)
-
-julia> x
-4-element Array{GVar{Float64,Float64},1}:
- GVar(1.220182125326287, 0.14540743042341095) 
- GVar(2.1288634811475937, -1.3749962375499805)
- GVar(1.2696579252569677, 1.42868739498625)   
- GVar(0.1083891125379283, 0.2170123344615735) 
-
-julia> @instr (~test!')(Val(1), out, x, θ)
-
-julia> x
-4-element Array{Float64,1}:
- 1.220182125326287  
- 2.1288634811475933 
- 1.2696579252569677 
- 0.10838911253792821
-\end{lstlisting}
-\end{minipage}
-
-In the above testing code, \texttt{Grad(test)} attaches a gradient field to each element of \texttt{x}. \texttt{$\sim$Grad(test)} is the inverse program that erase the gradient fields.
-Notably, this reversible implementation costs zero memory allocation, although it changes the target variables inplace.
-
-%It implements the backward rule of a \texttt{ROT} instruction
-%\begin{align}
-%    \begin{split}
-%    \overline{\theta}  &= \sum\frac{\partial R(\theta)}{\partial \theta}\odot(\overline{out!}x^T)\\
-%    &= \Tr\left[\frac{\partial R(\theta)}{\partial \theta}^T\overline{out!}x^T\right]\\
-%    &= \Tr\left[R\left(\frac{\pi}{2}-\theta\right)\overline{out!}x^T\right]
-%    \end{split}
-%\end{align}
-
-\subsection{QR decomposition}
-
-Let us consider a naive implementation of QR decomposition from scratch.
-We admit this implementation is just a proof of principle which does not consider reorthogonalization and other practical issues.
-
-\begin{minipage}{\columnwidth}
-    \begin{lstlisting}[multicols=2]
-using NiLang, NiLang.AD
-
-@i function qr(Q, R, A::Matrix{T}) where T
-    anc_norm ← zero(T)
-    anc_dot ← zeros(T, size(A,2))
-    ri ← zeros(T, size(A,1))
-    for col = 1:size(A, 1)
-        ri .+= identity.(A[:,col])
-        for precol = 1:col-1
-            dot(anc_dot[precol], Q[:,precol], ri)
-            R[precol,col] += 
-                identity(anc_dot[precol])
-            for row = 1:size(Q,1)
-                ri[row] -= 
-                    anc_dot[precol] * Q[row, precol]
-            end
-        end
-        norm2(anc_norm, ri)
-
-        R[col, col] += anc_norm^0.5
-        for row = 1:size(Q,1)
-            Q[row,col] += ri[row] / R[col, col]
-        end
-
-        ~begin
-            ri .+= identity.(A[:,col])
-            for precol = 1:col-1
-                dot(anc_dot[precol], Q[:,precol], ri)
-                for row = 1:size(Q,1)
-                    ri[row] -= anc_dot[precol] *
-                        Q[row, precol]
-                end
-            end
-            norm2(anc_norm, ri)
-        end
-    end
-end
-\end{lstlisting}
-\end{minipage}
-
-Here, in order to avoid frequent uncomputing, we allocate ancillas \texttt{ri} and \texttt{anc\_dot} as vectors.
-The expression in $\sim$ is used to uncompute \texttt{ri}, \texttt{anc\_dot} and \texttt{anc\_norm}.
-\texttt{dot} and \texttt{norm2} are reversible functions to compute dot product and vector norm.
-One can quickly check the correctness of the gradient function
-
-\begin{minipage}{.88\columnwidth}
-\begin{lstlisting}
-julia> A  = randn(4,4);
-
-julia> q, r = zero(A), zero(A);
-
-julia> @i function test1(out, q, r, A)
-           qr(q, r, A)
-           isum(out, q)
-       end
-
-julia> check_grad(test1, (0.0, q, r, A); iloss=1)
-true
-\end{lstlisting}
-\end{minipage}
-
-Here, the loss function \texttt{test1} is defined as the sum of the output unitary matrix \texttt{q}. The \texttt{check\_grad} function is a gradient checker function defined in module NiLang.AD.
 
 \subsection{Solving a graph embedding problem}\label{sec:graph}
 Graph embedding can be used to find representation for an order parameter~\cite{Takahashi2020} in condensed matter physics.
@@ -1405,7 +1250,7 @@ Dataview is a view of data. It can be a bijective mapping of an object, an item 
 \newpage
 \section{Instructions and Backward Rules}\label{app:instr}
 
-The list of instructions implemented in NiLang
+A table instructions used in the main text
 \begin{table}[h!]\centering
 \begin{minipage}{0.8\columnwidth}
 \ra{1.3}
@@ -2042,4 +1887,155 @@ julia> (~rfibn)(rfibn(0, 100)...)
 \end{minipage}
 
 This example shows how an addition postcondition provided by the user can help to reverse a control flow without caching controls.
+
+\subsection{Unitary Matrices}\label{app:umm}
+A unitary matrix features uniform eigenvalues and reversibility. It is widely used as an approach to ease the gradient exploding and vanishing problem~\cite{Arjovsky2015,Wisdom2016,Li2016} and the memory wall problem~\cite{Luo2019}.
+One of the simplest ways to parametrize a unitary matrix is representing a unitary matrix as a product of two-level unitary operations~\cite{Li2016}. A real unitary matrix of size $N$ can be parametrized compactly by $N(N-1)/2$ rotation operations~\cite{Li2013}
+\begin{align}
+    {\rm ROT}(a!, b!, \theta)  = \left(\begin{matrix}
+        \cos(\theta) & - \sin(\theta)\\
+        \sin(\theta)  & \cos(\theta)
+    \end{matrix}\right)
+    \left(\begin{matrix}
+        a!\\
+        b!
+    \end{matrix}\right),
+\end{align}
+where \texttt{$\theta$} is the rotation angle, \texttt{a!} and \texttt{b!} are target registers.
+
+\begin{minipage}{.88\columnwidth}
+\begin{lstlisting}[mathescape=true]
+using NiLang, NiLang.AD
+
+@i function umm!(x!, θ)
+    @safe @assert length(θ) == 
+            length(x!)*(length(x!)-1)/2
+    k ← 0
+    for j=1:length(x!)
+        for i=length(x!)-1:-1:j
+            k += identity(1)
+            ROT(x![i], x![i+1], θ[k])
+        end
+    end
+
+    k → length(θ)
+end
+\end{lstlisting}
+\end{minipage}
+
+Here, the ancilla \texttt{k} is deallocated manually by specifying its value, because we know the loop size is $N(N-1)/2$.
+We define the test functions in order to check gradients.
+
+\begin{minipage}{\columnwidth}
+\begin{lstlisting}[mathescape=true,multicols=2]
+julia> @i function test!(out!, x!::Vector, θ::Vector)
+           umm!(x!, θ)
+           isum(out!, x!)
+       end
+
+julia> out, x, θ = 0.0, randn(4), randn(6);
+
+julia> @instr Grad(test!)(Val(1), out, x, θ)
+
+julia> x
+4-element Array{GVar{Float64,Float64},1}:
+ GVar(1.220182125326287, 0.14540743042341095) 
+ GVar(2.1288634811475937, -1.3749962375499805)
+ GVar(1.2696579252569677, 1.42868739498625)   
+ GVar(0.1083891125379283, 0.2170123344615735) 
+
+julia> @instr (~test!')(Val(1), out, x, θ)
+
+julia> x
+4-element Array{Float64,1}:
+ 1.220182125326287  
+ 2.1288634811475933 
+ 1.2696579252569677 
+ 0.10838911253792821
+\end{lstlisting}
+\end{minipage}
+
+In the above testing code, \texttt{Grad(test)} attaches a gradient field to each element of \texttt{x}. \texttt{$\sim$Grad(test)} is the inverse program that erase the gradient fields.
+Notably, this reversible implementation costs zero memory allocation, although it changes the target variables inplace.
+
+%It implements the backward rule of a \texttt{ROT} instruction
+%\begin{align}
+%    \begin{split}
+%    \overline{\theta}  &= \sum\frac{\partial R(\theta)}{\partial \theta}\odot(\overline{out!}x^T)\\
+%    &= \Tr\left[\frac{\partial R(\theta)}{\partial \theta}^T\overline{out!}x^T\right]\\
+%    &= \Tr\left[R\left(\frac{\pi}{2}-\theta\right)\overline{out!}x^T\right]
+%    \end{split}
+%\end{align}
+
+\subsection{QR decomposition}
+
+Let us consider a naive implementation of QR decomposition from scratch.
+We admit this implementation is just a proof of principle which does not consider reorthogonalization and other practical issues.
+
+\begin{minipage}{\columnwidth}
+    \begin{lstlisting}[multicols=2]
+using NiLang, NiLang.AD
+
+@i function qr(Q, R, A::Matrix{T}) where T
+    anc_norm ← zero(T)
+    anc_dot ← zeros(T, size(A,2))
+    ri ← zeros(T, size(A,1))
+    for col = 1:size(A, 1)
+        ri .+= identity.(A[:,col])
+        for precol = 1:col-1
+            dot(anc_dot[precol], Q[:,precol], ri)
+            R[precol,col] += 
+                identity(anc_dot[precol])
+            for row = 1:size(Q,1)
+                ri[row] -= 
+                    anc_dot[precol] * Q[row, precol]
+            end
+        end
+        norm2(anc_norm, ri)
+
+        R[col, col] += anc_norm^0.5
+        for row = 1:size(Q,1)
+            Q[row,col] += ri[row] / R[col, col]
+        end
+
+        ~begin
+            ri .+= identity.(A[:,col])
+            for precol = 1:col-1
+                dot(anc_dot[precol], Q[:,precol], ri)
+                for row = 1:size(Q,1)
+                    ri[row] -= anc_dot[precol] *
+                        Q[row, precol]
+                end
+            end
+            norm2(anc_norm, ri)
+        end
+    end
+end
+\end{lstlisting}
+\end{minipage}
+
+Here, in order to avoid frequent uncomputing, we allocate ancillas \texttt{ri} and \texttt{anc\_dot} as vectors.
+The expression in $\sim$ is used to uncompute \texttt{ri}, \texttt{anc\_dot} and \texttt{anc\_norm}.
+\texttt{dot} and \texttt{norm2} are reversible functions to compute dot product and vector norm.
+One can quickly check the correctness of the gradient function
+
+\begin{minipage}{.88\columnwidth}
+\begin{lstlisting}
+julia> A  = randn(4,4);
+
+julia> q, r = zero(A), zero(A);
+
+julia> @i function test1(out, q, r, A)
+           qr(q, r, A)
+           isum(out, q)
+       end
+
+julia> check_grad(test1, (0.0, q, r, A); iloss=1)
+true
+\end{lstlisting}
+\end{minipage}
+
+Here, the loss function \texttt{test1} is defined as the sum of the output unitary matrix \texttt{q}. The \texttt{check\_grad} function is a gradient checker function defined in module NiLang.AD.
+
+
 \end{document}
