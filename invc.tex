@@ -467,6 +467,12 @@ Now, the function is ready to execute on the host language.
 One can also define a reversible constructor and destructor, we put this part in \App{app:constructor}.
 
 \section{Reversible automatic differentiation}\label{sec:bp}
+
+\begin{figure}
+    \centerline{\includegraphics[width=0.8\columnwidth,trim={0 0cm 0 0cm},clip]{reversead.pdf}}
+    \caption{Binding automatic differentiation to the uncall program.}\label{fig:reversead}
+\end{figure}
+
 \subsection{First order gradient}\label{sec:jacobian}
 Consider a computational process $\vx^{i-1} = f_{i}^{-1}(\vx^{i})$ inside a reversed program, the Jacobians can be propagated in the reversed direction like
 \begin{align}
