@@ -1,3 +1,6 @@
+using CUDAnative
+device!(6)
+
 include("argparse.jl")
 obj = parse()["objective"]
 

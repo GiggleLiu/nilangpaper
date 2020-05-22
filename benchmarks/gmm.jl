@@ -1,6 +1,7 @@
 using BenchmarkTools
 using NiGaussianMixture
 using ForwardDiff
+using NiLang.AD
 
 include("argparse.jl")
 datafolder = parse()["adbench-folder"]
@@ -52,7 +53,7 @@ for args in arglist
         suite["ForwardDiff"][args] = @benchmarkable ForwardDiff.gradient($fobj, $(params))
     end
 
-    suite["NiLang-AD"][args] = @benchmarkable gmm_objective'(Val(1), 0.0, $alphas,$means,$icf,$x,$wishart)
+    suite["NiLang-AD"][args] = @benchmarkable Grad(gmm_objective)(Val(1), 0.0, $alphas,$means,$icf,$x,$wishart)
 end
 
 tune!(suite)
