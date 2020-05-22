@@ -240,7 +240,7 @@ However, implementing backward mode AD is harder than implementing its forward m
     The backward rules for SVD and eigensolvers have been formulated in recent years~\cite{Seeger2017,Wan2019,Hubig2019}. One can obtain the gradients correctly for both real numbers and complex numbers~\cite{Wan2019} in most cases now.
     In variational quantum simulator Yao~\cite{Luo2019}, authors implemented a builtin cache free AD engine by utilizing the reversible nature of quantum computing. They derive and implement the backward rule for each type of quantum gate.
 
-    Some other tools like Tapenade~\cite{Hascoet2013}, ReverseDiff~\cite{ReverseDiff} and Zygote~\cite{Innes2018, Innes2019} can provide program level reverse mode AD, that is differentiate a general program written by a user. However, these approaches have their own limitations too. In many practical applications, an elementary level differentiable program that might do billions of computations will cache intermediate results to a global storage. Frequent caching of data slows down the program significantly, and the memory will become a bottleneck as well. With these AD tools, it is still nearly impossible to automatically generate the backward rule for BLAS functions and sparse matrix operations with a performance comparable to the state-of-the-art.% A better solution to memory management must be found to make source-to-source AD practical.
+    Some other tools like Tapenade~\cite{Hascoet2013}, \href{https://github.com/JuliaDiff/ReverseDiff.jl}{ReverseDiff} and Zygote~\cite{Innes2018, Innes2019} can provide program level reverse mode AD, that is differentiate a general program written by a user. However, these approaches have their own limitations too. In many practical applications, an elementary level differentiable program that might do billions of computations will cache intermediate results to a global storage. Frequent caching of data slows down the program significantly, and the memory will become a bottleneck as well. With these AD tools, it is still nearly impossible to automatically generate the backward rule for BLAS functions and sparse matrix operations with a performance comparable to the state-of-the-art.% A better solution to memory management must be found to make source-to-source AD practical.
     %As the reverse mode AD 
 %In many deep learning models like recurrent neural network~\cite{Lipton2015} and residual neural networks~\cite{He2016}, the depth can reach several thousand. In these applications, the memory is often the bottleneck of these programs, especially when running applications on GPU, where the space resources are more limited than computational resources.
 
@@ -371,8 +371,8 @@ end
 \end{figure}
 
 In the \textit{preprocessing} stage, the compiler pre-processes human inputs to reversible NiLang IR.
-The preprocessor removes redundant grammars and expands shortcuts. It expands the ``same as precondition'' symbol (``\texttt{$\sim$}'') in the postcondition field of an \texttt{if} statement by copying its precondition, adds missing ancilla deallocation statement (``$\leftarrow$'') to ensure the allocation and deallocation of an ancilla appear in pairs inside a local scope, and handles the computing-uncomputing macros \texttt{@routine} and \texttt{$\sim$@routine}.
-In the left most code box in \Fig{fig:compiling}, one uses \texttt{@routine <stmt>} statement to record a statement, and \texttt{$\sim$@routine} to insert the corresponding inverse statement for uncomputing.
+The preprocessor removes redundant grammars and expands shortcuts. In the left most code box in \Fig{fig:compiling}, one uses \texttt{@routine <stmt>} statement to record a statement, and \texttt{$\sim$@routine} to insert the corresponding inverse statement for uncomputing.
+The computing-uncomputing macros \texttt{@routine} and \texttt{$\sim$@routine} is expanded in this stage.
 Here, one can input ``$\leftarrow$'' and ``$\rightarrow$'' by typing ``$\backslash$leftarrow[TAB KEY]'' and ``$\backslash$rightarrow[TAB KEY]'' respectively in a Julia editor or REPL.
 
 In the \textit{reversing} stage, based on this symmetric and reversible IR, the compiler generates reversed statements according to table \Tbl{tbl:revstatements}.
@@ -462,7 +462,7 @@ One can also define a reversible constructor and destructor, we put this part in
 \subsection{First order gradient}\label{sec:jacobian}
 The computation of gradients in NiLang contains two parts, computing and uncomputing. In the computing stage, the program marches forward and computes outputs.
 In the uncomputing stage, we attach each scalar with an extra gradient field and obtain a composite data type called \texttt{GVar}. We binding the adjoint program of a forward function to its inverse as shown in \Fig{fig:reversead}.
-When a instruction is uncalled, we first uncompute the value field of \texttt{GVar}s to $x_1$ and $y_1$, using the input information, we then update the gradient fields according to the formula in the right panel (for full list, see \App{app:jacobians}). The binding utilizes the multiple dispatch in Julia, where a function can be dynamically dispatched based on the run time type of more than one of its arguments. Here, we dispatch a inverse instruction with input type \texttt{GVar} to a function that corresponds to the above uncall procedure.
+When a instruction is uncalled, we first uncompute the value field of \texttt{GVar}s to $x_1$ and $y_1$, using the input information, we then update the gradient fields according to the formula in the right panel. The binding utilizes the multiple dispatch in Julia, where a function can be dynamically dispatched based on the run time type of more than one of its arguments. Here, we dispatch a inverse instruction with input type \texttt{GVar} to a function that corresponds to the above uncall procedure.
 Similar approach has been used in the forward mode AD package ForwardDiff~\cite{Revels2016}.
 For this example, to bind the backward rules for instructions \texttt{(:+=)(exp)} (or \texttt{PlusEq(exp)}) and \texttt{(:-=)(exp)} (or \texttt{MinusEq(exp)}). One can overload \textbf{either} of them as follows.
 
@@ -487,69 +487,22 @@ The update rule defined on \texttt{(:+=)(exp)} is automatically generated by mac
     \centerline{\includegraphics[width=0.8\columnwidth,trim={0 0cm 0 0cm},clip]{reversead.pdf}}
     \caption{Binding the adjoint rule of \texttt{y+=exp(x)} to its uncomputing program.}\label{fig:reversead}
 \end{figure}
-%To formalize, consider a computational process $\vx^{i-1} = f_{i}^{-1}(\vx^{i})$ inside a reversed program, the Jacobians can be propagated in the reversed direction like
-%\begin{align}
-    %\begin{split}
-        %J^{\out}_{\out'} &= \delta_{\out,\out'},\\
-        %J^{\out}_{\vx^{i-1}} &= J^{\out}_{\vx^i} J^{\vx^i}_{\vx^{i-1}},
-    %\end{split}\label{eq:jacobian}
-%\end{align}
-%where $\out$ represents the outputs of the program. In backward mode AD, it is a scalar.
-%$J^{\out}_{\vx^i} \equiv \frac{\partial \out}{\partial \vx^i}$ is the Jacobian to be propagated, and $J^{\vx^i}_{\vx^{i-1}}$ is the local Jacobian matrix. Einstein's notation~\cite{Einsum} is used here so that the duplicated index $\vx^{i}$ in the second line is summed over.
-%The algorithm to compute the gradient with respect to a scalar loss can be summarized as follows.
-
-%\begin{algorithm}[H]
-    %\KwResult{\grad.($\vx$)}
-    %let \texttt{iloss} be the index of the loss in $\vx$\\
-    %call $f(\vx)$\\
-    %\For{k = 1:length($\vx$)}{
-        %$\vx[k] \leftarrow$ \texttt{GVar}($\vx[k]$, $\delta_{k, {\rm iloss}}$)\\
-    %}
-    %uncall $f(\vx)$
-    %\caption{Computing gradients for a reversible program}\label{alg:ad}
-%\end{algorithm}
-
-%We first compute the results with the forward pass $f(x)$.
-%Then we wrap each output with a gradient field $\delta_{k, \rm iloss}$, which is the Dirac delta notation. The gradient field is initialized to 1 if the variable is the loss else 0. The new number type with a gradient field is called \texttt{GVar}. If the \texttt{GVar} constructor meets an array, it will be broadcasted to each element of this array. Then we feed these \texttt{GVar} instances into the backward pass $f^{-1}$.
-%Finally, the gradients can be accessed with the $\grad$ dataview of output variables.
-%When gradients are not used anymore, the reversible way to deallocate gradients is uncomputing the whole process of obtaining them.
-%, which increases the hyrachy by 1. Whenever the hyrachy increase by 1, the computational overhead doubles comparing with its irreversible counter part.
-%One can check the correctness of this definition as follows.
-
-%\begin{minipage}{.88\columnwidth}
-%\begin{lstlisting}[mathescape=true]
-%julia> using NiLang, NiLang.AD
-
-%julia> a, b, y = GVar(0.5), GVar(0.6), GVar(0.9)
-%(GVar(0.5, 0.0), GVar(0.6, 0.0), GVar(0.9, 0.0))
-
-%julia> @instr grad(y) += identity(1.0)
-
-%julia> @instr y += a * b
-%GVar(0.6, -0.5)
-
-%julia> a, b, y
-%(GVar(0.5, -0.6), GVar(0.6, -0.5), GVar(1.2, 1.0))
-
-%julia> @instr y -= a * b
-%GVar(0.6, 0.0)
-
-%julia> a, b, y
-%(GVar(0.5, 0.0), GVar(0.6, 0.0), GVar(0.899999, 1.0))
-%\end{lstlisting}
-%\end{minipage}
-
-%Here, since \texttt{J((:-=)(*)) = J((:+=)(*))${}^{-1}$}, consecutively applying them will restore the gradient fields of all variables.
-%More local Jacobians and Hessians for basic instructions used in this section could be found in \App{app:jacobians}.
 
 \subsection{Second-order gradient}
-Combining the adjoint program in NiLang with dual-numbers is a simple yet efficient way to obtain Hessians.
+Combining the uncomputing program in NiLang with dual-numbers is a simple yet efficient way to obtain Hessians.
 By wrapping the elementary type with \texttt{Dual} defined in package ForwardDiff~\cite{Revels2016} and throwing it into the gradient program defined in NiLang,
 one obtains one row/column of the Hessian matrix straightforward.
-We will show an example of using forward differentiating in Newton's trust region optimization in \Sec{sec:graph}.
+We will show this point with an example of optimizing the graph embedding loss with Newton's trust region optimization in \Sec{sec:graph}.
 
 \subsection{Differentiating complex numbers}
 To differentiate complex numbers, we re-implemented complex instructions reversiblly. For example, with the definition of complex valued log function in \Lst{lst:complex}, the complex valued log can be differentiated with no extra effort.
+
+\subsection{Differentiating CUDA kernels}\label{app:cuda}
+CUDA programming is playing a significant role in high-performance computing. In Julia, one can write kernel functions in native Julia language with CUDAnative~\cite{Besard2018}.
+NiLang is compatible with \href{https://github.com/JuliaGPU/KernelAbstractions.jl}{KernelAbstractions}. With KernelAbstractions, one can insert a predefined routine in a kernel provided it does not have allocations inside.
+Since NiLang does not push variables into stack automatically for users, so one can write differentiable GPU kernels safely.
+We will show this feature in the benchmark of Bundle adjustment (BA) in \Sec{sec:ba}.
+Here, one should notice that the shared read in forward will become shared write in the backward pass, which may result in an incorrect gradient. We will review this issue in \Sec{sec:sharedrw}.
 
 \section{Examples}\label{sec:example}
 
@@ -560,15 +513,58 @@ In this section, we introduce several examples.
 \item solving the graph embedding problem.
 \end{list}
 
+All codes used in this section as well as the next benchmark section are available in NiLang's \href{https://github.com/GiggleLiu/nilangpaper}{paper repository}.
+
 \subsection{Sparse Matrices}
 Source to source automatic differentiation is useful in differentiating sparse matrices. It is a well-known problem that sparse matrix operations can not benefit directly from generic backward rules for dense matrix because general rules do not keep the sparse structure.
-In the following, we will show that reversible AD can differentiate the Frobenius dot product between two sparse matrices with the state-of-the-art performance. Here, the Frobenius dot product is defined as \texttt{trace(A'B)}.
-This following reversible implementation is adapted from the irreversible implementation in Julia package \texttt{SparseArrays}.
+In the following, we will show how to convert a normal Frobenius dot product between two sparse matrices to a reversible one. The Frobenius dot product is defined as \texttt{trace(A'B)}.
+In SparseArrays code base, it is implemented as follows.
 
 \begin{minipage}{\columnwidth}
 \begin{lstlisting}[multicols=2]
-using SparseArrays
+function dot(A::AbstractSparseMatrixCSC{T1,S1},B::AbstractSparseMatrixCSC{T2,S2}) where {T1,T2,S1,S2}
+  m, n = size(A)
+  size(B) == (m,n) || throw(DimensionMismatch("matrices must have the same dimensions"))
+  r = dot(zero(T1), zero(T2))
+  @inbounds for j = 1:n
+    ia = getcolptr(A)[j]
+    ia_nxt = getcolptr(A)[j+1]
+    ib = getcolptr(B)[j]
+    ib_nxt = getcolptr(B)[j+1]
+    if ia < ia_nxt && ib < ib_nxt
+      ra = rowvals(A)[ia]
+      rb = rowvals(B)[ib]
+      while true
+        if ra < rb
+          ia += oneunit(S1)
+          ia < ia_nxt || break
+          ra = rowvals(A)[ia]
+        elseif ra > rb
+          ib += oneunit(S2)
+          ib < ib_nxt || break
+          rb = rowvals(B)[ib]
+        else # ra == rb
+          r += dot(nonzeros(A)[ia],
+                nonzeros(B)[ib])
+          ia += oneunit(S1)
+          ib += oneunit(S2)
+          ia < ia_nxt && ib < ib_nxt || break
+          ra = rowvals(A)[ia]
+          rb = rowvals(B)[ib]
+        end
+      end
+    end
+  end
+  return r
+end
+\end{lstlisting}
+\end{minipage}
 
+
+This following is the NiLang implementation adapted from the above code.
+
+\begin{minipage}{\columnwidth}
+\begin{lstlisting}[multicols=2]
 @i function dot(r::T, A::SparseMatrixCSC{T}, B::SparseMatrixCSC{T}) where {T}
     m ← size(A, 1)
     n ← size(A, 2)
@@ -615,8 +611,10 @@ end
 \end{lstlisting}
 \end{minipage}
 
-With simple adaptation, the code becomes reversible.
-Here, the key point is using a \texttt{branch\_keeper} vector to cache branch decisions.
+Here, all \texttt{=} are replaced with \texttt{$\leftarrow$} to indicate that these variables must be returned at the end of this function scope.
+We put a ``\texttt{$\sim$}'' symbol in the postcondition field of if statements to indicate this postcondition is a dummy one that takes the same value as the precondition, i.e. the condition is not changed inside the loop body.
+If the precondition is changed by the loop body, one can use a \texttt{branch\_keeper} vector to cache branch decisions. The memory of \texttt{branch\_keeper} can be returned through uncomputing (the ``~'' statement above) so that it does not have to appear in the function argument list.
+Finally, after checking the correctness of the program, one can off the reversibility checks by using the macro \texttt{@invcheckoff} macro for better performance. We provide the benchmark of this function in \Sec{sec:benchsparse}.
 
 \subsection{The first kind Bessel function}\label{sec:bessel}
 A Bessel function of the first kind of order $\nu$ can be computed using Taylor expansion
@@ -816,8 +814,37 @@ In the following benchmarks the CPU device is Intel(R) Xeon(R) Gold 6230 CPU @ 2
 % the GPU time is estimated by broadcasting the gradient function on CUDA array of size $2^{17}$ and taking the average.
 For NiLang benchmarks, we have turned off the reversibility check off to achieve better performance.
 
+\subsection{Sparse matrices}\label{sec:benchsparse}
+We benchmarked the call, uncall and backward propagation time used for sparse matrix dot product and matrix multiplication.
+Here, we estimate the time for back propagating gradients rather than including both forward and backward, since \texttt{mul!} does not output a scalar as loss.
+
+\begin{table}[h!]\centering
+\begin{minipage}{0.8\columnwidth}
+\ra{1.3}
+    \scalebox{1.0}{
+        \begin{tabularx}{\textwidth}{bsb}\toprule
+            \textbf{}     & \texttt{dot}         & \texttt{mul!} (complex valued) \\
+            \hline
+            Julia-O       & 3.493e-04   & 8.005e-05\\
+            NiLang-O      & 4.675e-04   & 9.332e-05\\
+            \hline
+            NiLang-B      & 5.821e-04   & 2.214e-04\\
+            \bottomrule
+        \end{tabularx}
+    }
+    \caption{Absolute runtimes in seconds for computing the objectives (O) and the backward pass (B) of sparse matrix operations. The matrix size is $1000 \times 1000$, and the element density is $0.05$. The total time used in computing gradient can be estimated as a sum of ``O'' and ``B''.
+    }\label{tbl:sparse}
+\end{minipage}
+\end{table}
+
+The time used for computing backward pass is approximately 1.5-3 times the Julia's native forward pass.
+This is because the instruction length of differentiating basic arithemetic instructions is longer than pure computing by a factor of 2 or more.
+
+
 \subsection{Bessel Function}
 We differentiate the first type Bessel function in \Sec{sec:bessel} and show the benchmarks in \Tbl{tbl:besselj}.
+In the table, Julia is the CPU time used for running the irreversible forward program. It is the baseline for benchmarking.
+NiLang (call/uncall) is the time of reversible call or uncall. Both of them are $\sim3$ times slower than its irreversible counterpart. Since Bessel function has only one input argument, forward mode AD tools are faster than reverse mode AD, both source-to-source framework ForwardDiff and operator overloading framework Tapenade have the a comparable computing time with the pure function call.
 \begin{table}[h!]\centering
 \begin{minipage}{0.8\columnwidth}
 \ra{1.3}
@@ -841,26 +868,20 @@ We differentiate the first type Bessel function in \Sec{sec:bessel} and show the
         \end{tabularx}
     }
     \caption{Time and space used for computing objective (O) and gradient (G) of the first kind Bessel function $J_2(1.0)$.
+    The CUDA time is averaged over a batch size of 4000, which is not a fair comparison but shows how much performance can we get from GPU in the parallel computing context.
 }\label{tbl:besselj}
 \end{minipage}
 \end{table}
 
-In the table, Julia is the CPU time used for running the irreversible forward program. It is the baseline for benchmarking.
-NiLang (call/uncall) is the time of reversible call or uncall. Both of them are $\sim 3$ times slower than its irreversible counterpart. Here, we have removed the reversibility check to avoid overheads. One can always turn off this check after debugging.
-Since Bessel function has only one input argument, forward mode AD tools are faster than reverse mode AD, both source-to-source framework ForwardDiff and operator overloading framework Tapenade have the a comparable computing time with the pure function call.
-%It is even faster than manually derived gradients
-%\begin{equation}
-%    J_{\nu}'(z) = \frac{J_{\nu-1} - J_{\nu+1}}{2}.
-%\end{equation}
-%Besides the efficient implementation, its high performance also lies in the fact that this function fit for forward mode AD which has only one input.
 NiLang.AD is the reverse mode AD submodule in NiLang, and it takes 13.6 times the native Julia program, and is also 2 times slower than Tapenade. However, the key point is, there is no extra memory allocation like stack operations in the whole computation. The controllable memory allocation of NiLang makes it compatible with CUDA program.
 %For people who are interested in CUDA programming, we prepared another example in \App{app:cuda}, which implements a differentiable quantum simulation kernel on GPU.
 %So far, the generated backward rule faces the shared write problem, which requires further investigation.
 %, and 
-In other backward mode AD like Zygote, ReverseDiff and Tapenade, the memory allocation in heap is nonzero due to the checkpointing and possible failure of type inference of Julia language. NiLang is friendly to type inference because it is closure free.
+In other backward mode AD like Zygote, ReverseDiff and Tapenade, the memory allocation in heap is nonzero due to the checkpointing and possible failure of type inference.
 
 \subsection{Graph embedding problem}
-Since the ForwardDiff itself provides the Hessian for users, it is interesting to benchmark how much performance we can get by forward differentiating an adjoint program comparing with forward differentiating a forward AD program. In the following benchmark, we show the benchmark for the graph embedding problem in \Sec{sec:graph}.
+Since one can combine ForwardDiff and NiLang to obtain Hessians,
+it is interesting to see how much performance we can get in differentiating the graph embedding program in \Sec{sec:graph}.
 
 \begin{table}[h!]\centering
     \small
@@ -868,7 +889,7 @@ Since the ForwardDiff itself provides the Hessian for users, it is interesting t
 \ra{1.3}
     \scalebox{1.0}{
         \begin{tabularx}{\textwidth}{bssssssssss}\toprule
-            \textbf{}                & 2          & 4          & 6          & 8          & 10         \\
+            $k$                      & 2          & 4          & 6          & 8          & 10         \\
             \hline
             Julia-O                  & 4.477e-06  & 4.729e-06  & 4.959e-06  & 5.196e-06  & 5.567e-06  \\
             NiLang-O                 & 7.173e-06  & 7.783e-06  & 8.558e-06  & 9.212e-06  & 1.002e-05  \\
@@ -886,47 +907,19 @@ Since the ForwardDiff itself provides the Hessian for users, it is interesting t
         \end{tabularx}
     }
     \caption{Absolute runtimes in seconds for computing the objectives (O), uncall objective (U), gradients (G) and Hessians (H) of the graph embedding program.
+    $k$ is the embedding dimension, the number of parameters is $10k$.
     }\label{tbl:graphembedding}
 \end{minipage}
 \end{table}
 
-In this application, the number of input parameters scales as $10 \times k$, where $k$ is the embedding dimension of the graph.
 In \Tbl{tbl:graphembedding}, we show the the performance of different implementations by varying the dimension $k$.
-As the baseline, (a) shows the time for computing the 0th-order gradient, or the function call. We have reversible and irreversible implementations, where the reversible program is slower than the irreversible native Julia program by a factor of $\sim2$.
-(b) shows the time for computing the first-order gradients. The reversible program shows the advantage of obtaining gradients when the dimension $k \geq 3$. The larger the number of inputs, the more advantage it shows due to the overhead proportional to input size in forward mode AD.
-The same reason applies to computing Hessians. The mixed-mode AD gives better performance when $k \geq 3$ comparing with pure forward mode AD.
-Comparing with other backward mode AD packages ReverseDiff and Zygote, NiLang is approximately one order more efficient for the same reason we discussed in \Sec{sec:bessel}.
+As the baseline, (a) shows the time for computing the function call. We have reversible and irreversible implementations, where the reversible program is slower than the irreversible native Julia program by a factor of $\sim2$ due to the uncomputing overhead.
+The reversible program shows the advantage of obtaining gradients when the dimension $k \geq 3$. The larger the number of inputs, the more advantage it shows due to the overhead proportional to input size in forward mode AD.
+The same reason applies to computing Hessians. The combining NiLang and ForwardDiff gives better performance when $k \geq 3$ comparing with other AD frameworks.
 
-\subsection{Sparse matrices}
-We benchmarked the call, uncall and backward time used for sparse matrix dot product and matrix multiplication.
-Here, we estimate the time for back propagating gradients rather than including both forward and backward.
-This is prefered because \texttt{mul!} usually plays a role of an intermediate step of computing, which does not output a scalar as loss.
+\subsection{Gaussian mixture model and bundle adjustment}\label{sec:ba}
 
-\begin{table}[h!]\centering
-\begin{minipage}{0.8\columnwidth}
-\ra{1.3}
-    \scalebox{1.0}{
-        \begin{tabularx}{\textwidth}{bsb}\toprule
-            \textbf{}     & dot         & mul! (complex valued) \\
-            \hline
-            Julia-O       & 3.493e-04   & 8.005e-05\\
-            NiLang-O      & 4.675e-04   & 9.332e-05\\
-            \hline
-            NiLang-B      & 5.821e-04   & 2.214e-04\\
-            \bottomrule
-        \end{tabularx}
-    }
-    \caption{Absolute runtimes in seconds for computing the objectives (O) and the backward pass (B) of sparse matrix operations. The matrix size is $1000 \times 1000$, and the element density is $0.05$. The total time used in computing gradient can be estimated as a sum of times in row ``O'' (reversible or not) and row ``B''.
-    }\label{tbl:sparse}
-\end{minipage}
-\end{table}
-
-The time used for computing backward pass is approximately 1.5-3 times the Julia's native forward pass.
-This is because the instruction length of differentiating basic arithemetic instructions is longer than pure computing by a factor of 2 or more.
-
-\subsection{Gaussian mixture model and bundle adjustment}
-
-We reproduced the benchmarks for Gaussian mixture model (GMM) and bundle adjustment (BA) in ~\cite{Srajer2018} by re-writting the programs in a reversible style. We show the results in \Tbl{tbl:gmm} and \Tbl{tbl:ba}. Notice in these benchmarks, we rewrite the ForwardDiff program for a fair benchmark, this explains the difference between our results and the original benchmark. The Tapenade data is obtained by executing the docker file provided by the original benchmark, which is the baseline of our benchmark and the original benchmark.
+We reproduced the benchmarks for Gaussian mixture model (GMM) and bundle adjustment (BA) in ~\Ref{Srajer2018} by re-writting the programs in a reversible style. We show the results in \Tbl{tbl:gmm} and \Tbl{tbl:ba}. Notice in these benchmarks, we rewrite the ForwardDiff program for a fair benchmark, this explains the difference between our results and the original benchmark. The Tapenade data is obtained by executing the docker file provided by the original benchmark, which is the baseline of our benchmark and the original benchmark.
 
 \begin{table}[h!]\centering
     \scriptsize
@@ -1110,7 +1103,7 @@ Discarding gradients should not have any effect on the \texttt{value} fields of 
 where the second term with $\frac{\partial \vx^L}{\partial{b}}$ vanishes naturally.
 \end{proof}
 
-\subsection{Shared read and write problem}
+\subsection{Shared read and write problem}\label{sec:sharedrw}
 Let's first consider the following expression.
 
 \begin{minipage}{.88\columnwidth}
@@ -1175,7 +1168,7 @@ How to solve the shared write in CUDA programming is still an open problem, whic
 \subsection{Outlook}\label{sec:outlook}
 
 We can use NiLang to solve many existing issues related to AD.
-We can use it to generate AD rules for existing machine learning packages like ReverseDiff~\cite{ReverseDiff}, Zygote~\cite{Innes2019}, KNet~\cite{KNet}, and Flux~\cite{Innes2018a}.
+We can use it to generate AD rules for existing machine learning packages like \href{https://github.com/JuliaDiff/ReverseDiff.jl}{ReverseDiff}, Zygote~\cite{Innes2019}, KNet~\cite{KNet}, and Flux~\cite{Innes2018a}.
 Many backward rules for sparse arrays and linear algebra operations have not been defined yet in these packages.
 We can also use the flexible time-space tradeoff in reversible programming to overcome the memory wall problem in some applications.
 A successful, related example is the memory-efficient domain-specific AD engine in quantum simulator Yao~\cite{Luo2019}.
@@ -1387,281 +1380,12 @@ The assignments in lines 4 and 5 are straightforward.
 We call a bijection of a field of an object a ``dataview'' of this object, and it is directly modifiable in NiLang.
 The definition of dataview can be found in \App{app:grammar}.
 
-
-\subsection{Backward rules for instructions}\label{app:jacobians}
-For function $\vec{y} = f(\vec{x})$, its Jacobian is $J_{ij} = \frac{\partial y_i}{\partial x_j}$ and its Hessian is $H^k_{ij} = \frac{\partial y_k}{x_i x_j}$.
-We have the following local Jacobians and Hessians on the above instructions.
-
-\begin{multicols}{2}
-\begin{enumerate}
-    \item $a \mathrel+= b$
-
-\begin{align*}
-    &J = \left(\begin{matrix}
-1 & 1\\
-0 & 1
-\end{matrix}\right)\\
-    &H = \mathbf{0}
-\end{align*}
-
-The inverse is $a \mathrel-= b$, and its Jacobian is the inverse of the matrix above.
-
-\begin{align*}
-J(f^{-1}) = J^{-1} = \left(\begin{matrix}
-1 & -1\\
-0 & 1
-\end{matrix}\right)
-\end{align*}
-
-In the following, we omit the Jacobians and Hessians of inverse functions.
-
-\item $a\mathrel+=b*c$
-
-\begin{align*}
-    &J = \left(\begin{matrix}
-1 & c & b\\
-0 & 1 & 0\\
-0 & 0 & 1
-\end{matrix}\right)\\
-    &H^a_{bc} = H^a_{cb} = 1, else ~0
-\end{align*}
-
-\item $a\mathrel+=b/c$
-
-\begin{align*}
-    &J = \left(\begin{matrix}
-1 & 1/c &-b/c^2\\
-0 & 1 & 0\\
-0 & 0 & 1
-\end{matrix}\right)\\
-    &H^a_{cc} = 2b/c^3,\\
-    &H^a_{bc} = H^a_{cb} = -1/c^2, else ~ 0
-\end{align*}
-
-\item $a\mathrel+=b^c$
-
-
-\begin{align*}
-    &J = \left(\begin{matrix}
-1 &  cb^{c-1} &   b^c \log b \\
-0 & 1 & 0\\
-0 & 0 & 1
-\end{matrix}\right)\\
-    &H^a_{bc} = H^a_{cb} = b^{c-1} + c b^{c-1}\log b,\\
-    &H^a_{bb} = (c-1)c b^{c-2},\\
-    &H^a_{cc} = b^c\log^2b, else ~0
-\end{align*}
-
-\item $a\mathrel+=e^b$
-
-\begin{align*}
-    &J = \left(\begin{matrix}
-1 &  e^b \\
-0 & 1
-\end{matrix}\right)\\
-    &H^a_{bb} = e^b, else ~0
-\end{align*}
-
-\item $a\mathrel+=\log b$
-
-\begin{align*}
-    &J = \left(\begin{matrix}
-1 &  1/b \\
-0 & 1
-\end{matrix}\right)\\
-    &H^a_{bb} = -1/b^2, else ~0
-\end{align*}
-
-\item $a\mathrel+=\sin b$
-
-\begin{align*}
-    &J = \left(\begin{matrix}
-1 &  \cos b \\
-0 & 1
-\end{matrix}\right)\\
-    &H^a_{bb} = -\sin b, else ~0
-\end{align*}
-
-\item $a\mathrel+=\cos b$
-
-\begin{align*}
-    &J = \left(\begin{matrix}
-1 &  -\sin b \\
-0 & 1
-\end{matrix}\right)\\
-    &H^a_{bb} = -\cos b, else ~0
-\end{align*}
-
-\item $a \mathrel+= \vert b\vert$
-
-\begin{align*}
-    &J = \left(\begin{matrix}
-1 &  {\rm sign} (b) \\
-0 & 1
-\end{matrix}\right)\\
-    &H = \mathbf{0}
-\end{align*}
-
-\item $a = -a$
-
-\begin{align*}
-    &J = \left(\begin{matrix}
--1
-\end{matrix}\right)\\
-    &H = \mathbf{0}
-\end{align*}
-
-\item ${\rm SWAP}(a, b) = (b, a)$
-
-\begin{align*}
-    &J = \left(\begin{matrix}
-0 & 1 \\
-1 & 0
-\end{matrix}\right)\\
-    &H = \mathbf{0}
-\end{align*}
-
-\item \begin{align*}
-{\rm ROT}(a, b, \theta)  = \left(\begin{matrix}
-        \cos\theta & - \sin\theta\\
-        \sin\theta  & \cos\theta
-    \end{matrix}\right)
-    \left(\begin{matrix}
-        a\\
-        b
-    \end{matrix}\right)
-\end{align*}
-
-\begin{align*}
-    &J = \left(\begin{matrix}
-        \cos\theta & - \sin\theta & -b\cos\theta-a\sin \theta\\
-        \sin\theta  & \cos\theta & a\cos\theta -b\sin\theta\\
-        0 & 0 & 1
-    \end{matrix}\right)\\
-    &H^a_{a\theta} = H^a_{\theta, a} = -\sin\theta,\\
-    &H^a_{b\theta} = H^a_{\theta, b} = -\cos\theta,\\
-    &H^a_{\theta\theta} = -a\cos\theta + b\sin\theta,\\
-    &H^b_{a\theta} = H^b_{\theta a} = \cos\theta,\\
-    &H^b_{b\theta} = H^b_{\theta b} = -\sin\theta,\\
-    &H^b_{\theta\theta} = -b\cos\theta-a\sin\theta, else ~0
-\end{align*}
-\end{enumerate}
-\end{multicols}
-
-\section{Learn by consistency}\label{sec:train}
-Consider a training that with input $\vx^*$ and output $\vy^*$,
-find a set of parameters $\vp_x$ that satisfy $\vy^* = f(\vx^*, \vp_x)$.
-In traditional machine learning, we define a loss $\mathcal{L} = {\rm dist}(\vy^*, f(\vx^*, \vp_x))$ and minimize it with gradient $\frac{\partial L}{\partial \vp_x}$. This works only when the target function is locally differentiable.
-
-Here we provide an alternative by making use of reversibility.
-We construct a reversible program $\vy, \vp_y =  f_r(\vx, \vp_x)$, where $\vp_x$ and $\vp_y$ are ``parameter'' spaces on the input side and output side.
-The algorithm can be summarized as
-
-\begin{algorithm}[H]
-    \KwResult{$\vp_x$}
-    Initialize $\vx$ to $\vx^*$, parameter space $\vp_x$ to random.\\
-    \eIf{$\vp_y$ is \texttt{null}}{
-        $\vx, \vp_x = f_r^{-1}(\vy^*)$\\
-    }{
-        $\vy, \vp_y= f_r(\vx, \vp_x)$\\
-        \While{$\vy \not\approx \vy^*$}{
-            $\vy = \vy^*$\\
-            $\vx, \vp_x = f_r^{-1}(\vy, \vp_y)$.\\
-            $\vx = \vx^*$\\
-            $\vy, \vp_y= f_r(\vx, \vp_x)$
-        }
-    }
-    \caption{Learn by consistency}\label{algo:train}
-\end{algorithm}
-
-Here, $\parameter(\cdot)$ is a function for taking the parameter space.
-This algorithm utilizes the self-consistency relation
-\begin{equation}\label{eq:selfconsistent}
-    \vp_x^* = \parameter(f_r^{-1}(\vy^*, \parameter(f_r(\vx^*, \vp^*_x)))),
-\end{equation}
-
-A similar idea of training by consistency is used in self-consistent mean-field theory~\cite{Michael2003} in physics.
-Finding the self-consistent relation is crucial to self-consistency based training. Here, the reversibility provides a natural self-consistency relation.
-However, it is not a silver bullet; let's consider the following example.
-
-\begin{minipage}{\columnwidth}
-\begin{lstlisting}[multicols=2]
-@i function f1(y!, x, p!)
-    p! += identity(x)
-    y! -= exp(x)
-    y! += exp(p!)
-end
-
-@i function f2(y!, x!, p!)
-    p! += identity(x!)
-    y! -= exp(x!)
-    x! -= log(-y!)
-    y! += exp(p!)
-end
-
-function train(f)
-    loss = Float64[]
-    p = 1.6
-    for i=1:100
-        y!, x = 0.0, 0.3
-        @instr f(y!, x, p)
-        push!(loss, y!)
-        y! = 1.0
-        @instr (~f)(y!, x, p)
-    end
-    loss
-end
-\end{lstlisting}
-\end{minipage}
-
-Functions \texttt{f1} and \texttt{f2} computes $f(x, p) = e^{(p+x)} - e^x$ and stores the output in a new memory \texttt{y!}.
-The only difference is \texttt{f2} uncomputes $x$ arithmetically.
-The task of the training is to find a $p$ that makes the output value equal to the target value $1$.
-After $100$ steps, \texttt{f2} runs into the fixed point with $x$ equal to $1$ upto machine precision.
-However, parameters in \texttt{f1} does not change at all.
-The training of \texttt{f1} fails because this function actually computes $\texttt{f1}(y, x, p) = y + e^{(p+x)} - e^{x}, x, x+p$, where the training parameter $p$ is completely determined by the parameter space on the output side $x \cup x+p$. As a result, shifting $y$ directly is the only approach to satisfy the consistency relation. On the other side, $\texttt{f2}(y, x, p) = y + e^{(p+x)} - e^x, \tilde{0}, x+p$, the output parameters $\tilde{0} \cup x+p$ can not uniquely determine input parameters $p$ and $x$. Here, we use $\tilde{0}$ to denote the zero with rounding error.
-
-\begin{figure}
-    \centerline{\includegraphics[width=0.6\columnwidth,trim={0 0.3cm 0 0},clip]{fig1.pdf}}
-    \caption{The output value \texttt{y!} as a function of self-consistent training step.}\label{fig:invtrain}
-\end{figure}
-
-By viewing $\vx$ and parameters in $\vp_x$ as variables, we can study the trainability from the information perspective.
-\begin{theorem}
-    Only if the the conditional entropy $S(\vy|\vp_y)$ is nonzero, algorithm \ref{algo:train} is trainable.
-\end{theorem}
-\begin{proof}
-The above example reveals a fact that training is impossible when output parameters completely determines input parameters (or $S(\vp_x | \vp_y) = 0$).
-\begin{align}
-    \begin{split}
-        S(\vp_x | \vp_y) &= S(\vp_x \cup \vp_y) - S(\vp_y)\\
-        &\leq S\left((\vp_x \cup \vx) \cup \vp_y \right) - S(\vp_y),\\
-        &\leq S\left((\vp_y \cup \vy) \cup \vp_y\right) - S(\vp_y),\\
-    &\leq S(\vy|\vp_y).
-    \end{split}
-\end{align}
-The third line uses the bijectivity $S(\vx \cup \vp_x) = S(\vy \cup \vp_y)$.
-This inequality shows that when $S(\vy | \vp_y) = 0$, i.e., the output parameters contain all information in output, the input parameters are entirely determined and the training can not work.
-\end{proof}
-In the above example, it corresponds to the case $S\left(e^{(x+y)-e^x} | x \cup x + y\right) = 0$ in \texttt{f1}.
-The solution is to remove the information redundancy in output parameter space through uncomputing, as shown in \texttt{f2}.
-Besides, the Fibonacci example is often used in a reversible language as a tutorial, NiLang implementation could be found in \App{app:fib}.
-
 \section{Functions used in the main text}\label{app:functions}
 
 We list the functions used in \Sec{sec:example} as bellow.
 
 \begin{minipage}{\columnwidth}
 \begin{lstlisting}[multicols=2]
-"""
-get the summation of an array.
-"""
-@i function isum(out!, x::AbstractArray)
-    for i=1:length(x)
-        out! += identity(x[i])
-    end
-end
-
 """
 computing factorial.
 """
@@ -1671,371 +1395,7 @@ computing factorial.
         mulint(out!, i)
     end
 end
-
-"""
-dot product.
-"""
-@i function dot(out!, v1::Vector{T}, v2) where T
-    for i = 1:length(v1)
-        out! += v1[i]'*v2[i]
-    end
-end
-
-"""
-squared norm.
-"""
-@i function norm2(out!, vec::Vector{T}) where T
-    anc1 ← zero(T)
-    for i = 1:length(vec)
-        anc1 += identity(vec[i]')
-        out! += anc1*vec[i]
-        anc1 -= identity(vec[i]')
-    end
-end
-
-"""
-Variance and mean value from squared values `sqv`.
-"""
-@i function var_and_mean_sq(var!, mean!, sqv)
-    sqmean ← zero(mean!)
-    @inbounds for i=1:length(sqv)
-        mean! += sqv[i] ^ 0.5
-        var! += identity(sqv[i])
-    end
-    divint(mean!, length(sqv))
-    divint(var!, length(sqv))
-    sqmean += mean! ^ 2
-    var! -= identity(sqmean)
-    sqmean -= mean! ^ 2
-    mulint(var!, length(sqv))
-    divint(var!, length(sqv)-1)
-end
 \end{lstlisting}
 \end{minipage}
-
-%In \texttt{norm2}, we copied \texttt{vec[i]\textquotesingle} to \texttt{anc1} to avoid the same variable appear twice in the argument list of $(:+=)(*)$, where the prime represents the adjoint dataview.
-
-\section{CUDA compitibility}\label{app:cuda}
-CUDA programming is playing a more and more significant role in high-performance computing. In Julia, one can write kernel functions in native Julia language with CUDAnative~\cite{Besard2018}.
-NiLang is compatible with CUDAnative and KernelAbstractions~\cite{KernelAbstractions}, and one can write a reversible kernel like the following.
-
-\begin{minipage}{.88\columnwidth}
-\begin{lstlisting}
-using CuArrays, CUDAnative, GPUArrays
-using NiLang, NiLang.AD
-
-@i @inline function swap_kernel(state, mask1, mask2)
-    @invcheckoff begin
-        b ← (blockIdx().x-1) * 
-            blockDim().x + threadIdx().x - 1
-        if (b < length(state), ~)
-            if (b&mask1==0 && b&mask2==mask2, ~)
-                SWAP(state[b+1], state[b ⊻ 
-                    (mask1|mask2) + 1])
-            end
-        end
-        b → (blockIdx().x-1) * 
-            blockDim().x + threadIdx().x - 1
-    end
-end
-\end{lstlisting}
-\end{minipage}
-
-This kernel function simulates the SWAP gate in quantum computing.
-Here, one must use the macro \texttt{@invcheckoff} to turn off the reversibility checks. It is necessary because the possible error thrown in a kernel function can not be handled on a CUDA kernel.
-One can launch this kernel function to GPUs with a single macro \texttt{@cuda}, as shown in the following using case.
-
-\begin{minipage}{\columnwidth}
-\begin{lstlisting}[multicols=2]
-julia> @i function instruct!(state::CuVector,
-            gate::Val{:SWAP}, locs::Tuple{Int,Int})
-           mask1 ← 1 << (tget(locs, 1)-1)
-           mask2 ← 1 << (tget(locs, 2)-1)
-           XY ← GPUArrays.thread_blocks_heuristic(
-                length(state))
-           @cuda threads=tget(XY,1) blocks=tget(XY,
-                2) swap_kernel(state, mask1, mask2)
-       end
-
-julia> instruct!(CuArray(randn(8)),
-            Val(:SWAP), (1,3))[1]
-8-element CuArray{Float64,1,Nothing}:
- -0.06956048379200473
- -0.6464176838567472
- -0.06523362834285944
- -0.7314356941903547
-  1.512329204247244
-  0.9773772766637732
-  1.6473223915215722
- -1.0631789613639087
-\end{lstlisting}
-\end{minipage}
-
-One can also write kernels with KernelAbstaction. It solves many compatibility issues related to different function calls on GPU and CPU.
-
-
-\begin{minipage}{.88\columnwidth}
-\begin{lstlisting}
-@i @kernel function swap_kernel2(state, mask1, mask2)
-    @invcheckoff begin
-        b ← @index(Global)
-        if (b < length(state), ~)
-            if (b&mask1==0 && b&mask2==mask2, ~)
-                SWAP(state[b+1], state[b ⊻ 
-                    (mask1|mask2) + 1])
-            end
-        end
-        b → @index(Global)
-    end
-end
-\end{lstlisting}
-\end{minipage}
-
-We can use the macro \texttt{@launchkernel} to launch a kernel.
-The first parameter is a device.
-The second parameter is the block size.
-The third parameter is the number of threads.
-The last parameter is a kernel function call to be launched.
-
-\begin{minipage}{\columnwidth}
-\begin{lstlisting}[multicols=2]
-julia> @i function instruct!(state::CuVector,
-            gate::Val{:SWAP}, locs::Tuple{Int,Int})
-           mask1 ← 1 << (tget(locs, 1)-1)
-           mask2 ← 1 << (tget(locs, 2)-1)
-           XY ← GPUArrays.thread_blocks_heuristic(
-                length(state))
-           @launchkernel CUDA() 256 length(out!
-                ) swap_kernel2(state, mask1, mask2)
-       end
-
-julia> instruct!(CuArray(randn(8)),
-            Val(:SWAP), (1,3))[1]
-8-element CuArray{Float64,1,Nothing}:
-  2.1492759883720525 
-  2.326837084303501  
-  1.4587667131427016 
- -1.3273806428138293 
- -0.03975355575683114
- -0.10763082744447787
- -1.7111718557581195 
- -0.47922613687722704
-\end{lstlisting}
-\end{minipage}
-
-
-\section{Computing Fibonacci Numbers}\label{app:fib}
-The following is an example that everyone likes, computing Fibonacci number recursively.
-
-\begin{minipage}{.88\columnwidth}
-    \begin{lstlisting}
-using NiLang
-
-@i function rfib(out!, n::T) where T
-    n1 ← zero(T)
-    n2 ← zero(T)
-    @routine begin
-        n1 += identity(n)
-        n1 -= identity(1)
-        n2 += identity(n)
-        n2 -= identity(2)
-    end
-    if (value(n) <= 2, ~)
-        out! += identity(1)
-    else
-        rfib(out!, n1)
-        rfib(out!, n2)
-    end
-    ~@routine
-end
-\end{lstlisting}
-\end{minipage}
-
-The time complexity of this recursive algorithm is exponential to input \texttt{n}. It is also possible to write a reversible linear time with for loops.
-A slightly non-trivial task is computing the first Fibonacci number that greater or equal to a certain number $z$, where a \texttt{while} statement is required.
-
-\begin{minipage}{.88\columnwidth}
-\begin{lstlisting}
-@i function rfibn(n!, z)
-    @safe @assert n! == 0
-    out ← 0
-    rfib(out, n!)
-    while (out < z, n! != 0)
-        ~rfib(out, n!)
-        n! += identity(1)
-        rfib(out, n!)
-    end
-    ~rfib(out, n!)
-end
-\end{lstlisting}
-\end{minipage}
-
-In this example, the postcondition \texttt{n!=0} in the \texttt{while} statement is false before entering the loop, and it becomes true in later iterations. In the reverse program, the \texttt{while} statement stops at \texttt{n==0}.
-If executed correctly, a user will see the following result.
-
-\begin{minipage}{.88\columnwidth}
-\begin{lstlisting}
-julia> rfib(0, 10)
-(55, 10)
-
-julia> rfibn(0, 100)
-(12, 100)
-
-julia> (~rfibn)(rfibn(0, 100)...)
-(0, 100)
-\end{lstlisting}
-\end{minipage}
-
-This example shows how an addition postcondition provided by the user can help to reverse a control flow without caching controls.
-
-\subsection{Unitary Matrices}\label{app:umm}
-A unitary matrix features uniform eigenvalues and reversibility. It is widely used as an approach to ease the gradient exploding and vanishing problem~\cite{Arjovsky2015,Wisdom2016,Li2016} and the memory wall problem~\cite{Luo2019}.
-One of the simplest ways to parametrize a unitary matrix is representing a unitary matrix as a product of two-level unitary operations~\cite{Li2016}. A real unitary matrix of size $N$ can be parametrized compactly by $N(N-1)/2$ rotation operations~\cite{Li2013}
-\begin{align}
-    {\rm ROT}(a!, b!, \theta)  = \left(\begin{matrix}
-        \cos(\theta) & - \sin(\theta)\\
-        \sin(\theta)  & \cos(\theta)
-    \end{matrix}\right)
-    \left(\begin{matrix}
-        a!\\
-        b!
-    \end{matrix}\right),
-\end{align}
-where \texttt{$\theta$} is the rotation angle, \texttt{a!} and \texttt{b!} are target registers.
-
-\begin{minipage}{.88\columnwidth}
-\begin{lstlisting}[mathescape=true]
-using NiLang, NiLang.AD
-
-@i function umm!(x!, θ)
-    @safe @assert length(θ) == 
-            length(x!)*(length(x!)-1)/2
-    k ← 0
-    for j=1:length(x!)
-        for i=length(x!)-1:-1:j
-            k += identity(1)
-            ROT(x![i], x![i+1], θ[k])
-        end
-    end
-
-    k → length(θ)
-end
-\end{lstlisting}
-\end{minipage}
-
-Here, the ancilla \texttt{k} is deallocated manually by specifying its value, because we know the loop size is $N(N-1)/2$.
-We define the test functions in order to check gradients.
-
-\begin{minipage}{\columnwidth}
-\begin{lstlisting}[mathescape=true,multicols=2]
-julia> @i function test!(out!, x!::Vector, θ::Vector)
-           umm!(x!, θ)
-           isum(out!, x!)
-       end
-
-julia> out, x, θ = 0.0, randn(4), randn(6);
-
-julia> @instr Grad(test!)(Val(1), out, x, θ)
-
-julia> x
-4-element Array{GVar{Float64,Float64},1}:
- GVar(1.220182125326287, 0.14540743042341095) 
- GVar(2.1288634811475937, -1.3749962375499805)
- GVar(1.2696579252569677, 1.42868739498625)   
- GVar(0.1083891125379283, 0.2170123344615735) 
-
-julia> @instr (~test!')(Val(1), out, x, θ)
-
-julia> x
-4-element Array{Float64,1}:
- 1.220182125326287  
- 2.1288634811475933 
- 1.2696579252569677 
- 0.10838911253792821
-\end{lstlisting}
-\end{minipage}
-
-In the above testing code, \texttt{Grad(test)} attaches a gradient field to each element of \texttt{x}. \texttt{$\sim$Grad(test)} is the inverse program that erase the gradient fields.
-Notably, this reversible implementation costs zero memory allocation, although it changes the target variables inplace.
-
-%It implements the backward rule of a \texttt{ROT} instruction
-%\begin{align}
-%    \begin{split}
-%    \overline{\theta}  &= \sum\frac{\partial R(\theta)}{\partial \theta}\odot(\overline{out!}x^T)\\
-%    &= \Tr\left[\frac{\partial R(\theta)}{\partial \theta}^T\overline{out!}x^T\right]\\
-%    &= \Tr\left[R\left(\frac{\pi}{2}-\theta\right)\overline{out!}x^T\right]
-%    \end{split}
-%\end{align}
-
-\subsection{QR decomposition}
-
-Let us consider a naive implementation of QR decomposition from scratch.
-We admit this implementation is just a proof of principle which does not consider reorthogonalization and other practical issues.
-
-\begin{minipage}{\columnwidth}
-    \begin{lstlisting}[multicols=2]
-using NiLang, NiLang.AD
-
-@i function qr(Q, R, A::Matrix{T}) where T
-    anc_norm ← zero(T)
-    anc_dot ← zeros(T, size(A,2))
-    ri ← zeros(T, size(A,1))
-    for col = 1:size(A, 1)
-        ri .+= identity.(A[:,col])
-        for precol = 1:col-1
-            dot(anc_dot[precol], Q[:,precol], ri)
-            R[precol,col] += 
-                identity(anc_dot[precol])
-            for row = 1:size(Q,1)
-                ri[row] -= 
-                    anc_dot[precol] * Q[row, precol]
-            end
-        end
-        norm2(anc_norm, ri)
-
-        R[col, col] += anc_norm^0.5
-        for row = 1:size(Q,1)
-            Q[row,col] += ri[row] / R[col, col]
-        end
-
-        ~begin
-            ri .+= identity.(A[:,col])
-            for precol = 1:col-1
-                dot(anc_dot[precol], Q[:,precol], ri)
-                for row = 1:size(Q,1)
-                    ri[row] -= anc_dot[precol] *
-                        Q[row, precol]
-                end
-            end
-            norm2(anc_norm, ri)
-        end
-    end
-end
-\end{lstlisting}
-\end{minipage}
-
-Here, in order to avoid frequent uncomputing, we allocate ancillas \texttt{ri} and \texttt{anc\_dot} as vectors.
-The expression in $\sim$ is used to uncompute \texttt{ri}, \texttt{anc\_dot} and \texttt{anc\_norm}.
-\texttt{dot} and \texttt{norm2} are reversible functions to compute dot product and vector norm.
-One can quickly check the correctness of the gradient function
-
-\begin{minipage}{.88\columnwidth}
-\begin{lstlisting}
-julia> A  = randn(4,4);
-
-julia> q, r = zero(A), zero(A);
-
-julia> @i function test1(out, q, r, A)
-           qr(q, r, A)
-           isum(out, q)
-       end
-
-julia> check_grad(test1, (0.0, q, r, A); iloss=1)
-true
-\end{lstlisting}
-\end{minipage}
-
-Here, the loss function \texttt{test1} is defined as the sum of the output unitary matrix \texttt{q}. The \texttt{check\_grad} function is a gradient checker function defined in module NiLang.AD.
-
 
 \end{document}
