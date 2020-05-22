@@ -919,7 +919,7 @@ The same reason applies to computing Hessians. The combining NiLang and ForwardD
 
 \subsection{Gaussian mixture model and bundle adjustment}\label{sec:ba}
 
-We reproduced the benchmarks for Gaussian mixture model (GMM) and bundle adjustment (BA) in ~\Ref{Srajer2018} by re-writting the programs in a reversible style. We show the results in \Tbl{tbl:gmm} and \Tbl{tbl:ba}. Notice in these benchmarks, we rewrite the ForwardDiff program for a fair benchmark, this explains the difference between our results and the original benchmark. The Tapenade data is obtained by executing the docker file provided by the original benchmark, which is the baseline of our benchmark and the original benchmark.
+We reproduced the benchmarks for Gaussian mixture model (GMM) and bundle adjustment (BA) in ~\Ref{Srajer2018} by re-writting the programs in a reversible style. We show the results in \Tbl{tbl:gmm} and \Tbl{tbl:ba}. In our new benchmarks, we also rewrite the ForwardDiff program for a fair benchmark, this explains the difference between our results and the original benchmark. The Tapenade data is obtained by executing the docker file provided by the original benchmark, which is the baseline of our benchmark and the original benchmark.
 
 \begin{table}[h!]\centering
     \scriptsize
@@ -929,12 +929,12 @@ We reproduced the benchmarks for Gaussian mixture model (GMM) and bundle adjustm
         \begin{tabularx}{\textwidth}{bssssssss}\toprule
             \textbf{\# parameters} & 3.00e+1 & 3.30e+2 & 1.20e+3 & 3.30e+3 & 1.07e+4 & 2.15e+4 & 5.36e+4 & 4.29e+5\\
             \hline
-            Julia-O       & 9.189e-03 & 1.193e-02 & 2.494e-01 & 8.618e-02 & 3.523e-02 & 7.641e-02 & 2.254e-01 & 3.404e+00\\
-            NiLang-O      & 1.657e-02 & 5.009e-02 & 4.902e-01 & 4.625e-01 & 3.036e-01 & 6.095e-01 & 1.594e+00 & 1.529e+01\\
+            Julia-O       & 9.844e-03 & 1.166e-02 & 2.797e-01 & 9.745e-02 & 3.903e-02 & 7.476e-02 & 2.284e-01 & 3.593e+00  \\
+            NiLang-O      & 3.655e-03 & 1.425e-02 & 1.040e-01 & 1.389e-01 & 7.388e-02 & 1.491e-01 & 4.176e-01 & 5.462e+00  \\
             Tapende-O     & 1.484e-03 & 3.747e-03 & 4.836e-02 & 3.578e-02 & 5.314e-02 & 1.069e-01 & 2.583e-01 & 2.200e+00\\
             \hline
-            ForwardDiff-G & 3.360e-02 & 1.240e+00 & 3.984e+01 & 1.429e+02 & -         & -         & -         &  -       \\
-            NiLang-G      & 3.510e-02 & 1.136e-01 & 1.064e+00 & 1.066e+00 & 1.700e+00 & 3.328e+00 & 8.643e+00 & 7.354e+01\\
+            ForwardDiff-G & 3.551e-02 & 1.673e+00 & 4.811e+01 & 1.599e+02 & -         & -         & -         & -  \\
+            NiLang-G      & 9.102e-03 & 3.709e-02 & 2.830e-01 & 3.556e-01 & 6.652e-01 & 1.449e+00 & 3.590e+00 & 3.342e+01  \\
             Tapenade-G    & 5.484e-03 & 1.434e-02 & 2.205e-01 & 1.497e-01 & 4.396e-01 & 9.588e-01 & 2.586e+00 & 2.442e+01\\
             \bottomrule
         \end{tabularx}
@@ -942,6 +942,17 @@ We reproduced the benchmarks for Gaussian mixture model (GMM) and bundle adjustm
     \caption{Absolute runtimes in seconds for computing the objective (O) and gradients (G) of GMM with 10k data points.}\label{tbl:gmm}
 \end{minipage}
 \end{table}
+
+In the GMM benchmark, NiLang's objective function has more overhead than irreversible programs in most cases.
+Except the uncomputing overhead, it is also because the bottleneck of this program is the matrix-vector multiplication,
+where our naive reversible implementation is much slower than the highly optimized BLAS function.
+The forward mode AD suffers from too large input dimension in this case, hence some data are missing.
+Although ForwardDiff is able to batch the gradient fields, the overhead propotional to input size still dominates.
+The source to source AD framework Tapenade is faster than NiLang in all scale,
+but the ratio bewteen computing gradients and objective function are close.
+The memory consumption of our reversible implementation is quite low.
+The peak memory is only slightly more than twice of the original program,
+where the factor 2 comes from wrapping each variable with an extra gradient field.
 
 \begin{table}[h!]\centering
     \scriptsize
@@ -966,12 +977,17 @@ We reproduced the benchmarks for Gaussian mixture model (GMM) and bundle adjustm
 \end{minipage}
 \end{table}
 
-In this case, NiLang shows slight advantage over forward mode AD because the bottleneck of computing this large sparse Jacobian is computing the Jacobian of a elementary function with 15 input arguments and 2 output arguments, where input space is larger than output space.
+In the BA benchmark, reverse mode AD shows slight advantage over ForwardDiff.
+The bottleneck of computing this large sparse Jacobian is computing the Jacobian of a elementary function with 15 input arguments and 2 output arguments, where input space is larger than the output space.
+In this instance, our reversible implementation is even faster than the source code transformation based AD framework Tapenade.
+With KernelAbstractions, we run the reversible program on GPU, which provides more than 200x speed up.
+Running codes on GPU (in Julia) requires not introducing any memory allocation at the kernel level.
+NiLang provides user the flxibility to manage the memory allocation instead of using a global stack.
 
-\section{Discussion and outlook}\label{sec:discussion}
-In this paper, we show how to realize a reversible programming eDSL and how to implement source-to-source backward mode AD on top of it.
+\section{Discussion and outlooks}\label{sec:discussion}
+In this paper, we show how to realize a reversible programming eDSL and how to implement an instruction level backward mode AD on top of it.
 It gives the user more flexibility to tradeoff memory and computing time comparing with traditional checkpointing.
-The Julia implementation NiLang gives the state-of-the-art performance and memory efficiency in obtaining first and second-order gradients in applications, including first type Bessel function, sparse matrix manipulations, linear algebra functions and, a practical one, the application graph embedding problem.
+The Julia implementation NiLang gives the state-of-the-art performance and memory efficiency in obtaining first and second-order gradients in applications, including first type Bessel function, sparse matrix manipulations, solving graph embedding problem, Gaussian mixture model and bundle adjustment.
 %In a reversible programming language, we proposed to use ``approximate uncomputing'' trick to avoid the overhead of a reversible program in many practical cases.
 
 In the following, we discuss some practical issues about reversible programming, and several future directions to go.
