@@ -516,8 +516,9 @@ In this section, we introduce several examples.
 All codes used in this section as well as the next benchmark section are available in NiLang's \href{https://github.com/GiggleLiu/nilangpaper}{paper repository}.
 
 \subsection{Sparse Matrices}
-Source to source automatic differentiation is useful in differentiating sparse matrices. It is a well-known problem that sparse matrix operations can not benefit directly from generic backward rules for dense matrix because general rules do not keep the sparse structure.
-In the following, we will show how to convert a normal Frobenius dot product between two sparse matrices to a reversible one. The Frobenius dot product is defined as \texttt{trace(A'B)}.
+Differentiating sparse matrices is useful in many applications, however, it can not benefit directly from generic backward rules for dense matrix because general rules do not keep the sparse structure.
+In the following, we will show how to convert a normal Frobenius dot product between two sparse matrices to a reversible one and differentiate it.
+Here, the Frobenius dot product is defined as \texttt{trace(A'B)}.
 In SparseArrays code base, it is implemented as follows.
 
 \begin{minipage}{\columnwidth}
@@ -561,7 +562,8 @@ end
 \end{minipage}
 
 
-This following is the NiLang implementation adapted from the above code.
+In the above implementation, many statements are not reversible.
+However, it is easy to adapt it to a reversible style with NiLang without sacrificing much performance.
 
 \begin{minipage}{\columnwidth}
 \begin{lstlisting}[multicols=2]
@@ -614,7 +616,7 @@ end
 Here, all \texttt{=} are replaced with \texttt{$\leftarrow$} to indicate that these variables must be returned at the end of this function scope.
 We put a ``\texttt{$\sim$}'' symbol in the postcondition field of if statements to indicate this postcondition is a dummy one that takes the same value as the precondition, i.e. the condition is not changed inside the loop body.
 If the precondition is changed by the loop body, one can use a \texttt{branch\_keeper} vector to cache branch decisions. The memory of \texttt{branch\_keeper} can be returned through uncomputing (the ``~'' statement above) so that it does not have to appear in the function argument list.
-Finally, after checking the correctness of the program, one can off the reversibility checks by using the macro \texttt{@invcheckoff} macro for better performance. We provide the benchmark of this function in \Sec{sec:benchsparse}.
+Finally, after checking the correctness of the program, one can off the reversibility checks by using the macro \texttt{@invcheckoff} macro for better performance. We provide the benchmark of this function in \Sec{sec:benchsparse}, where the reversible sparse matrix matrix multiplication is also benchmarked.
 
 \subsection{The first kind Bessel function}\label{sec:bessel}
 A Bessel function of the first kind of order $\nu$ can be computed using Taylor expansion
@@ -732,16 +734,22 @@ using NiLang, NiLang.AD
 end
 
 @i function ifactorial(out!, n)
-    anc1 ← zero(n)
+    anc ← zero(n)
     out! += identity(1)
     for i=1:n
         imul(out!, i, anc)
     end
 end
+
+@i @inline function imul(out!::T, x::T, anc!::T) where T<:Integer
+    anc! += out! * x
+    out! -= anc! ÷ x
+    SWAP(out!, anc!)
+end
 \end{lstlisting}
 \end{minipage}
 
-Here, the definition of \texttt{ifactorial} could be found in the appendix. Comparing with it irreversible counterpart, the number of additional ancillas is a constant, while the time overhead factor is also a constant.
+The above algorithm uses a constant number of ancilla, while the time overhead factor is also a constant.
 Ancilla \texttt{anc4} plays the role of \textit{dirty ancilla} in multiplication, and it is uncomputed rigorously in the uncomputing stage marked by \texttt{$\sim$@routine}.
 
 This reversible program can be diagrammatically represented as a memory oriented computational graph as shown in \Fig{fig:cgraphs} (b).
@@ -816,7 +824,7 @@ For $k=5$, an Adam optimizer with a learning rate $0.01$~\cite{Kingma2014} requi
 The trust region Newton's method converges much faster, which requires $\sim 20$ computations of Hessians to reach convergence.
 Although training time is comparable, the converged precision of the later is much better.
 
-\section{Benchmark}\label{sec:benchmark}
+\section{Benchmarks}\label{sec:benchmark}
 
 In the following benchmarks the CPU device is Intel(R) Xeon(R) Gold 6230 CPU @ 2.10GHz, and the GPU device is Nvidia Titan V.
 % the GPU time is estimated by broadcasting the gradient function on CUDA array of size $2^{17}$ and taking the average.
@@ -1034,14 +1042,14 @@ As an eDSL, one has an alternative to deallocate the memory irreversibly outside
     \centerline{\includegraphics[width=0.8\columnwidth,trim={0 0cm 0 0cm},clip]{hardware.pdf}}
     \caption{Energy efficient AI co-processor. Green arrows represents energy efficient operations on reversible devices.}\label{fig:hardware}
 \end{figure}
-So far, our eDSL is compiled to Julia.
-It relies on Julia's multiple dispatch to differentiate a program, which requires users to write generic programs.
-The most robust AD should be a hardware or hardware instruction level feature.
+So far, our eDSL is compiled to Julia language. It relies on Julia's multiple dispatch to differentiate a program, which requires users to write generic programs.
+A more liable AD should be a hardware or micro instruction level feature.
 In the future, we can expect NiLang being compiled to reversible instructions~\cite{Vieri1999} and executed on a reversible device.
-Reversible devices can play a role of differentiation engine as shown in the hetero-structural design in \Fig{fig:hardware}. A reversible device defines a reversible instruction set. It has a switch that controls whether the instruction calls a normal instruction or an instruction that also updates gradients.
-When a program calls a reversible differentiable subroutine, the reversible co-processor marches forward, and copy the result to the main memory.
-Then it execute the program backward and uncall instructions, computing gradients at the same time.
-After reaching the starting of the program, the gradient is returned to the global memory.
+A reversible devices can play a role of differentiation engine as shown in the hetero-structural design in \Fig{fig:hardware}.
+It defines a reversible instruction set and has a switch that controls whether the instruction calls a normal instruction or an instruction that also updates gradients.
+When a program calls a reversible differentiable subroutine, the reversible co-processor first marches forward, compute the loss and copy the result to the main memory.
+Then the co-processor execute the program backward and uncall instructions, initialize and updating gradient fields at the same time.
+After reaching the starting point of the program, the gradients are transfered to the global memory.
 Running AD program on a reversible device can save energy. Theoretically, the reversible routines do not necessarily cost energy, the only energy bottleneck is copying gradient and outputs to the main memory.
 
 \subsection{The connection to Quantum programming}
@@ -1052,10 +1060,10 @@ Unlike a classical state, a quantum state can not be cloned. Meanwhile, it loses
 Classical reversible computing does not enjoy the quantum advantage, nor the quantum disadvantages of non-cloning and decoherence,
 but it is a model that we can try directly with our classical computer.
 It is technically smooth to have a reversible computing device to bridge the gap between classical devices and universal quantum computing devices.
-By introducing entanglement little by little, we can accelerate some elementary components in reversible computing. For example, quantum Fourier transformation provides an alternative to the reversible adders and multipliers by introducing the CPHASE quantum gate~\cite{RuizPerez2017}.
+By introducing entanglement little by little, we can accelerate some elementary components in reversible computing. For example, quantum Fourier transformation provides an alternative to the reversible adders and multipliers by introducing the Hadamard and CPHASE quantum gates~\cite{RuizPerez2017}.
 From the programming languages's perspective, most quantum programming language preassumes the existence of a classical coprocessor to control quantum devices~\cite{Svore2018}.
 It is also interesting to know what is a native quantum control flow like, and does quantum entanglement provide speed up to automatic differentiation?
-We believe the reversible compiling technologies will open a door to compile a quantum program.
+We believe the reversible compiling technologies will open a door to study quantum compiling.
 
 \subsection{Gradient on ancilla problem}
 In this subsection, we introduce an easily overlooked problem in our reversible AD framework.
