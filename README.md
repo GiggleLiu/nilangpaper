@@ -1,11 +1,14 @@
 #  Reversible AD paper
 
-To start
+## Compile latex files
 ```bash
 $ latexmk -pdf invc.tex
 ```
 
-For benchmarks, type
+## Run benchmarks
+
+Type
+
 ```bash
 $ cd benchmarks
 $ julia --project run_benchmark.jl --adbench-folder path/to/ADBench GMM
@@ -21,3 +24,11 @@ $ cd benchmarks/bessel
 $ make
 $ ./main.out
 ```
+
+## Source codes used in this paper
+* [Bundle Adjustment](https://github.com/JuliaReverse/NiBundleAdjustment.jl)
+* [Gaussian Mixture Model](https://github.com/JuliaReverse/NiGaussianMixture.jl)
+* [Graph embedding](https://github.com/JuliaReverse/NiGraphEmbedding.jl)
+* [Sparse Matrix Operations](https://giggleliu.github.io/NiLang.jl/stable/examples/sparse/#Sparse-matrices-1)
+* [Bessel function](https://giggleliu.github.io/NiLang.jl/stable/examples/besselj/#Bessel-function-1)
+([CUDA version](https://giggleliu.github.io/NiLang.jl/stable/examples/besselj/#CUDA-programming-1))
