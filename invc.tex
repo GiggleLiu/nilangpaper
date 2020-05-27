@@ -203,8 +203,8 @@ Department of Computer Science, University of Tsukuba\\
 \maketitle
 
 \begin{abstract}
-    This paper considers implementing automatic differentiation (AD) in a reversible embedded domain-specific language. We start by reviewing the limitations of traditional AD frameworks. To solve the issues in these frameworks, we developed an open source reversible eDSL NiLang in Julia that can differentiate a general reversible program while being compatible with Julia's ecosystem. It empowers users the flexibility to tradeoff time, space, and energy rather than caching data into a global tape. With examples, we show one can use reversible programming AD to obtain gradients and Hessians for a wide class of functions in scientific programming and machine learning, including elementary mathematical functions, sparse matrix operaions and linear algebras. Managable memory allocation makes it a good tool to differentiate GPU kernel functions.
-By benchmarking its performance in differentiating Bessel function, graph embedding, gaussian mixture model and bundle adjustment, we demonstrate that the AD implemneted in a reversible programming language can achieve state-of-the-art performance in both time and space. Finally, we will discuss the challenges that we face towards rigorous reversible programming, mainly from the instruction and hardware perspective.
+    This paper considers implementing automatic differentiation (AD) in a reversible embedded domain-specific language. We start by reviewing the limitations of traditional AD frameworks. To solve the issues in these frameworks, we developed an open source reversible eDSL NiLang in Julia that can differentiate a general reversible program while being compatible with Julia's ecosystem. It empowers users the flexibility to tradeoff time, space, and energy rather than caching data into a global tape. With examples, we show one can use reversible programming AD to obtain gradients and Hessians for a wide class of functions in scientific programming and machine learning, including elementary mathematical functions, sparse matrix operations and linear algebras. Manageable memory allocation makes it a good tool to differentiate GPU kernel functions.
+By benchmarking its performance in differentiating Bessel function, graph embedding, Gaussian mixture model and bundle adjustment, we demonstrate that the AD implemented in a reversible programming language can achieve state-of-the-art performance in both time and space. Finally, we will discuss the challenges that we face towards rigorous reversible programming, mainly from the instruction and hardware perspective.
 \end{abstract}
 
 %\begin{multicols}{2}
@@ -226,7 +226,7 @@ However, implementing backward mode AD is harder than implementing its forward m
     \item a representation of the computational process,
     \item and variables required for computing gradients.
 \end{enumerate}
-    The computational process is often represented as a computational graph, which is a directed acyclic graph (DAG) representing the relationship between data and functions. Comparing with a general computer program, a computational graph does not mutate variables and does not have control flows. These limitations makes it a suitible representation to describe the data caching in the forward pass, at the cost of poor support to inplace operations.
+    The computational process is often represented as a computational graph, which is a directed acyclic graph (DAG) representing the relationship between data and functions. Comparing with a general computer program, a computational graph does not mutate variables and does not have control flows. These limitations makes it a suitable representation to describe the data caching in the forward pass, at the cost of poor support to inplace operations.
     Most popular AD implementations in the market implements the computational graph AD by providing a finite set of primitive functions with predefined backward rules.
     In Pytorch~\cite{Paszke2017} and Flux~\cite{Innes2018a}, every variable has a tracker field. When applying a predefined primitive function on a variable, the variable's tracker field keeps track of this function as well as data needed in backpropagation. TensorFlow~\cite{Tensorflow2015} also implements the computational graph, but it builds a static computational graph as a description of the program before actual computation happens.
     %These packages all prefer tensor types, where the overhead of memory allocations is less significant.
@@ -236,7 +236,7 @@ However, implementing backward mode AD is harder than implementing its forward m
         \item People need to backpropagate singular value decomposition (SVD) function and QR decomposition in tensor network algorithms to study the phase transition problem~\cite{Golub2012, Liao2019},
         \item People need to differentiate over a quantum simulation where each quantum gate is an inplace function that changes the quantum register directly~\cite{Luo2019}.
     \end{enumerate}
-    Scientists put lots of effort to derive backward rules for these needs. In the backpropagation of dominant eigensolver~\cite{Xie2020}, people managed to circumvent the sparse matrix issue by allowing users to provide the backward function for sparse matrice constructors.
+    Scientists put lots of effort to derive backward rules for these needs. In the backpropagation of dominant eigensolver~\cite{Xie2020}, people managed to circumvent the sparse matrix issue by allowing users to provide the backward function for sparse matrix constructors.
     The backward rules for SVD and eigensolvers have been formulated in recent years~\cite{Seeger2017,Wan2019,Hubig2019}. One can obtain the gradients correctly for both real numbers and complex numbers~\cite{Wan2019} in most cases now.
     In variational quantum simulator Yao~\cite{Luo2019}, authors implemented a builtin cache free AD engine by utilizing the reversible nature of quantum computing. They derive and implement the backward rule for each type of quantum gate.
 
@@ -250,7 +250,7 @@ There have been many prototypes of reversible languages like Janus~\cite{Lutz198
     %These devices either implements reversible logical gates or is able to recover signal energy, where the latter is also called generalized reversible computing. 
     Reversible computing are more energy-efficient from the perspective of information and entropy, or by the Landauer's principle~\cite{Landauer1961}.
     %They do not erase information hence do not have a lower bound of energy consumption by Landauer principle~\cite{Landauer1961}. However, investigators show less interest to reversible programming since 15 years ago, because the energy efficiency of traditional CMOS devices is still several orders~\cite{Debenedictis2017,Frank2017} above this lower bound, removing this lower bound is not an urgent problem yet.
-    After decades of efforts, reversible computing devices are very close to providing productivity now. As an exmaple, adiabatic CMOS can be a better choice in a spacecraft~\cite{Hanninen2014, Debenedictis2017}, where energy is more valuable than device itself.
+    After decades of efforts, reversible computing devices are very close to providing productivity now. As an example, adiabatic CMOS can be a better choice in a spacecraft~\cite{Hanninen2014, Debenedictis2017}, where energy is more valuable than device itself.
     Reversible programming is interesting to software engineers too, because it is a powerful tool to schedule asynchronious events~\cite{Jefferson1985} and debug a program bidirectionally~\cite{Boothe2000}.
     However, the field of reversible computing faces the difficulty of having not enough funding in recent decade~\cite{Frank2017}. As a result, not many people studying AD know the marvelous designs in reversible computing. People have not connected it with automatic differentiation seriously, even though they have many similarities. We aim to break the information barrier between the machine learning community and the reversible programming community in our work and provide yet another strong motivation to develop reversible programming.
 
@@ -301,7 +301,7 @@ The reversible \texttt{for} statement is similar to irreversible ones except tha
 Every arithmetic instruction has a unique inverse that can undo the changes.
 \begin{itemize}
     \item For logical operations, \texttt{y $\veebar$= f(args...)} is self reversible.
-    \item For integer and floating point arithmetic operations, we treat \texttt{y += f(args...)} and \texttt{y -= f(args...)} as reversible to each other. Here \texttt{f} can be an arbitary pure function such as \texttt{identity}, \texttt{*}, \texttt{/} and \texttt{\^}. Here, we ignore the effect of floating point rounding errors for the moment and discuss in detail in \Sec{sec:hardware}.
+    \item For integer and floating point arithmetic operations, we treat \texttt{y += f(args...)} and \texttt{y -= f(args...)} as reversible to each other. Here \texttt{f} can be an arbitrary pure function such as \texttt{identity}, \texttt{*}, \texttt{/} and \texttt{\^}. Here, we ignore the effect of floating point rounding errors for the moment and discuss in detail in \Sec{sec:hardware}.
     \item For logartihmic number and Tropical number algebra~\cite{Speyer2009}, \texttt{y *= f(args...)} and \texttt{y /= f(args...)} as reversible to each other. The irreversibility of the zero element ($-\infty$) in the Tropical number multiplication is ignored here.
 \end{itemize}
 Besides the above two types of operations, \texttt{SWAP} operation that exchanges the contents in two memory spaces is also widely used in reversible computing systems.
@@ -399,7 +399,7 @@ In the \textit{reversing} stage, based on this symmetric and reversible IR, the 
             \hline
             \texttt{begin}\newline \texttt{$\cquad$<stmts>}\newline \texttt{end} & \texttt{begin}\newline \texttt{$\cquad$ $\sim$(<stmts>)}\newline \texttt{end}\\
             \hline
-            \texttt{if (<pre>, <post>)}\linebreak \texttt{$\cquad$<stmts1>}\newline \texttt{else}\newline \texttt{$\cquad$<stmts2>}\newline \texttt{end} & \texttt{if (<post>, <pre>)}\newline \texttt{$\cquad$$\sim$(<stmts1>)}\newline \texttt{else}\newline \texttt{$\cquad$ $\sim$(<stmts2>)}\newline \texttt{end}\\
+            \texttt{if (<pre>, <post>)}\linebreak \texttt{$\cquad$<stmts1>}\newline \texttt{else}\newline \texttt{$\cquad$<stmts2>}\newline \texttt{end} & \texttt{if (<post>, <pre>)}\newline \texttt{$\cquad$$\sim$(<stmts1>)}\newline \texttt{else}\newline \texttt{$\cquad$ $\sim$(<stmts2>)}\newline \texttt{end}\\ %$
             \hline
             \texttt{while (<pre>, <post>)}\newline \texttt{$\cquad$<stmts>} \newline \texttt{end} & \texttt{while (<post>, <pre>)}\newline $\cquad$  \texttt{$\sim$(<stmts>)}\newline \texttt{end}\\
             \hline
@@ -854,7 +854,7 @@ Here, we estimate the time for back propagating gradients rather than including 
 \end{table}
 
 The time used for computing backward pass is approximately 1.5-3 times the Julia's native forward pass.
-This is because the instruction length of differentiating basic arithemetic instructions is longer than pure computing by a factor of 2 or more.
+This is because the instruction length of differentiating basic arithmetic instructions is longer than pure computing by a factor of 2 or more.
 
 
 \subsection{Bessel Function}
@@ -935,7 +935,7 @@ The same reason applies to computing Hessians. The combining NiLang and ForwardD
 
 \subsection{Gaussian mixture model and bundle adjustment}\label{sec:ba}
 
-We reproduced the benchmarks for Gaussian mixture model (GMM) and bundle adjustment (BA) in ~\Ref{Srajer2018} by re-writting the programs in a reversible style. We show the results in \Tbl{tbl:gmm} and \Tbl{tbl:ba}. In our new benchmarks, we also rewrite the ForwardDiff program for a fair benchmark, this explains the difference between our results and the original benchmark. The Tapenade data is obtained by executing the docker file provided by the original benchmark, which is the baseline of our benchmark and the original benchmark.
+We reproduced the benchmarks for Gaussian mixture model (GMM) and bundle adjustment (BA) in ~\Ref{Srajer2018} by re-writing the programs in a reversible style. We show the results in \Tbl{tbl:gmm} and \Tbl{tbl:ba}. In our new benchmarks, we also rewrite the ForwardDiff program for a fair benchmark, this explains the difference between our results and the original benchmark. The Tapenade data is obtained by executing the docker file provided by the original benchmark, which is the baseline of our benchmark and the original benchmark.
 
 \begin{table}[h!]\centering
     \scriptsize
@@ -963,9 +963,9 @@ In the GMM benchmark, NiLang's objective function has more overhead than irrever
 Except the uncomputing overhead, it is also because the bottleneck of this program is the matrix-vector multiplication,
 where our naive reversible implementation is much slower than the highly optimized BLAS function.
 The forward mode AD suffers from too large input dimension in this case, hence some data are missing.
-Although ForwardDiff is able to batch the gradient fields, the overhead propotional to input size still dominates.
+Although ForwardDiff is able to batch the gradient fields, the overhead proportional to input size still dominates.
 The source to source AD framework Tapenade is faster than NiLang in all scale,
-but the ratio bewteen computing gradients and objective function are close.
+but the ratio between computing gradients and objective function are close.
 The memory consumption of our reversible implementation is quite low.
 The peak memory is only slightly more than twice of the original program,
 where the factor 2 comes from wrapping each variable with an extra gradient field.
@@ -998,7 +998,7 @@ The bottleneck of computing this large sparse Jacobian is computing the Jacobian
 In this instance, our reversible implementation is even faster than the source code transformation based AD framework Tapenade.
 With KernelAbstractions, we run the reversible program on GPU, which provides more than 200x speed up.
 Running codes on GPU (in Julia) requires not introducing any memory allocation at the kernel level.
-NiLang provides user the flxibility to manage the memory allocation instead of using a global stack.
+NiLang provides user the flexibility to manage the memory allocation instead of using a global stack.
 
 \section{Discussion and outlooks}\label{sec:discussion}
 In this paper, we show how to realize a reversible programming eDSL and implement an instruction level backward mode AD on top of it.
@@ -1049,7 +1049,7 @@ A reversible devices can play a role of differentiation engine as shown in the h
 It defines a reversible instruction set and has a switch that controls whether the instruction calls a normal instruction or an instruction that also updates gradients.
 When a program calls a reversible differentiable subroutine, the reversible co-processor first marches forward, compute the loss and copy the result to the main memory.
 Then the co-processor execute the program backward and uncall instructions, initialize and updating gradient fields at the same time.
-After reaching the starting point of the program, the gradients are transfered to the global memory.
+After reaching the starting point of the program, the gradients are transferred to the global memory.
 Running AD program on a reversible device can save energy. Theoretically, the reversible routines do not necessarily cost energy, the only energy bottleneck is copying gradient and outputs to the main memory.
 
 \subsection{The connection to Quantum programming}
@@ -1075,7 +1075,7 @@ In the following, we justify our decision by proving the following theorem.
 \end{theorem}
 \begin{proof}
     Consider a reversible function $\vx^i, b = f_i(\vx^{i-1}, a)$, where $a$ and $b$ are the input and output values of an ancilla.
-    Since both $a$, $b$ are constants that are indenpedent of input $\vx^{i-1}$, we have
+    Since both $a$, $b$ are constants that are independent of input $\vx^{i-1}$, we have
 \begin{align}
     \frac{\partial b}{\partial \vx^{i-1}} = \mathbf{0}.
 \end{align}
@@ -1084,7 +1084,7 @@ Discarding gradients should not have any effect on the \texttt{value} fields of 
 \begin{equation}
     \frac{\partial \vx^L}{\partial \vx^{i-1}} = \frac{\partial \vx^L}{\partial \vx^i}\frac{\partial \vx^i}{\partial \vx^{i-1}} + \frac{\partial \vx^L}{\partial b}\frac{\partial b}{\partial \vx^{i-1}},
 \end{equation}
-where the second term with $\frac{\partial \vx^L}{\partial{b}}$ vanishes naturally. We emphsis here, the value part of discarded ancilla must be a constant.
+where the second term with $\frac{\partial \vx^L}{\partial{b}}$ vanishes naturally. We emphasis here, the value part of discarded ancilla must be a constant.
 \end{proof}
 
 \subsection{Shared read and write problem}\label{sec:sharedrw}
@@ -1173,9 +1173,9 @@ In NiLang, one can simulate rigorous reversible arithmetics with the fixed-point
 However, a more efficient reversible design requires instruction-level support.
 Some other numbers systems are reversible under \texttt{*=} and \texttt{/=} rather than \texttt{+=} and \texttt{-=}, including \href{https://github.com/cjdoris/LogarithmicNumbers.jl}{LogarithmicNumbers}~\cite{Taylor1988} and \href{https://github.com/GiggleLiu/TropicalNumbers.jl}{TropicalNumbers}.
 They are powerful tools to solve domain specific problems, for example, we have an upcoming work about differentiating over tropical numbers to solve the ground state configurations of a spinglass system efficiently.
-We also need \texttt{comefrom} like instruction as a partener of \texttt{goto} to specify the postconditions in our instruction set.
+We also need \texttt{comefrom} like instruction as a partner of \texttt{goto} to specify the postconditions in our instruction set.
 Finally, although we introduced that the adiabatic CMOS as a better choice as the computing device in a spacecraft~\cite{Debenedictis2017}.
-There are some chanllenges in the hardware side too, one can find a proper summary of these challenges in \Ref{Frank2005b}.
+There are some challenges in the hardware side too, one can find a proper summary of these challenges in \Ref{Frank2005b}.
 
 Solutions to these issues requires the participation of people from multiple fields.
 

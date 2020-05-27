@@ -16,7 +16,7 @@ $ julia --project run_benchmark.jl --adbench-folder path/to/ADBench BA
 $ julia --project run_benchmark.jl Bessel
 $ julia --project run_benchmark.jl GE
 ```
-Some of the benchmarks requires cloning [ADBench](https://github.com/microsoft/ADBench).
+Benchmarks with `--adbench-folder` option requires cloning [ADBench](https://github.com/microsoft/ADBench).
 
 To run the Tapenade benchmark for Bessel function, one should have a gfortran compiler. The benchmark can be execute by typing
 ```bash
@@ -29,6 +29,5 @@ $ ./main.out
 * [Bundle Adjustment](https://github.com/JuliaReverse/NiBundleAdjustment.jl)
 * [Gaussian Mixture Model](https://github.com/JuliaReverse/NiGaussianMixture.jl)
 * [Graph embedding](https://github.com/JuliaReverse/NiGraphEmbedding.jl)
-* [Sparse Matrix Operations](https://giggleliu.github.io/NiLang.jl/stable/examples/sparse/#Sparse-matrices-1)
-* [Bessel function](https://giggleliu.github.io/NiLang.jl/stable/examples/besselj/#Bessel-function-1)
-([CUDA version](https://giggleliu.github.io/NiLang.jl/stable/examples/besselj/#CUDA-programming-1))
+* [Sparse Matrix Operations](https://giggleliu.github.io/NiLang.jl/stable/examples/sparse/)
+* [Bessel function](https://giggleliu.github.io/NiLang.jl/stable/examples/besselj/)
