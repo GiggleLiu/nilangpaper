@@ -379,35 +379,33 @@ In the \textit{reversing} stage, based on this symmetric and reversible IR, the 
 
 \begin{table}[h!]\centering
     \footnotesize
-\begin{minipage}{0.8\columnwidth}
+\begin{minipage}{\columnwidth}
 \ra{1.3}
     \scalebox{1.0}{
-        \begin{tabularx}{\textwidth}{X X}\toprule
-            \textbf{statement} & \textbf{inverse}\\
+        \begin{tabularx}{\textwidth}{X X X}\toprule
+            \textbf{Statement} & \textbf{Meaning} & \textbf{Inverse}\\
             \hline
-            \texttt{<f>(<args>...)} & \texttt{($\sim$<f>)(<args>...)}\\
+            \texttt{<f>(<args>...)} & function call & \texttt{($\sim$<f>)(<args>...)}\\
             \hline
-            \texttt{<y> += <f>(<args>...)} & \texttt{<y> -= <f>(<args>...)}\\
+            \texttt{<f>.(<args>...)} & broadcast a function call & \texttt{<f>.(<args>...)}\\
             \hline
-            \texttt{<y> .+= <f>.(<args>...)} & \texttt{<y> .-= <f>.(<args>...)}\\
+            \texttt{<y> += <f>(<args>...)} & \texttt{+=} instruction & \texttt{<y> -= <f>(<args>...)}\\
             \hline
-            \texttt{<y> $\veebar$= <f>(<args>...)} & \texttt{<y> $\veebar$= <f>(<args>...)}\\
+            \texttt{<y> $\veebar$= <f>(<args>...)} & \texttt{$\veebar$=} instruction & \texttt{<y> $\veebar$= <f>(<args>...)}\\
             \hline
-            \texttt{<y> .$\veebar$= <f>.(<args>...)} & \texttt{<y> .$\veebar$= <f>.(<args>...)}\\
+            \texttt{<a> $\leftarrow$ <expr>} & allocate a new variable & \texttt{<a> $\rightarrow$ <expr>}\\
             \hline
-            \texttt{<a> $\leftarrow$ <expr>} & \texttt{<a> $\rightarrow$ <expr>}\\
+            \texttt{begin}\newline \texttt{$\cquad$<stmts>}\newline \texttt{end} & statement block & \texttt{begin}\newline \texttt{$\cquad$ $\sim$(<stmts>)}\newline \texttt{end}\\
             \hline
-            \texttt{begin}\newline \texttt{$\cquad$<stmts>}\newline \texttt{end} & \texttt{begin}\newline \texttt{$\cquad$ $\sim$(<stmts>)}\newline \texttt{end}\\
+            \texttt{if (<pre>, <post>)}\linebreak \texttt{$\cquad$<stmts1>}\newline \texttt{else}\newline \texttt{$\cquad$<stmts2>}\newline \texttt{end} & if statement & \texttt{if (<post>, <pre>)}\newline \texttt{$\cquad$$\sim$(<stmts1>)}\newline \texttt{else}\newline \texttt{$\cquad$ $\sim$(<stmts2>)}\newline \texttt{end}\\ %$
             \hline
-            \texttt{if (<pre>, <post>)}\linebreak \texttt{$\cquad$<stmts1>}\newline \texttt{else}\newline \texttt{$\cquad$<stmts2>}\newline \texttt{end} & \texttt{if (<post>, <pre>)}\newline \texttt{$\cquad$$\sim$(<stmts1>)}\newline \texttt{else}\newline \texttt{$\cquad$ $\sim$(<stmts2>)}\newline \texttt{end}\\ %$
+            \texttt{while (<pre>, <post>)}\newline \texttt{$\cquad$<stmts>} \newline \texttt{end} & while statement & \texttt{while (<post>, <pre>)}\newline $\cquad$  \texttt{$\sim$(<stmts>)}\newline \texttt{end}\\
             \hline
-            \texttt{while (<pre>, <post>)}\newline \texttt{$\cquad$<stmts>} \newline \texttt{end} & \texttt{while (<post>, <pre>)}\newline $\cquad$  \texttt{$\sim$(<stmts>)}\newline \texttt{end}\\
-            \hline
-            \texttt{for <i>=<m>:<s>:<n>}\newline $\cquad$\texttt{<stmts>}\newline \texttt{end} & \texttt{for <i>=<m>:-<s>:<n>}\newline $\cquad$ \texttt{$\sim$(<stmts>)}\newline \texttt{end}\\
+            \texttt{for <i>=<m>:<s>:<n>}\newline $\cquad$\texttt{<stmts>}\newline \texttt{end} & for statement & \texttt{for <i>=<m>:-<s>:<n>}\newline $\cquad$ \texttt{$\sim$(<stmts>)}\newline \texttt{end}\\
             \bottomrule
         \end{tabularx}
     }
-    \caption{The statements in NiLang IR, where statements in the left column and those in the right column are reversible to each other.
+    \caption{Basic statements in NiLang IR, where statements in the left column and those in the right column are reversible to each other.
     ``$\sim$'' is the symbol for reversing a statement or a function.
     ``.'' is the symbol for the broadcasting magic in Julia,
     \texttt{<pre>} stands for precondition, and \texttt{<post>} stands for postcondition
@@ -1249,7 +1247,8 @@ A table instructions used in the main text
             $y \pluseq \cos(x)$ & $y+\cos x, x$\\
             $y \pluseq {\rm abs}(x)$ & $y+ |x|, x$\\
             ${\rm NEG}(y)$ & $-y$\\
-            ${\rm CONJ}(y)$ & $y'$\\
+            ${\rm INC}(y)$ & $y+1$\\
+            ${\rm DEC}(y)$ & $y-1$\\
             \bottomrule
         \end{tabularx}
     }
