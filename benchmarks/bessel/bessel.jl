@@ -98,23 +98,11 @@ function besselj(ν, z; atol=1e-8)
     out
 end
 
-@i function (_::MinusEq{typeof(besselj)})(out!::GVar{T}, ν::Real, z::GVar) where T
-    value(out!) -= besselj(ν, z)
-    @routine @invcheckoff begin
-        jac ← zero(T)
-        jac += besselj(ν-1, value(z))
-        jac -= besselj(ν+1, value(z))
-        DIVINT(jac, 2)
-    end
-    grad(z) += jac * grad(out!)
-    ~@routine
-end
-
-function (_::MinusEq{typeof(besselj)})(out!::GVar{T}, ν::Real, z::GVar) where T
-    @instr value(out!) -= besselj(ν, value(z))
+@noinline function (_::MinusEq{typeof(besselj)})(out!::GVar{T}, ν::Real, z::GVar{T}) where T
+    vout = value(out!) - besselj(ν, value(z))
     jac = (besselj(ν-1, value(z)) - besselj(ν+1, value(z)))/2
-    @instr grad(z) += jac * grad(out!)
-    return out!, ν, z
+    gz = grad(z) + jac * grad(out!)
+    return GVar(vout, grad(out!)), ν, GVar(value(z), gz)
 end
 
 @i function run_manual(out!, ν, z)

@@ -866,16 +866,16 @@ NiLang (call/uncall) is the time of reversible call or uncall. Both of them are 
         \begin{tabularx}{\textwidth}{X X c}\toprule
             & $T_{\rm min}$/ns & Space/KB\\
             \hline
-            Julia-O & 17 & 0\\
-            NiLang-O & 53 & 0\\
+            Julia-O & 18 & 0\\
+            NiLang-O & 32 & 0\\
             Tapenade-O & 32 & 0\\
             \hline
-            ForwardDiff-G & 39 & 0\\
+            ForwardDiff-G & 38 & 0\\
             %Manual & Backward & 83 & 0\\
-            NiLang-G & 231 & 0\\
+            NiLang-G & 201 & 0\\
             NiLang-G (CUDA) & 1.4 & 0\\
-            ReverseDiff-G & 7198 & 7.3\\
-            Zygote-G & 22561 & 13.47\\
+            ReverseDiff-G & 1406 & 7.3\\
+            Zygote-G & 22596 & 13.47\\
             Tapenade-G (Forward) & 30 & 0\\
             Tapenade-G (Backward) & 111 & > 0\\
             \bottomrule
@@ -910,8 +910,8 @@ it is interesting to see how much performance we can get in differentiating the 
             NiLang-U                 & 7.453e-06  & 7.839e-06  & 8.464e-06  & 9.298e-06  & 1.054e-05  \\
             \hline
             NiLang-G                 & 1.509e-05  & 1.690e-05  & 1.872e-05  & 2.076e-05  & 2.266e-05  \\
+            ReverseDiff-G            & 2.823e-05  & 4.582e-05  & 6.045e-05  & 7.651e-05  & 9.666e-05  \\
             ForwardDiff-G            & 1.518e-05  & 4.053e-05  & 6.732e-05  & 1.184e-04  & 1.701e-04  \\
-            ReverseDiff-G            & 1.384e-04  & 1.928e-04  & 2.392e-04  & 2.893e-04  & 3.556e-04  \\
             Zygote-G                 & 5.315e-04  & 5.570e-04  & 5.811e-04  & 6.096e-04  & 6.396e-04  \\
             \hline
             (NiLang+F)-H             & 4.528e-04  & 1.025e-03  & 1.740e-03  & 2.577e-03  & 3.558e-03  \\
