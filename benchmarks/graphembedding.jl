@@ -48,7 +48,7 @@ for k=1:10
     suite["ForwardDiff"]["Gradient"][k] = @benchmarkable ForwardDiff.gradient(embedding_loss, $(randn(k, 10)))
     suite["ForwardDiff"]["Hessian"][k] = @benchmarkable ForwardDiff.hessian(embedding_loss, $(randn(k, 10)))
     suite["Zygote"]["Gradient"][k] = @benchmarkable Zygote.gradient(embedding_loss, $(randn(k, 10)))
-    suite["ReverseDiff"]["Gradient"][k] = @benchmarkable ReverseDiff.gradient(embedding_loss, $(randn(k, 10)))
+    suite["ReverseDiff"]["Gradient"][k] = @benchmarkable ReverseDiff.gradient!(ctape, $((randn(k, 10),))) setup=(ctape = ReverseDiff.compile(ReverseDiff.GradientTape(embedding_loss, (randn(k, 10),))))
     suite["ReverseDiff"]["Hessian"][k] = @benchmarkable get_hessian_rd($(randn(k, 10)))
     #suite["ReverseDiff"]["Hessian"][k] = @benchmarkable ReverseDiff.hessian(embedding_loss, $(randn(k, 10)))
 end

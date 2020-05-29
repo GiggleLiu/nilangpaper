@@ -111,7 +111,7 @@ end
 end
 
 function (_::MinusEq{typeof(besselj)})(out!::GVar{T}, ν::Real, z::GVar) where T
-    @instr value(out!) -= besselj(ν, z)
+    @instr value(out!) -= besselj(ν, value(z))
     jac = (besselj(ν-1, value(z)) - besselj(ν+1, value(z)))/2
     @instr grad(z) += jac * grad(out!)
     return out!, ν, z
