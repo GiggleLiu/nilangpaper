@@ -59,6 +59,7 @@ class PLT(object):
 
     def fig4(self, tp='pdf'):
         SIZE = 12
+        BIGSIZE = 16
         LW = 1.75
         setting.node_setting['lw']=LW
         setting.node_setting['inner_lw']=LW
@@ -72,7 +73,7 @@ class PLT(object):
         WIDE = NodeBrush("box", size=(0.5,0.3))
         def instr(cum, vs, y0):
             g = WIDE >> grid[vs[0].index, y0]
-            g.text(cum, fontsize=12)
+            g.text(cum, fontsize=SIZE)
             g.index = vs[0].index
             edge >> (vs[0], g)
             c = _.C >> grid[vs[1].index, y0]
@@ -81,7 +82,7 @@ class PLT(object):
             if len(vs) == 3:
                 nc = _.C >> grid[vs[2].index, y0]
                 nc.index = vs[2].index
-                nc.text("#2", "right", fontsize=SIZE)
+                #nc.text("#2", "right", fontsize=SIZE)
                 edge >> (vs[2], nc)
 
                 ss = sorted([g, c, nc], key=lambda x: x.index)
@@ -92,7 +93,7 @@ class PLT(object):
                 e = edge >> (g, c)
                 return (g, c)
 
-        def func(op, vs, y0, fontsize=12, text_offset=0.3):
+        def func(op, vs, y0, fontsize=SIZE, text_offset=0.3):
             nodes = []
             edges = []
             ds = []
@@ -118,7 +119,7 @@ class PLT(object):
             imin = np.min(indices)
             imax = np.max(indices)
             b = box >> grid[imin:imax, y:y]
-            b.text(txt, fontsize=16)
+            b.text(txt, fontsize=BIGSIZE)
             nnodes = []
             for n in nodes:
                 edge >> (n, b.pin("top", align=n))
@@ -189,36 +190,36 @@ class PLT(object):
 
             y -= 1.5
             startA = y
-            hz, z = instr(r"$\oplus(/2)$", (hz, z), y)
+            hz, z = instr(r"$/2$", (hz, z), y)
             y -= 1.0
-            (halfz_power_nu, hz, nu) = instr(r"$\oplus$(^)", (halfz_power_nu, hz, nu), y)
+            (halfz_power_nu, hz, nu) = instr(r"^", (halfz_power_nu, hz, nu), y)
             y -= 1.0
-            (halfz_power_2, hz) = instr(r"$\oplus$(^2)", (halfz_power_2, hz), y)
-            (fact_nu, nu) = func("ifactorial", ((fact_nu, _.GATE, "#1"), (nu, _.C, "")), y, text_offset=0.5)
+            (halfz_power_2, hz) = instr(r"^2", (halfz_power_2, hz), y)
+            (fact_nu, nu) = func("ifactorial", ((fact_nu, _.GATE, ""), (nu, _.C, "")), y, text_offset=0.5)
             y -= 1.0
-            (ancs[0], halfz_power_nu, fact_nu) = instr(r"$\oplus(/)$", (ancs[0], halfz_power_nu, fact_nu), y)
+            (ancs[0], halfz_power_nu, fact_nu) = instr(r"$/$", (ancs[0], halfz_power_nu, fact_nu), y)
             y -= 1.0
-            (out_anc, ancs[0]) = instr(r"$\oplus$", (out_anc, ancs[0]), y)
+            (out_anc, ancs[0]) = instr(r"$id$", (out_anc, ancs[0]), y)
             y -= 2.0
             whilestart = y
             (k, ) = func(r"$+1$", ((k, _.GATE, ""),), y)
             y -= 1.5
             start = y
-            (ancs[4], k) = instr(r"$\oplus$", (ancs[4], k), y)
+            (ancs[4], k) = instr(r"$id$", (ancs[4], k), y)
             y -= 1.0
-            (ancs[4], nu) = instr(r"$\oplus$", (ancs[4], nu), y)
+            (ancs[4], nu) = instr(r"$id$", (ancs[4], nu), y)
             y -= 1.0
-            (ancs[1], k, ancs[4]) = instr(r"$\ominus(*)$", (ancs[1], k, ancs[4]), y)
+            (ancs[1], k, ancs[4]) = instr(r"$\sim(*)$", (ancs[1], k, ancs[4]), y)
             y -= 1.0
-            (ancs[2], halfz_power_2, ancs[1]) = instr(r"$\plus(*)$", (ancs[2], halfz_power_2, ancs[1]), y)
+            (ancs[2], halfz_power_2, ancs[1]) = instr(r"$*$", (ancs[2], halfz_power_2, ancs[1]), y)
             stop = y
             d = dashed >> grid[6:11,start:stop]
-            d.text("B", "top", fontsize=16)
+            d.text("B", "top", fontsize=BIGSIZE)
 
             y -= 1.5
-            (ancs[0], ancs[2], ancs[3]) = func("imul", ((ancs[0], _.GATE, "#1"), (ancs[2], _.C, ""), (ancs[3], _.GATE, "#3")), y)
+            (ancs[0], ancs[2], ancs[3]) = func("imul", ((ancs[0], _.GATE, ""), (ancs[2], _.C, ""), (ancs[3], _.GATE, "")), y)
             y -= 1.0
-            (out_anc, ancs[0]) = instr(r"$\oplus$", (out_anc, ancs[0]), y)
+            (out_anc, ancs[0]) = instr(r"$id$", (out_anc, ancs[0]), y)
             y -= 1.0
             # uncompute
             nodes = [z, hz, halfz_power_2, halfz_power_nu, nu, fact_nu, k]
@@ -231,14 +232,14 @@ class PLT(object):
             whilestop = y
             stopA = y - 0.2
             d = dashed >> grid[0:12.2,startA:stopA]
-            d.text("A", "top", fontsize=16)
+            d.text("A", "top", fontsize=BIGSIZE)
             d = gray >> grid[5.8:12,whilestart:whilestop]
             x_, y_ = d.pin("top")
-            plt.text(x_, y_+0.3, "pre: abs(anc1) > atol && abs(anc4) < atol", va='center', ha='center', fontsize=12, bbox=dict(facecolor='w', lw=0))
+            plt.text(x_, y_+0.3, "pre: abs(anc1) > atol && abs(anc4) < atol", va='center', ha='center', fontsize=SIZE, bbox=dict(facecolor='w', lw=0))
             x_, y_ = d.pin("bottom")
-            plt.text(x_, y_-0.3, r"post: k != 0", va='center', ha='center', fontsize=12, bbox=dict(facecolor='w', lw=0))
+            plt.text(x_, y_-0.3, r"post: k != 0", va='center', ha='center', fontsize=SIZE, bbox=dict(facecolor='w', lw=0))
             y -= 1.8
-            nodes[-1], nodes[-2] = instr(r"$\oplus$", (out, out_anc), y)
+            nodes[-1], nodes[-2] = instr(r"$id$", (out, out_anc), y)
             for anc in ancs[1:]:
                 p = node >> grid[anc.index, y]
                 p.text("0", fontsize=SIZE)
@@ -364,7 +365,7 @@ class PLT(object):
             imin = np.min(indices)
             imax = np.max(indices)
             b = box >> grid[imin:imax, y:y]
-            b.text(txt, fontsize=16)
+            b.text(txt, fontsize=12)
             for n in vs:
                 edge >> (nodes[n], b.pin("top", align=nodes[n]))
                 nn = b.pin("bottom", align=nodes[n])
