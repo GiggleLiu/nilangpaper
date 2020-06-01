@@ -186,6 +186,7 @@ Institute of Physics, Chinese Academy of Sciences,\\Beijing 100190, China\\
 \And
 Taine Zhao\\
 Department of Computer Science, University of Tsukuba\\
+\texttt{thaut@logic.cs.tsukuba.ac.jp}\\
 }
 %\author{Lei Wang}
 %\email{wanglei@iphy.ac.cn}
@@ -203,9 +204,8 @@ Department of Computer Science, University of Tsukuba\\
 \maketitle
 
 \begin{abstract}
-    Traditional machine instruction level reverse mode automatic differentiation (AD) faces the problem of having a space overhead that linear to time in order to trace back the computational state, which is also the source of bad time performance. In reversible programming, a program can be executed bi-directionally, which means we do not need extra design to trace back the computational state. This paper answers the question that how practical it is to implement a machine instruction level reverse mode AD in a reversible programming language. The answer is a strong possitive.
-    We developed an open source reversible eDSL NiLang in Julia that can differentiate a general reversible program while being compatible with Julia's ecosystem. It empowers users the flexibility to tradeoff time, space, and energy rather than caching data into a global tape. With examples, we show how one can use reversible programming AD to obtain gradients and Hessians for a wide class of functions in scientific programming and machine learning, from elementary mathematical functions, sparse matrix operations to machine learning applications. Manageable memory allocation makes it a good tool to differentiate GPU kernels.
-Through benchmarks, we demonstrate that the AD implemented in a reversible programming language can achieve a state-of-the-art performance with negligible space overhead. Finally, we will discuss the challenges that we face towards rigorous reversible programming, mainly from the instruction and hardware perspective.
+    Traditional machine instruction level reverse mode automatic differentiation (AD) faces the problem of having a space overhead that linear to time in order to trace back the computational state, which is also the source of bad time performance. In reversible programming, a program can be executed bi-directionally, which means we do not need extra design to trace back the computational state. This paper answers the question that how practical it is to implement a machine instruction level reverse mode AD in a reversible programming language. By implementing sparse matrix operations and some machine learning applications in our reversible eDSL NiLang, and benchmark the performance with state-of-the-art AD frameworks, our answer is a clear positive.
+    NiLang is an open source r-Turing complete reversible eDSL in Julia. It empowers users the flexibility to tradeoff time, space, and energy rather than caching data into a global tape. Manageable memory allocation makes it a good tool to differentiate GPU kernels too. In this paper, we will also discuss the challenges that we face towards energy efficient, rounding error free reversible computing, mainly from the instruction and hardware perspective.
 \end{abstract}
 
 %\begin{multicols}{2}
@@ -279,7 +279,7 @@ Notations are highly inspired by the quantum circuit representation. A vertical 
 In panel (a). The subprogram in dashed box \texttt{X} is executed on space $x_{1\colon3}$ represents the computing stage. In the copying stage, the content in $x_3$ is read out to a pre-emptied memory $x_4$ through inplace add \texttt{+=}. Since this copy operation does not change contents of $x_{1\colon3}$, we can use the uncomputing operation \texttt{$\sim$X} to undo all the changes to these registers. Now we computing the result $x_4$ without modifying the contents in $x_{1\colon3}$. If any of them is in a known state, it can be deallocated immediately.
 In panel (b), we can use the subprogram defined in (a) maked as Y to generate $x_{5\colon n}$ without modifying the contents of variables $x_{1\colon 4}$.
 It is easy to see that although this uncompute-copy-uncompute design pattern can restore memories to known state, it has computational overhead.
-Both $X$ and $\sim X$ are executed twice in the program (b), which is not necessary. We can cancel a pair of $X$ and $\sim X$ (the gray boxes). By doing this, we are not allowed to deallocate the memory $x_{1\colon3}$ during computing $f(x_{5\colon n})$. This is the famous time-space tradeoff that playing the central role in reversible programming. The trade off strategy will be discussed in detail in \Sec{sec:timespace}.
+Both $X$ and $\sim X$ are executed twice in the program (b), which is not necessary. We can cancel a pair of $X$ and $\sim X$ (the gray boxes). By doing this, we are not allowed to deallocate the memory $x_{1\colon3}$ during computing $f(x_{5\colon n})$. This is the famous time-space tradeoff that playing the central role in reversible programming. The tradeoff strategy will be discussed in detail in \Sec{sec:timespace}.
 
 \subsubsection{Control flows}
 One can define reversible \texttt{if}, \texttt{for} and \texttt{while} statements in a slightly different way comparing with its irreversible counterpart. The reversible \texttt{if} statement is shown in \Fig{fig:controlflow} (a). Its condition statement contains two parts, a precondition and a postcondition. The precondition decides which branch to enter in the forward execution, while the postcondition decides which branch to enter in the backward execution. After executing the specific branch, the program checks the consistency between precondition and postcondition to make sure they are consistent.
@@ -486,7 +486,7 @@ one obtains one row/column of the Hessian matrix straightforward.
 We will show a benchmark in \Sec{sec:graphbench}.
 
 \subsection{Differentiating complex numbers}
-To differentiate complex numbers, we re-implemented complex instructions reversiblly. For example, with the reversible function defined in in \Lst{lst:complex}, we can differentiated complex valued log with no extra effort.
+To differentiate complex numbers, we re-implemented complex instructions reversibly. For example, with the reversible function defined in in \Lst{lst:complex}, we can differentiated complex valued log with no extra effort.
 
 \subsection{Differentiating CUDA kernels}\label{app:cuda}
 CUDA programming is playing a significant role in high-performance computing. In Julia, one can write GPU compatible functions in native Julia language with \href{https://github.com/JuliaGPU/KernelAbstractions.jl}{KernelAbstractions}~\cite{Besard2018}.
@@ -654,8 +654,8 @@ A computational graph is more likely a mathematical expression. It can not descr
     }\label{fig:cgraphs}
 \end{figure*}
 
-Before showing the reversible implementation, we introduce how to obtain the product of a sequence of numbers reversiblly.
-Consequtive multiplication requires an increasing size of tape to cache an intermediate state $x_1 x_2 \ldots x_n$, since one can not deallocate the previous state $x_1 x_2 \ldots x_{n-1}$ directly since \texttt{*=} and \texttt{/=} are not considered as reversible here.
+Before showing the reversible implementation, we introduce how to obtain the product of a sequence of numbers reversibly.
+Consecutive multiplication requires an increasing size of tape to cache an intermediate state $x_1 x_2 \ldots x_n$, since one can not deallocate the previous state $x_1 x_2 \ldots x_{n-1}$ directly since \texttt{*=} and \texttt{/=} are not considered as reversible here.
 To mitigate the space overhead, the standard approach in reversible computing is the pebble game model~\cite{Perumalla2013} (or the checkpointing technique in machine learning),
 where the cache size can be reduce in the cost of increasing the time complexity, however, constant cache size is not achievable in this scheme.
 Hence, we introduce the following reversible approximate multiplier.
@@ -670,7 +670,7 @@ end
 \end{lstlisting}
 \end{minipage}
 
-Here, the thrid argument $\texttt{anc!}$ is a \textit{dirty ancilla}, which should be a value $\approx 0$.
+Here, the third argument $\texttt{anc!}$ is a \textit{dirty ancilla}, which should be a value $\approx 0$.
 Line 2 computes the result and accumulates it to the dirty ancilla, so that we have an approximate output in \texttt{anc!}.
 Line 3 removes the content in \texttt{out!} approximately using the information stored in \texttt{anc!}.
 Line 4 swaps the contents in \texttt{out!} and \texttt{anc!}.
@@ -779,29 +779,29 @@ julia> grad(hxx).partials[1]
 \end{minipage}
 
 Here, the gradient field of \texttt{hxx} is defined as $\frac{\partial {\rm out!}}{\partial x}$, which is a Dual number.
-It has a field partials that store the derivative for \texttt{x}.
-It corresponds to the Hessian $\frac{\partial{\rm out!}^2}{\partial x^2}$ that we need.
+It has a field \texttt{partials} that store the Hessian $\frac{\partial{\rm out!}^2}{\partial x^2}$.
 
 \subsection{Solving a graph embedding problem}\label{sec:graph}
-Graph embedding can be used to find representation for an order parameter~\cite{Takahashi2020} in condensed matter physics.
-\Ref{Takahashi2020} considers a problem of finding the minimum Euclidean space dimension $k$ that a Petersen graph can fit into, with extra requirements that the distance between a pair of connected vertices has the same value $l_1$, and the distance between a pair of disconnected vertices has the same value $l_2$ and $l_2 > l_1$.
-The Petersen graph is ten vertices graph, as shown in \Fig{fig:petersen}.
-Let us denote the set of connected and disconnected vertex pairs as $L_1$ and $L_2$, respectively. This problem can be variationally solved by differential programming by designing the subsequent loss.
+Graph embedding can be used to find a proper representation for an order parameter~\cite{Takahashi2020} in condensed matter physics.
+\Ref{Takahashi2020} considers a problem of finding the minimum Euclidean space dimension $k$ that a Petersen graph can embed into, that the distances between pairs of connected vertices are $l_1$, and the distance between pairs of disconnected vertices are $l_2$, where $l_2 > l_1$.
+The Petersen graph is shown in \Fig{fig:petersen}.
+Let us denote the set of connected and disconnected vertex pairs as $L_1$ and $L_2$, respectively. This problem can be variationally solved with the following loss.
 \begin{align}
     \begin{split}
         \mathcal{L} &= \Var({\rm dist}(L_1)) + \Var({\rm dist}(L_2)) \\
         &+\exp({\rm relu}(\overline{{\rm dist}(L_1)} - \overline{{\rm dist}(L_2)} + 0.1))) - 1
     \end{split}
 \end{align}
-The first line is a summation of distance variances in two sets of vertex pairs, where $\Var{X}$ means taking the variance of samples in $X$.
+The first line is a summation of distance variances in two sets of vertex pairs, where $\Var(X)$ is the variance of samples in $X$.
 The second line is used to guarantee $l_2 > l_1$, where $\overline{X}$ means taking the average of samples in $X$.
 Its reversible implementation could be found in our benchmark repository.
 
-We repeat the training for each dimension $k$ from $1$ to $10$ and search for possible solutions by variationally optimizing the positions of vertices.
-In each training, we fix two of the vertices and train the rest. Otherwise, the program will find the trivial solution with overlapped vertices. 
-For $k=5$, we can get a loss close to machine precision with high probability, while for $k < 5$, the loss is always much higher than $0$.
-From the solution, it is easy to see $l_2/l_1 = \sqrt{2}$ is the solution.
-For $k=5$, an Adam optimizer with a learning rate $0.01$~\cite{Kingma2014} requires $\sim2000$ steps training.
+We repeat the training for dimension $k$ from $1$ to $10$.
+In each training, we fix two of the vertices and optimize the positions of the rest. Otherwise, the program will find the trivial solution with overlapped vertices. 
+For $k < 5$, the loss is always much higher than $0$,
+while for $k\geq5$, we can get a loss close to machine precision with high probability.
+From the $k=5$ solution, it is easy to see $l_2/l_1 = \sqrt{2}$.
+An Adam optimizer with a learning rate $0.01$~\cite{Kingma2014} requires $\sim2000$ steps training.
 The trust region Newton's method converges much faster, which requires $\sim 20$ computations of Hessians to reach convergence.
 Although training time is comparable, the converged precision of the later is much better.
 \begin{figure}
@@ -814,7 +814,7 @@ Although training time is comparable, the converged precision of the later is mu
 
 In the following benchmarks the CPU device is Intel(R) Xeon(R) Gold 6230 CPU @ 2.10GHz, and the GPU device is Nvidia Titan V.
 % the GPU time is estimated by broadcasting the gradient function on CUDA array of size $2^{17}$ and taking the average.
-For NiLang benchmarks, we have turned off the reversibility check off to achieve better performance.
+For NiLang benchmarks, we have turned off the reversibility check off to achieve a better performance.
 
 \subsection{Sparse matrices}\label{sec:benchsparse}
 We benchmarked the call, uncall and backward propagation time used for sparse matrix dot product and matrix multiplication.
@@ -846,7 +846,7 @@ This is because the instruction length of differentiating basic arithmetic instr
 \subsection{Bessel Function}\label{sec:besselbench}
 We differentiate the first type Bessel function in \Sec{sec:bessel} and show the benchmarks in \Tbl{tbl:besselj}.
 In the table, Julia is the CPU time used for running the irreversible forward program. It is the baseline for benchmarking.
-NiLang (call/uncall) is the time of reversible call or uncall. Both of them are $\sim3$ times slower than its irreversible counterpart. Since Bessel function has only one input argument, forward mode AD tools are faster than reverse mode AD, both source-to-source framework ForwardDiff and operator overloading framework Tapenade have the a comparable computing time with the pure function call.
+NiLang (call/uncall) is the time of reversible call or uncall. Both of them are $\sim2$ times slower than its irreversible counterpart. Since Bessel function has only one input argument, forward mode AD tools are faster than reverse mode AD, both source-to-source framework ForwardDiff and operator overloading framework Tapenade have the a comparable computing time with the pure function call.
 \begin{table}[h!]\centering
 \begin{minipage}{0.8\columnwidth}
 \ra{1.3}
@@ -870,16 +870,16 @@ NiLang (call/uncall) is the time of reversible call or uncall. Both of them are 
         \end{tabularx}
     }
     \caption{Time and space used for computing objective (O) and gradient (G) of the first kind Bessel function $J_2(1.0)$.
-    The CUDA time is averaged over a batch size of 4000, which is not a fair comparison but shows how much performance can we get from GPU in the parallel computing context.
+    The CUDA benchmark time is averaged over a batch size of 4000, which is not a fair comparison but shows how much performance can we get from GPU in the parallel computing context.
 }\label{tbl:besselj}
 \end{minipage}
 \end{table}
 
-NiLang.AD is the reverse mode AD submodule in NiLang, and it takes 13.6 times the native Julia program, and is also 2 times slower than Tapenade. However, the key point is, there is no extra memory allocation like stack operations in the whole computation. The controllable memory allocation of NiLang makes it compatible with CUDA program.
+NiLang.AD is the reverse mode AD submodule in NiLang, and it takes ~11 times the native Julia program, and is also 2 times slower than Tapenade. However, the key point is, there is no extra memory allocation like stack operations in the whole computation. The controllable memory allocation of NiLang makes it compatible with CUDA program.
 %For people who are interested in CUDA programming, we prepared another example in \App{app:cuda}, which implements a differentiable quantum simulation kernel on GPU.
 %So far, the generated backward rule faces the shared write problem, which requires further investigation.
 %, and 
-In other backward mode AD like Zygote, ReverseDiff and Tapenade, the memory allocation in heap is nonzero due to the checkpointing and possible failure of type inference.
+In other backward mode AD like Zygote, ReverseDiff and Tapenade, the memory allocation in heap is nonzero due to the checkpointing.
 
 \subsection{Graph embedding problem}\label{sec:graphbench}
 Since one can combine ForwardDiff and NiLang to obtain Hessians,
@@ -914,14 +914,14 @@ it is interesting to see how much performance we can get in differentiating the 
 \end{minipage}
 \end{table}
 
-In \Tbl{tbl:graphembedding}, we show the the performance of different implementations by varying the dimension $k$.
+In \Tbl{tbl:graphembedding}, we show the the performance of different implementations by varying the dimension $k$. The number of parameters is $10k$.
 As the baseline, (a) shows the time for computing the function call. We have reversible and irreversible implementations, where the reversible program is slower than the irreversible native Julia program by a factor of $\sim2$ due to the uncomputing overhead.
 The reversible program shows the advantage of obtaining gradients when the dimension $k \geq 3$. The larger the number of inputs, the more advantage it shows due to the overhead proportional to input size in forward mode AD.
-The same reason applies to computing Hessians. The combining NiLang and ForwardDiff gives better performance when $k \geq 3$ comparing with other AD frameworks.
+The same reason applies to computing Hessians, where the combo of NiLang and ForwardDiff gives the best performance for $k \geq 3$.
 
 \subsection{Gaussian mixture model and bundle adjustment}\label{sec:ba}
 
-We reproduced the benchmarks for Gaussian mixture model (GMM) and bundle adjustment (BA) in ~\Ref{Srajer2018} by re-writing the programs in a reversible style. We show the results in \Tbl{tbl:gmm} and \Tbl{tbl:ba}. In our new benchmarks, we also rewrite the ForwardDiff program for a fair benchmark, this explains the difference between our results and the original benchmark. The Tapenade data is obtained by executing the docker file provided by the original benchmark, which is the baseline of our benchmark and the original benchmark.
+We reproduced the benchmarks for Gaussian mixture model (GMM) and bundle adjustment (BA) in ~\Ref{Srajer2018} by re-writing the programs in a reversible style. We show the results in \Tbl{tbl:gmm} and \Tbl{tbl:ba}. In our new benchmarks, we also rewrite the ForwardDiff program for a fair benchmark, this explains the difference between our results and the original benchmark. The Tapenade data is obtained by executing the docker file provided by the original benchmark, which provides a baseline for comparison.
 
 \begin{table}[h!]\centering
     \scriptsize
@@ -941,20 +941,19 @@ We reproduced the benchmarks for Gaussian mixture model (GMM) and bundle adjustm
             \bottomrule
         \end{tabularx}
     }
-    \caption{Absolute runtimes in seconds for computing the objective (O) and gradients (G) of GMM with 10k data points.}\label{tbl:gmm}
+    \caption{Absolute runtimes in seconds for computing the objective (O) and gradients (G) of GMM with 10k data points. ``-'' represents missing data due to not finishing the computing in limited time.}\label{tbl:gmm}
 \end{minipage}
 \end{table}
 
-In the GMM benchmark, NiLang's objective function has more overhead than irreversible programs in most cases.
-Except the uncomputing overhead, it is also because the bottleneck of this program is the matrix-vector multiplication,
-where our naive reversible implementation is much slower than the highly optimized BLAS function.
-The forward mode AD suffers from too large input dimension in this case, hence some data are missing.
-Although ForwardDiff is able to batch the gradient fields, the overhead proportional to input size still dominates.
-The source to source AD framework Tapenade is faster than NiLang in all scale,
-but the ratio between computing gradients and objective function are close.
-The memory consumption of our reversible implementation is quite low.
-The peak memory is only slightly more than twice of the original program,
-where the factor 2 comes from wrapping each variable with an extra gradient field.
+In the GMM benchmark, NiLang's objective function has overhead comparing with irreversible programs in most cases.
+Except the uncomputing overhead, it is also because our naive reversible matrix-vector multiplication is much slower than the highly optimized BLAS function, where the matrix-vector multiplication is the bottleneck of the computation.
+The forward mode AD suffers from too large input dimension in the large number of parameters regime.
+Although ForwardDiff batches the gradient fields, the overhead proportional to input size still dominates.
+The source to source AD framework Tapenade is faster than NiLang in all scales of input parameters,
+but the ratio between computing the gradients and the objective function are close.
+%The memory consumption of our reversible implementation is quite low.
+%The peak memory is only slightly more than twice of the original program,
+%where the factor 2 comes from wrapping each variable with an extra gradient field.
 
 \begin{table}[h!]\centering
     \scriptsize
@@ -982,9 +981,9 @@ where the factor 2 comes from wrapping each variable with an extra gradient fiel
 In the BA benchmark, reverse mode AD shows slight advantage over ForwardDiff.
 The bottleneck of computing this large sparse Jacobian is computing the Jacobian of a elementary function with 15 input arguments and 2 output arguments, where input space is larger than the output space.
 In this instance, our reversible implementation is even faster than the source code transformation based AD framework Tapenade.
-With KernelAbstractions, we run the reversible program on GPU, which provides more than 200x speed up.
-Running codes on GPU (in Julia) requires not introducing any memory allocation at the kernel level.
-NiLang provides user the flexibility to manage the memory allocation instead of using a global stack.
+With KernelAbstractions, we run our zero allocation reversible program on GPU, which provides a >200x speed up.
+%Running codes on GPU (in Julia) requires not introducing any memory allocation at the kernel level.
+%NiLang provides user the flexibility to manage the memory allocation instead of using a global stack.
 
 \section{Discussion and outlooks}\label{sec:discussion}
 In this paper, we show how to realize a reversible programming eDSL and implement an instruction level backward mode AD on top of it.
