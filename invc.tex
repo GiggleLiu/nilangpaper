@@ -742,7 +742,7 @@ end
 The above algorithm uses a constant number of ancillas, while the time overhead is also a constant factor.
 Ancilla \texttt{anc4} plays the role of \textit{dirty ancilla} in multiplication, and it is uncomputed rigorously in the uncomputing stage marked by \texttt{$\sim$@routine}.
 This reversible program can be diagrammatically represented as a memory oriented computational graph as shown in \Fig{fig:cgraphs} (b).
-This diagram can be used to analyse variables uncomputing. In this example, routine ``B'' uses \texttt{hz\_2}, \texttt{$\nu$} and \texttt{k} as control parameters, and changes the contents in \texttt{anc2}, \texttt{anc3} and \texttt{anc5}.
+This diagram can be used to analyze variables uncomputing. In this example, routine ``B'' uses \texttt{hz\_2}, \texttt{$\nu$} and \texttt{k} as control parameters, and changes the contents in \texttt{anc2}, \texttt{anc3} and \texttt{anc5}.
 The following \texttt{imul} and \texttt{(:+=)(identity)} copies the result to output without changing these variables.
 Hence we can apply the inverse routine \texttt{$\sim$B} to safely restore contents in \texttt{anc2}, \texttt{anc3} and \texttt{anc5}, and this examplifies the compute-copy-uncompute paradigm.
 
@@ -908,7 +908,7 @@ it is interesting to see how much performance we can get in differentiating the 
             \bottomrule
         \end{tabularx}
     }
-    \caption{Absolute runtimes in seconds for computing the objectives (O), uncall objective (U), gradients (G) and Hessians (H) of the graph embedding program.
+    \caption{Absolute times in seconds for computing the objectives (O), uncall objective (U), gradients (G) and Hessians (H) of the graph embedding program.
     $k$ is the embedding dimension, the number of parameters is $10k$.
     }\label{tbl:graphembedding}
 \end{minipage}
@@ -1129,7 +1129,7 @@ y += x ^ 2
 \end{lstlisting}
 \end{minipage}
 
-Share variables in an instuction can be easily identified and avoided.
+Share variables in an instruction can be easily identified and avoided.
 However, it becomes tricky when one runs the program in a parallel way.
 For example, in CUDA programming, every thread may write to the same gradient field of a shared scalar.
 How to solve the shared write in CUDA programming is still an open problem, which limits the power of reversible programming AD on GPU.
@@ -1155,7 +1155,7 @@ First, we need a better compiler for compiling reversible programs.
 To be specific, a compiler that admits mutability of data, and handle shared read and write better.
 Then, we need a reversible number system and instruction set to avoid rounding errors and support reversible control flows better.
 There are proposals of reversible floating point adders and multipliers, however these designs require allocating garbage bits in each operation~\cite{Nachtigal2010,Nachtigal2011,Nguyen2013,Hner2018}.
-In NiLang, one can simulate rigorous reversible arithmetics with the fixed-point number package \href{https://github.com/JuliaMath/FixedPointNumbers.jl}{FixedPointNumbers}.
+In NiLang, one can simulate rigorous reversible arithmetic with the fixed-point number package \href{https://github.com/JuliaMath/FixedPointNumbers.jl}{FixedPointNumbers}.
 However, a more efficient reversible design requires instruction-level support.
 Some other numbers systems are reversible under \texttt{*=} and \texttt{/=} rather than \texttt{+=} and \texttt{-=}, including \href{https://github.com/cjdoris/LogarithmicNumbers.jl}{LogarithmicNumbers}~\cite{Taylor1988} and \href{https://github.com/GiggleLiu/TropicalNumbers.jl}{TropicalNumbers}.
 They are powerful tools to solve domain specific problems, for example, we have an upcoming work about differentiating over tropical numbers to solve the ground state configurations of a spinglass system efficiently.
