@@ -203,7 +203,12 @@ Department of Computer Science, University of Tsukuba\\
 
 \maketitle
 
-\section{NiLang Grammar}\label{app:grammar}
+In \Sec{app:grammar}, we introduce the detailed design of NiLang, including the grammar, the instruction set and the contructor.
+In \Sec{sec:example}, we show the example codes used in the benchmarks.
+In \Sec{sec:discussion}, we discuss some important issues, the space time tradeoff, the instruction set, the gradient on ancilla problem, the shared memory problem, and also the future directions to go.
+
+\section{NiLang in Detail}\label{app:detail}
+\subsection{NiLang Grammar}\label{app:grammar}
 
 To define a reversible function one can use ``@i'' plus a standard function definition like bellow
 
@@ -277,7 +282,7 @@ It can be inverted by reversing the order as well as each element in it.
 \end{table}
 
 \newpage
-\section{A table of instructions}\label{app:instr}
+\subsection{Instructions Used in Main Text}\label{app:instr}
 
 A table instructions used in the main text
 \begin{table}[h!]\centering
@@ -309,7 +314,7 @@ A table instructions used in the main text
 \end{minipage}
 \end{table}
 
-\section{Reversible Constructors}\label{app:constructor}
+\subsection{Reversible Constructors}\label{app:constructor}
 So far, the language design is not too different from a traditional reversible language. To port Julia's type system better, we introduce dataviews.
 The type used in the reversible context is just a standard Julia type with an additional requirement of having reversible constructors.
 The inverse of a constructor is called a ``destructor'', which unpacks data and deallocates derived fields.
@@ -529,7 +534,7 @@ end
 Here, all assignments are replaced with \texttt{$\leftarrow$} to indicate that the values of these variables must be returned at the end of this function scope.
 We put a ``\texttt{$\sim$}'' symbol in the postcondition field of if statements to indicate this postcondition is a dummy one that takes the same value as the precondition, i.e. the condition is not changed inside the loop body.
 If the precondition is changed by the loop body, one can use a \texttt{branch\_keeper} vector to cache branch decisions. The value of \texttt{branch\_keeper} can be restored through uncomputing (the ``$\sim$'' statement above).
-Finally, after checking the correctness of the program, one can turn off the reversibility checks by using the macro \texttt{@invcheckoff} macro to achieve better performance. We provide the benchmark of this function in \Sec{sec:benchsparse}, where the reversible sparse matrix multiplication is also benchmarked.
+Finally, after checking the correctness of the program, one can turn off the reversibility checks by using the macro \texttt{@invcheckoff} macro to achieve better performance.
 
 \subsection{The first kind Bessel function}\label{sec:bessel}
 A Bessel function of the first kind of order $\nu$ can be computed via Taylor expansion
@@ -771,10 +776,13 @@ Although training time is comparable, the converged precision of the later is mu
     \caption{The Petersen graph has 10 vertices and 15 edges. We want to find a minimum embedding dimension for it.}\label{fig:petersen}
 \end{figure}
 
+
+\subsection{Gaussian mixture model and bundle adjustment}
+You will find the source code in github repositories \href{https://github.com/JuliaReverse/NiGaussianMixture.jl}{https://github.com/JuliaReverse/NiGaussianMixture.jl} and \href{https://github.com/JuliaReverse/NiBundleAdjustment.jl}{https://github.com/JuliaReverse/NiBundleAdjustment.jl}.
+
 \section{Discussion and outlooks}\label{sec:discussion}
 %In a reversible programming language, we proposed to use ``approximate uncomputing'' trick to avoid the overhead of a reversible program in many practical cases.
-\section{Summary}\label{sec:summary}
-In this paper, we show how to realize a reversible programming eDSL and implement an instruction level backward mode AD on top of it.
+In this main text, we show how to realize a reversible programming eDSL and implement an instruction level backward mode AD on top of it.
 It gives the user more flexibility to tradeoff memory and computing time comparing with traditional checkpointing.
 The Julia implementation NiLang gives the state-of-the-art performance and memory efficiency in obtaining first and second-order gradients in applications, including first type Bessel function, sparse matrix manipulations, solving graph embedding problem, Gaussian mixture model and bundle adjustment. It provides the possibility to differentiate GPU kernels.
 In the following, we discuss some practical issues about reversible programming, and several future directions to go.
@@ -808,7 +816,7 @@ Notations are highly inspired by the quantum circuit representation. A vertical 
 In panel (a). The subprogram in dashed box \texttt{X} is executed on space $x_{1\colon3}$ represents the computing stage. In the copying stage, the content in $x_3$ is read out to a pre-emptied memory $x_4$ through inplace add \texttt{+=}. Since this copy operation does not change contents of $x_{1\colon3}$, we can use the uncomputing operation \texttt{$\sim$X} to undo all the changes to these registers. Now we computing the result $x_4$ without modifying the contents in $x_{1\colon3}$. If any of them is in a known state, it can be deallocated immediately.
 In panel (b), we can use the subprogram defined in (a) maked as Y to generate $x_{5\colon n}$ without modifying the contents of variables $x_{1\colon 4}$.
 It is easy to see that although this uncompute-copy-uncompute design pattern can restore memories to known state, it has computational overhead.
-Both $X$ and $\sim X$ are executed twice in the program (b), which is not necessary. We can cancel a pair of $X$ and $\sim X$ (the gray boxes). By doing this, we are not allowed to deallocate the memory $x_{1\colon3}$ during computing $f(x_{5\colon n})$. This is the famous time-space tradeoff that playing the central role in reversible programming. The tradeoff strategy will be discussed in detail in \Sec{sec:timespace}.
+Both $X$ and $\sim X$ are executed twice in the program (b), which is not necessary. We can cancel a pair of $X$ and $\sim X$ (the gray boxes). By doing this, we are not allowed to deallocate the memory $x_{1\colon3}$ during computing $f(x_{5\colon n})$. This is the famous time-space tradeoff that playing the central role in reversible programming.
 
 From the lowest instruction level, whenever we reduce the symbol table (or space), the computational cost doubles.
 The computational overhead grows exponentially as the uncomputating level increases, which can be seen from some of the benchmarks in the main text.
@@ -966,6 +974,7 @@ There are some challenges in the hardware side too, one can find a proper summar
 
 Solutions to these issues requires the participation of people from multiple fields.
 
-
+\bibliographystyle{apsrev4-1}
+\bibliography{invc}
 
 \end{document}
