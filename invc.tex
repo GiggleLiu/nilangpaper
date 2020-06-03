@@ -239,7 +239,7 @@ However, implementing backward mode AD is harder than implementing its forward m
     \end{enumerate}
     %Scientists have put lots of effort to derive new backward rules for these needs.
 
-    To solve these issues better, we need a hardware instruction level AD. Source code transformation based AD packages like Tapenade~\cite{Hascoet2013} and Zygote~\cite{Innes2018, Innes2019} are closer to this goal. They read the source code from a user and generate a new code that computes the gradients for users. However, these packages have their own limitations too. In many practical applications, an elementary level differentiable program that might do billions of computations will cache intermediate results to a global storage. Frequent caching of data slows down the program significantly, and the memory usage will become a bottleneck as well. With these AD tools, it is still nearly impossible to automatically generate the backward rules for BLAS functions and sparse matrix operations with a performance comparable to the state-of-the-art.% A better solution to memory management must be found to make source-to-source AD practical.
+    To solve these issues better, we need a hardware instruction level AD. Source code transformation based AD packages like Tapenade~\cite{Hascoet2013} and Zygote~\cite{Innes2018, Innes2019} are closer to this goal. They read the source code from a user and generate a new code that computes the gradients. However, these packages have their own limitations too. In many practical applications, an elementary level differentiable program that might do billions of computations will cache intermediate results to a global storage. Frequent caching of data slows down the program significantly, and the memory usage will become a bottleneck as well. With these AD tools, it is still nearly impossible to automatically generate the backward rules for BLAS functions and sparse matrix operations with a performance comparable to the state-of-the-art.% A better solution to memory management must be found to make source-to-source AD practical.
 
     We propose to implement hardware instruction level AD on a reversible (domain-specific) programming language~\cite{Perumalla2013,Frank2017}. So that the intermediate states of a program can be traced backward with no extra effort. The overhead of reverse mode AD becomes the overhead of reversing a program, where the later has the advantage of efficient and controllable memory management. There have been many prototypes of reversible languages like Janus~\cite{Lutz1986}, R (not the popular one)~\cite{Frank1997}, Erlang~\cite{Lanese2018} and object-oriented ROOPL~\cite{Haulund2017}. % These languages have reversible control flow that allows users to input an additional postcondition in control flows to help programs run backward.
     In the past, the primary motivation of studying reversible programming is to support reversible computing devices~\cite{Frank1999} like adiabatic complementary metal–oxide–semiconductor (CMOS)~\cite{Koller1992}, molecular mechanical computing system~\cite{Merkle2018} and superconducting system~\cite{Likharev1977,Semenov2003}, where a reversible computing device is more energy-efficient from the perspective of information and entropy, or by the Landauer's principle~\cite{Landauer1961}.
@@ -331,7 +331,7 @@ The compilation of a reversible function to native Julia functions is consisted 
 \Fig{fig:compiling} shows the compilation of the complex valued log function body, which is originally defined as follows.
 
 \begin{minipage}{.88\columnwidth}
-\begin{lstlisting}[mathescape=true,caption={Reversible implementation of the complex valued log function.},label={lst:complex}]
+    \begin{lstlisting}[mathescape=true,caption={Reversible complex valued log function $y\mathrel{+}=\log(|x|) + i{\rm Arg}(x)$.},label={lst:complex}]
 @i function (:+=)(log)(y!::Complex{T}, x::Complex{T}) where T
     @routine begin
         n ← zero(T)
@@ -362,13 +362,14 @@ Now, the function is ready to execute on the host language.
 \section{Reversible automatic differentiation}\label{sec:bp}
 
 \subsection{First order gradient}\label{sec:jacobian}
-\begin{figure}
-    \centerline{\includegraphics[width=0.8\columnwidth,trim={0 0cm 0 0cm},clip]{reversead.pdf}}
-    \caption{Binding the adjoint rule of \texttt{y+=exp(x)} to its uncomputing program.}\label{fig:reversead}
-\end{figure}
 
 The computation of gradients in NiLang contains two parts, computing and uncomputing. In the computing stage, the program marches forward and computes outputs.
 In the uncomputing stage, we attach each scalar and array element with an extra gradient field and feed them into the inverse function. To composite data type with a gradient field is called \texttt{GVar}. As shown in \Fig{fig:reversead}, when an instruction is uncalled, we first uncompute the value field of \texttt{GVar}s to $x_1$ and $y_1$, using the input information, we then update the gradient fields according to the formula in the right panel. The binding utilizes the multiple dispatch in Julia, where a function can be dynamically dispatched based on the run time type of more than one of its arguments. Here, we dispatch a inverse instruction with input type \texttt{GVar} to the \texttt{(:-=)(exp)} instruction.
+
+\begin{figure}
+    \centerline{\includegraphics[width=0.7\columnwidth,trim={0 0cm 0 0cm},clip]{reversead.pdf}}
+    \caption{Binding the adjoint rule of \texttt{y+=exp(x)} to its uncomputing program.}\label{fig:reversead}
+\end{figure}
 
 \begin{minipage}{.88\columnwidth}
 \begin{lstlisting}[mathescape=true]
@@ -385,17 +386,19 @@ end
 \end{minipage}
 
 Here, the first four lines is the \texttt{@routine} statement that computes $e^{x_2}$ and store the value into an ancilla. The 5th line updates the \texttt{value} dataview of \texttt{out!}. The 6th line updates the gradient fields of \texttt{x} and \texttt{y} by applying the adjoint rule of \texttt{(:+=)(exp)}. Finally, \texttt{~@routine} uncomputes \texttt{anc1} so that it can be returned to the ``memory pool''.
-One does not need to define the similar function on \texttt{(:+=)(exp)} because macro \texttt{@i} will generate it automatically. Notice that taking inverse and computing gradients commute~\cite{Mcinerney2015}.
+One does not need to define a similar function on \texttt{(:+=)(exp)} because macro \texttt{@i} will generate it automatically. Notice that taking inverse and computing gradients commute~\cite{Mcinerney2015}.
 
-\subsection{Hessians, complex numbers and CUDA kernels}
+\subsection{Hessians}
 Combining the uncomputing program in NiLang with dual-numbers is a simple yet efficient way to obtain Hessians.
 The dual number is the scalar type for computing gradients in the forward mode AD, it wraps the original scalar with a extra gradient field. The gradient field of a dual number is updated automatically as the computation marches forward.
 By wrapping the elementary type with \texttt{Dual} defined in package ForwardDiff~\cite{Revels2016} and throwing it into the gradient program defined in NiLang,
 one obtains one row/column of the Hessian matrix straightforward.
 We will show a benchmark in \Sec{sec:graphbench}.
 
+\subsection{Complex numbers}
 To differentiate complex numbers, we re-implemented complex instructions reversibly. For example, with the reversible function defined in in \Lst{lst:complex}, we can differentiated complex valued log with no extra effort.
 
+\subsection{CUDA kernels}
 CUDA programming is playing a significant role in high-performance computing. In Julia, one can write GPU compatible functions in native Julia language with \href{https://github.com/JuliaGPU/KernelAbstractions.jl}{KernelAbstractions}~\cite{Besard2018}.
 Since NiLang does not push variables into stack automatically for users, it is safe to write differentiable GPU kernels with NiLang.
 We will show this feature in the benchmarks of bundle adjustment (BA) in \Sec{sec:ba}.
@@ -403,9 +406,9 @@ Here, one should notice that the shared read in forward pass will become shared 
 
 \section{Benchmarks}\label{sec:benchmark}
 
-In the following benchmarks the CPU device is Intel(R) Xeon(R) Gold 6230 CPU @ 2.10GHz, and the GPU device is Nvidia Titan V.
+In the following benchmarks, the CPU device is Intel(R) Xeon(R) Gold 6230 CPU @ 2.10GHz, and the GPU device is Nvidia Titan V.
 % the GPU time is estimated by broadcasting the gradient function on CUDA array of size $2^{17}$ and taking the average.
-For NiLang benchmarks, we have turned off the reversibility check off to achieve a better performance. Codes used in benchmarks could be found the in Examples section of supplimentary material.
+For NiLang benchmarks, we have turned off the reversibility check off to achieve a better performance. Codes used in benchmarks could be found the in Examples section of the supplimentary material.
 
 \subsection{Sparse matrices}\label{sec:benchsparse}
 We benchmarked the call, uncall and backward propagation time used for sparse matrix dot product and matrix multiplication.
@@ -425,13 +428,13 @@ Here, we estimate the time for back propagating gradients rather than including 
             \bottomrule
         \end{tabularx}
     }
-    \caption{Absolute runtimes in seconds for computing the objectives (O) and the backward pass (B) of sparse matrix operations. The matrix size is $1000 \times 1000$, and the element density is $0.05$. The total time used in computing gradient can be estimated as a sum of ``O'' and ``B''.
+    \caption{Absolute runtimes in seconds for computing the objectives (O) and the backward pass (B) of sparse matrix operations. The matrix size is $1000 \times 1000$, and the element density is $0.05$. The total time used in computing gradient can be estimated by summing ``O'' and ``B''.
     }\label{tbl:sparse}
 \end{minipage}
 \end{table}
 
 The time used for computing backward pass is approximately 1.5-3 times the Julia's native forward pass.
-This is because the instruction length of differentiating basic arithmetic instructions is longer than pure computing by a factor of 2 or more.
+This is because the instruction length of differentiating basic arithmetic instructions is longer than pure computing.
 
 
 \subsection{Graph embedding problem}\label{sec:graphbench}
