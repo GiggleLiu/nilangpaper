@@ -541,12 +541,20 @@ With KernelAbstractions, we run our zero allocation reversible program on GPU, w
 %Running codes on GPU (in Julia) requires not introducing any memory allocation at the kernel level.
 %NiLang provides user the flexibility to manage the memory allocation instead of using a global stack.
 
-\section{Acknowledgments}
+\section*{Broader Impact}
+Our automatic differentiation in a reversible eDSL brings the field of reversible computing to the modern context. We believe it will be accepted by the public to meet current scientific automatic differentiation needs and aim for future energy-efficient reversible devices.
+For solving practical issues, in an unpublished paper, we have successfully differentiated a spin-glass solver to find the optimal configuration on a $28\times 28$ square lattice in a reasonable time. There are also some interesting applications like normalizing flow and bundle adjustment in the example folder of \href{https://github.com/GiggleLiu/NiLang.jl}{NiLang} repository and \href{https://github.com/JuliaReverse}{JuliaReverse} organization.
+For the future, energy consumption is an even more fundamental issue than computing time and memory. Current computing devices, including CPU, GPU, TPU, and NPU consume much energy, which will finally hit the "energy wall". We must get prepared for the technical evolution of reversible computing (quantum or classical), which may cost several orders less energy than current devices.
+
+We also see some drawbacks to the current design. It requires the programmer to change to programing style rather than put effort into optimizing regular codes. It is not fully compatible with modern software stacks. Everything, including instruction sets and BLAS functions, should be redesigned to support reversible programming better. We put more potential issues and opportunities in the discussion section of the supplementary material. Solving these issues requires the participation of people from multiple fields.
+
+\begin{ack}
 Jin-Guo Liu thank Lei Wang for motivating the project with possible applications to reversible integrator, normalizing flow, and neural ODE.
 Johann-Tobias Schäg for deepening the discussion about reversible programming with his mathematicians head.
 Marisa Kiresame and Xiu-Zhe Luo for discussion on the implementation details of source-to-source automatic differentiation,
 Shuo-Hui Li for helpful discussion on differential geometry, Tong Liu and An-Qi Chen for helpful discussion on quantum adders and multipliers, Ying-Bo Ma for correcting typos by submitting pull requests, Chris Rackauckas for helpful discussion on reversible integrator, Mike Innes for reviewing the comments about Zygote, Jun Takahashi for discussion about the graph embedding problem, Simon Byrne and Chen Zhao for helpful discussion on floating-point and logarithmic numbers.
 The authors are supported by the National Natural Science Foundation of China under Grant No.~11774398, the Strategic Priority Research Program of Chinese Academy of Sciences Grant No.~XDB28000000.
+\end{ack}
 
 \bibliographystyle{apsrev4-1}
 \bibliography{invc}
