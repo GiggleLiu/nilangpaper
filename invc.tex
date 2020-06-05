@@ -1,7 +1,7 @@
 %\documentclass[a4paper,superscriptaddress,11pt]{quantumarticle}
 %\documentclass[aps,twocolumn,longbibliography,english,superscriptaddress]{revtex4-1}
 \documentclass{article}
-\usepackage[preprint]{neurips_2020}
+\usepackage{neurips_2020}
 %\documentclass[a4paper,superscriptaddress,11pt]{article}
 \pdfoutput=1
 \usepackage[colorlinks=true,urlcolor=blue,citecolor=blue,linkcolor=blue]{hyperref}
@@ -203,8 +203,8 @@ Department of Computer Science, University of Tsukuba\\
 \maketitle
 
 \begin{abstract}
-    Traditional machine instruction level reverse mode automatic differentiation (AD) suffers from the problem of having a space overhead that linear to time in order to trace back the computational state, which is also the source of bad time performance. In reversible programming, a program can be executed bi-directionally, which means we do not need extra design to trace back the computational state. This paper answers the question that how practical it is to implement a machine instruction level reverse mode AD in a reversible programming language. By implementing sparse matrix operations and some machine learning applications in our reversible eDSL NiLang, and benchmark the performance with state-of-the-art AD frameworks, our answer is a clear positive.
-    NiLang is an open source r-Turing complete reversible eDSL in Julia. It empowers users the flexibility to tradeoff time, space, and energy rather than caching data into a global tape. Manageable memory allocation makes it a good tool to differentiate GPU kernels too.
+Traditional machine instruction level reverse-mode automatic differentiation (AD) suffers from the problem of having a space overhead that linear to time in order to trace back the computational state, which is also the source of poor performance. In reversible programming, a program can be executed bi-directionally, which means we do not need any additional design to trace back the computational state. This paper answers how practical it is to implement a machine-instruction level reverse mode AD in a reversible programming language. By implementing sparse matrix operations and some machine learning applications in our reversible eDSL NiLang, and benchmark the performance with state-of-the-art AD frameworks, our answer is a definite positive.
+NiLang is an open-source r-Turing complete reversible eDSL in Julia. It empowers users the flexibility to tradeoff time, space, and energy rather than caching data into a global tape. Manageable memory allocation makes it an excellent tool to differentiate GPU kernels too.
 \end{abstract}
 
 %\begin{multicols}{2}
