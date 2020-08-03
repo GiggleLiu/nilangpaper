@@ -150,7 +150,7 @@
 \newcommand{\Eq}[1]{Eq.~(\ref{#1})}
 \newcommand{\Fig}[1]{Fig.~\ref{#1}}
 \newcommand{\Lst}[1]{Listing.~\ref{#1}}
-\newcommand{\Ref}[1]{Ref.~\cite{#1}}
+%\newcommand{\Ref}[1]{Ref.~\cite{#1}}
 \newcommand{\Tbl}[1]{Table~\ref{#1}}
 \newcommand{\Sec}[1]{Sec.~\ref{#1}}
 \newcommand{\App}[1]{Appendix \ref{#1}}
@@ -208,6 +208,7 @@ Traditional machine instruction level reverse-mode automatic differentiation (AD
 NiLang is an open-source r-Turing complete reversible eDSL in Julia. It empowers users the flexibility to tradeoff time, space, and energy rather than caching data into a global tape. Manageable memory allocation makes it an excellent tool to differentiate GPU kernels too.
 \end{abstract}
 
+\blue{add logarithmic number system solution to exp.}
 %\begin{multicols}{2}
 \section{Introduction}\label{sec:intro}
     Computing the gradients of a numeric model $f : \mathbb{R}^m \rightarrow \mathbb{R}^n$ plays a crucial role in scientific computing. Consider a computing process
@@ -468,7 +469,7 @@ In the uncomputing stage, we attach each scalar and array element with an extra 
         anc1 ← zero(value(x))
         anc1 += exp(value(x))
     end
-    value(out!) -= identity(anc1)
+    value(out!) -= anc1
     grad(x) += grad(out!) * anc1
     ~@routine
 end
@@ -581,9 +582,9 @@ It is easy to rewrite it in a reversible style with NiLang without sacrificing m
             ra → A.rowval[ia]
             rb → B.rowval[ib]
             if (branch_keeper[i], ~)
-                ib += identity(1)
+                ib += 1
             else
-                ia += identity(1)
+                ia += 1
             end
         end
 
@@ -592,9 +593,9 @@ It is easy to rewrite it in a reversible style with NiLang without sacrificing m
             branch_keeper[i] ⊻= ia==ia2-1 ||
                 A.rowval[ia] > B.rowval[ib]
             if (branch_keeper[i], ~)
-                ib += identity(1)
+                ib += 1
             else
-                ia += identity(1)
+                ia += 1
             end
         end
     end
@@ -685,18 +686,9 @@ With this approximate multiplier, we implement the reversible $J_\nu$ as follows
 \begin{lstlisting}[multicols=2]
 using NiLang, NiLang.AD
 
-@i function ibesselj(out!, ν, z; atol=1e-8)
-    k ← 0
-    fact_nu ← zero(ν)
-    halfz ← zero(z)
-    halfz_power_nu ← zero(z)
-    halfz_power_2 ← zero(z)
-    out_anc ← zero(z)
-    anc1 ← zero(z)
-    anc2 ← zero(z)
-    anc3 ← zero(z)
-    anc4 ← zero(z)
-    anc5 ← zero(z)
+@i function ibesselj(out!, ν::Int, z::T; atol=1e-8) where T
+    @zeros Int k fact_nu
+    @zeros T anc1 anc2 anc3 anc4 anc5 halfz halfz_power_nu halfz_power_2 out_anc
 
     @routine begin
         halfz += z / 2
@@ -705,27 +697,26 @@ using NiLang, NiLang.AD
         ifactorial(fact_nu, ν)
 
         anc1 += halfz_power_nu/fact_nu
-        out_anc += identity(anc1)
+        out_anc += anc1
         while (abs(unwrap(anc1))>atol && abs(unwrap(anc4)) < atol, k!=0)
-            k += identity(1)
+            k += 1
             @routine begin
-                anc5 += identity(k)
-                anc5 += identity(ν)
+                anc5 += k + ν
                 anc2 -= k * anc5
                 anc3 += halfz_power_2 / anc2
             end
             imul(anc1, anc3, anc4)
-            out_anc += identity(anc1)
+            out_anc += anc1
             ~@routine
         end
     end
-    out! += identity(out_anc)
+    out! += out_anc
     ~@routine
 end
 
 @i function ifactorial(out!, n)
     anc ← zero(n)
-    out! += identity(1)
+    out! += 1
     for i=1:n
         imul(out!, i, anc)
     end
@@ -739,7 +730,7 @@ end
 \end{lstlisting}
 \end{minipage}
 
-The above algorithm uses a constant number of ancillas, while the time overhead is also a constant factor.
+Here, ancillas are created with the macro \texttt{@zeros}, where the first argument is the variable type and the rest are variable names. The above algorithm uses a constant number of ancillas, while the time overhead is also a constant factor.
 Ancilla \texttt{anc4} plays the role of \textit{dirty ancilla} in multiplication, and it is uncomputed rigorously in the uncomputing stage marked by \texttt{$\sim$@routine}.
 This reversible program can be diagrammatically represented as a memory oriented computational graph as shown in \Fig{fig:cgraphs} (b).
 This diagram can be used to analyze variables uncomputing. In this example, routine ``B'' uses \texttt{hz\_2}, \texttt{$\nu$} and \texttt{k} as control parameters, and changes the contents in \texttt{anc2}, \texttt{anc3} and \texttt{anc5}.
@@ -1115,9 +1106,9 @@ One can get free of this issue by avoiding using same variable in a single instr
 \begin{minipage}{.88\columnwidth}
 \begin{lstlisting}
 anc ← zero(x)
-anc += identity(x)
+anc += x
 y += x * anc
-anc -= identity(x)
+anc -= x
 \end{lstlisting}
 \end{minipage}
 
@@ -1167,6 +1158,7 @@ Solutions to these issues requires the participation of people from multiple fie
 
 \section{Acknowledgments}
 Jin-Guo Liu thank Lei Wang for motivating the project with possible applications to reversible integrator, normalizing flow, and neural ODE.
+Jie Pan for discussions about the issue of energy dissipation in CMOS technologies.
 Johann-Tobias Schäg for deepening the discussion about reversible programming with his mathematicians head.
 Marisa Kiresame and Xiu-Zhe Luo for discussion on the implementation details of source-to-source automatic differentiation,
 Shuo-Hui Li for helpful discussion on differential geometry, Tong Liu and An-Qi Chen for helpful discussion on quantum adders and multipliers, Ying-Bo Ma for correcting typos by submitting pull requests, Chris Rackauckas for helpful discussion on reversible integrator, Mike Innes for reviewing the comments about Zygote, Jun Takahashi for discussion about the graph embedding problem, Simon Byrne and Chen Zhao for helpful discussion on floating-point and logarithmic numbers.
