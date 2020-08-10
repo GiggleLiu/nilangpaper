@@ -234,7 +234,7 @@ However, implementing backward mode AD is harder than implementing its forward m
     These frameworks sometimes fail to meet the diverse needs in research, for example, in physics research,
     \begin{enumerate}
         \item People need to differentiate over sparse matrix operations that are important for Hamiltonian engineering~\cite{Xie2020}, like solving dominant eigenvalues and eigenvectors~\cite{Golub2012},
-        \item People need to backpropagate singular value decomposition (SVD) function and QR decomposition in tensor network algorithms to study the phase transition problem~\cite{Golub2012,Liao2019,Seeger2017,Wan2019,Hubig2019,Wan2019},
+        \item People need to backpropagate singular value decomposition (SVD) function and QR decomposition in tensor network algorithms to study the phase transition problem~\cite{Golub2012,Liao2019,Seeger2017,Wan2019,Hubig2019},
         \item People need to differentiate over a quantum simulation where each quantum gate is an inplace function that changes the quantum register directly~\cite{Luo2019}.
     \end{enumerate}
     %Scientists have put lots of effort to derive new backward rules for these needs.
