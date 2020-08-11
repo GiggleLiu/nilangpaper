@@ -31,7 +31,7 @@ e.g. People benchmarked different packages in the bundle adjustment application 
 \end{wrapfigure}
 Tapenade is $10^{3-5}$ times faster than PyTorch and TensorFlow. However Tapenade is commercial, close sourced and C/Fortran based.
 We are proud that NiLang is even better than Tapenade in this benchmark.
-The ADBench paper [arXiv:1807.10129] suggest that we have chosen one of the worlds' best generic AD package as our baseline.
+The ADBench paper [arXiv:1807.10129] suggests that we have chosen one of the worlds' best generic AD package as our baseline.
 We don't benchmark the popular Julia package Flux because we benchmarked its backend Zygote instead, where NiLang shows more than one order advantage in time.
 
 Some referees are wondering if reversible computing is equivalent to traditional AD with optimized checkpointing.
@@ -44,8 +44,8 @@ Not to say the optimal checkpointing itself is a well known hard topic.
 Allocating automatically for a user is even more dangerous in GPU programming.
 In NiLang, one can compile the bundle adjustment code to GPU to enjoy a ~200x speed up with no more than 10 extra lines of code.
 It is much easier for users to completely avoid allocation inside a loop in NiLang comparing with checkpointing.
-Allocation can be the performance killer when one want to differentiate array mutation operations that many frameworks forbid such operations.
-NiLang is now getting more users, some use it to differentiate backtest policies and variational mean field computing. In both cases, NiLang help increase the performance by a factor of $\sim600$ comparing with Zygote, just because the array mutations is properly handled.
+Allocation can be the performance killer when differentiating array mutation operations.
+NiLang supports array mutations naturally. As NiLang is getting more users, some use it to differentiate backtest policies and variational mean field computing. In both cases, NiLang help increase the performance by a factor of $\sim600$ comparing with Zygote, just because the array mutations is properly handled.
 As far as we know, computational graph is not convenient to represent inplace operations.
 Either the write-once \texttt{TensorArray} in TensorFlow or the mutable leaf tensors in PyTorch are not truly mutable.
 This explains one of the referees' concern that the computational graph can represent any program.
