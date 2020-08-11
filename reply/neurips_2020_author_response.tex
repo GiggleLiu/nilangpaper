@@ -23,8 +23,8 @@ We will keep improving our writing before the camera ready.
 Reviewer \#1 think our work lack the comparison to strong baselines like TensorFlow and PyTorch.
 This is not true, Tapenade is a very strong baseline in the field of \textbf{generic} AD.
 TensorFlow and PyTorch are \textbf{domain specific} AD software for traditional tensor-based machine learning.
-Some applications like bundle adjustment in computer vision mainly contains scalar operations.
-People benchmarked different packages in the bundle adjustment application as shown in the figure, which suggests that we have chosen one of the worlds' best generic AD package as our baseline.
+Some applications like the bundle adjustment in computer vision mainly contains scalar operations.
+People benchmarked the speed of obtaining Jacobians with different packages as shown in the figure, which suggests that we have chosen one of the worlds' best generic AD package as our baseline.
 \begin{wrapfigure}{l}{0.5\textwidth}
     \centerline{\includegraphics[width=0.5\columnwidth,trim={0 1cm 1cm 1.7cm},clip]{ba-jacobian-adbench.png}}
     \caption{The bundle adjustment benchmark conducted by the ADBench (from the github) project of microsoft [arXiv:1807.10129]. NiLang outperforms all software in this figure.}\label{bench-ba}
@@ -60,7 +60,7 @@ Reversible programming does not have any limitation in describing a computationa
 We add a seperate section to help people understand the limitations and possible solutions better.
 
 Reviewers \#1 and \#4 think our result can not be reproduced. Considering both NiLang and the benchmarks are open source on GitHub, we respectfully disagree.
-Reviewer \#1 mention that SVD is available in PyTorch and TensorFlow. It is true. There are more than 10 papers on it and we have cited some of them in the main text. We emphasis that they are \textbf{manually} generated. We say, ``why bother 10 papers? just let the generic AD do its job!''
+Reviewer \#1 mention that SVD is available in PyTorch and TensorFlow. It is true. There are more than 10 papers on differentiating SVD and we have cited some of them in the main text. We emphasis that they are \textbf{manually} generated. We say, ``Why bother 10 papers? Just let the generic AD do its job!''
 %comparing reversible programming and the reversible neural networks in the main text directly. Thanks for your valuable information.
 
 At last, we encourage reviewers to view this project more from the ``future'' perspective.
