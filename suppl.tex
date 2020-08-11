@@ -797,7 +797,7 @@ In the following, we try to explain why the overhead of reversible computing is 
 First of all, the overhead of reversing a program is upper bounded by the checkpointing~\cite{Chen2016} strategy used in many traditional machine learning package that memorizes inputs of primitives because checkpointing can be trivially implemented in reversible programming.~\cite{Perumalla2013} 
 Reversible programming provides some alternatives to reduce the overhead.
 For example, accumulation is reversible, so that many BLAS functions can be implemented reversiblly without extra memory.
-Meanwhile, the memory allocation in some iterative algorithms can often be reduced with the ``arithmetic uncomputing'' trick without sacrificing reversibility, as shown in the \texttt{ibesselj} example in \App{sec:bessel}.
+Meanwhile, the memory allocation in some iterative algorithms can often be reduced by combining fixed point number and logarithmic numbers without sacrificing reversibility, as shown in the \texttt{ibesselj} example in \App{sec:bessel}.
 Clever compiling based on memory oriented computational graphs (\Fig{fig:ccu} and \Fig{fig:cgraphs} (b)) can also be used to help user tradeoff between time and space.
 The overhead of a reversible program mainly comes from the uncomputing of ancillas.
 It is possible to automatically uncompute ancillas by analyzing variable dependency instead of asking users to write \texttt{@routine} and \texttt{$\sim$@routine} pairs.
