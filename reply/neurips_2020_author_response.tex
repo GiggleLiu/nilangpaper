@@ -35,20 +35,21 @@ We strongly recommend referees to read the ADBench paper [arXiv:1807.10129], you
 We don't benchmark the popular Julia package Flux because we benchmarked its backend Zygote instead, where NiLang shows more than one order advantage in time.
 
 Some referees are wondering if reversible computing is equivalent to traditional AD with optimized checkpointing.
-We want to emphasis that reversible programming shows advantages in speed and memory mainly for one simple reason: \textit{the coding style and reversible thinking matters.}
-In NiLang, it is hard to write ``bad'' code because every allocation must be explicit.
+We agree that with \textit{proper coding style} and the use of reversibility, optimal checkpointing is equivalent to reversible programming.
+However, the \texttt{proper coding style} is very difficult for a user without reversible thinking in mind.
 In the sparse matrix dot product example in the Appendix.
-One has to preallocate a \texttt{branch\_keeper} to store the decisions of branches to enforce reversibility inside the loop.
-If a user is writing it in freestyle, it impossible to avoid stack operations inside the loop and slow down the program.
+NiLang requires a user to preallocate a \texttt{branch\_keeper} to store the decisions of branches to enforce reversibility inside the loop.
+However, if a user is writing it in free style, checkpointing has to insert stack operations inside the loop, which will slow down the program significantly.
+Not to say the optimal checkpointing itself is a well known hard topic.
 Allocating automatically for a user is even more dangerous in GPU programming.
 In NiLang, one can compile the bundle adjustment code to GPU to enjoy a ~200x speed up with no more than 10 extra lines of code.
-It is easy to completely avoid allocation inside a loop in NiLang, but not for the optimal checkpointing, where a user does not have full control of the allocation and the reversibility is not fully exploited. Not to say optimal checkpointing itself is a well known hard topic.
-Allocation can be the performance killer when one want to differentiate mutating array operations that many frameworks forbid such operations.
-Some people use NiLang to differentiate backtest policies and variational mean field computing and increase the performance by a factor of $\sim600$ comparing with Zygote, because the mutating array is properly handled.
+It is much easier for users to completely avoid allocation inside a loop in NiLang comparing with checkpointing.
+Allocation can be the performance killer when one want to differentiate array mutation operations that many frameworks forbid such operations.
+NiLang is now getting more users, some use it to differentiate backtest policies and variational mean field computing. In both cases, NiLang help increase the performance by a factor of $\sim600$ comparing with Zygote, just because the array mutations is properly handled.
 As far as we know, computational graph is not convenient to represent inplace operations.
 Either the write-once \texttt{TensorArray} in TensorFlow or the mutable leaf tensors in PyTorch are not truly mutable.
 This explains one of the referees' concern that the computational graph can represent any program.
-Yes, but they are not convenient to describe mutating arrays.
+Yes, but they are not convenient to describe array mutations.
 
 %One of the referee mention that to handle the backward rule of ``+'' operation, one do not need to store the inputs of an instruction, gradient of both inputs are $1$. There is no need to trace back the state. We haven't put effort in optimizing such operations yet.
 %In NiLang, the backward propagation program generally contains $\sim2$ times more instructions than the forward pass. This factor is estimated by considering the backward rule of the multiplication operation. This is a known bottleneck in the field of generic AD.
@@ -56,7 +57,7 @@ Yes, but they are not convenient to describe mutating arrays.
 Some referees want to know from which aspect NiLang is different from a traditional reversible programming language.
 For a long time, the reversible programming languages concern too much about theoretical elegance and ignored productivity. Researchers tried to add functional and object-oriented features to reversible languages.
 NiLang is special for that it supports many practical elements like arrays, complex numbers, fixed-point numbers, and logarithmic numbers and being an eDSL so that it can be used directly to accelerate the Zygote framework in Julia.
-And one of the referees is interested to know the limitations of NiLang. Reversible programming does not have any limitation in representing a computational process, because any program can be written reversibly. The most severe weakness of NiLang should be the floating-point arithmetic suffers from the rounding error.
+And one of the referees is interested to know the limitations of NiLang. Reversible programming does not have any limitation in representing a computational process, because any program can be written in a reversible form. The most severe weakness of NiLang should be the floating-point arithmetic suffers from the rounding error.
 We can ease this problem by combining fixed-point numbers and logarithmic numbers, which will be explained in the next update.
 
 2/4 referees think our result can not be reproduced. Considering both NiLang and the benchmarks are open source on GitHub, we don't think this comment is justified.
