@@ -13,6 +13,8 @@
 \usepackage{upquote}
 \usepackage{subcaption}
 \usepackage{multicol}
+\usepackage[framemethod=TikZ]{mdframed}
+\usepackage{wrapfig}
 %\usepackage{caption}
 %\usepackage[plain]{algorithm}
 \usepackage[ruled, vlined]{algorithm2e}
@@ -226,8 +228,9 @@ They read the source code from a user and generate a new code that computes the 
 %Reversible programming is interesting to software engineers too, because it is a powerful tool to schedule asynchronious events~\cite{Jefferson1985} and debug a program bidirectionally~\cite{Boothe2000}.
 However, the field of reversible computing faces the issue of having not enough funding in recent decade~\cite{Frank2017}. As a result, not many people in machine learning are familiar with some marvelous designs in reversible computing. People have not connected it with automatic differentiation seriously, even though they share so many similarities.
 
-In machine learning, people also manage to not erasing informations that needed to . 
-In many neural networks, people also use reversibility to reduce the memory cost.
+In machine learning, people also manage to not erasing informations that needed in the backward pass. 
+In many neural networks such as recurrent neural networks~\cite{MacKay2018}, Hyperparameter learning~\cite{Maclaurin2015} and residual neural networks~\cite{Behrmann2018}, people also use reversibility to avoid caching intermediate state and reduce the memory cost.
+
 However, we find when when people are trying to write a program in a free style, it is generally hard for an AD engine to avoid allocations.
 Especially when the allocation is inside the loop, it will become a performance killer.
 What's worse, allocating variables in a global stack will make the code impossible to be compiled to GPU even if it is generically written.
@@ -241,8 +244,8 @@ This paper aims to break the information barrier between the machine learning co
 
 \section{Language design}\label{sec:lang}
 
-    \subsection{Introductions to reversible language design}
-    In a modern programming language, functions are pushed to a global stack for scheduling. The memory layout of a function consists of input arguments, a function frame with information like the return address and saved memory segments, local variables, and working stack. After the call, the function clears run-time information, only stores the return value. In reversible programming, this kind of design is no longer the best practice. One can not discard input variables and local variables easily after a function call, since discarding information may ruin reversibility. For this reason, reversible functions are very different from irreversible ones from multiple perspectives.
+\subsection{Introductions to reversible language design}
+We will fist introduce the basic building blocks of a reversible programming language.
 
 \subsubsection{Memory management}
     A distinct feature of reversible memory management is, the content of a variable must be known when it is deallocated.
@@ -271,53 +274,51 @@ Every arithmetic instruction has a unique inverse that can undo the changes.
 \end{itemize}
 Besides the above two types of operations, \texttt{SWAP} operation that exchanges the contents in two memory spaces is also widely used in reversible computing systems.
 
-\subsection{Differetiable Reversible eDSL: NiLang}
-    We develop an embedded domain-specific language (eDSL) NiLang in Julia language~\cite{Bezanson2012,Bezanson2017} that implements reversible programming. One can write reversible control flows, instructions, and memory managements inside this macro.
+%\subsection{Differetiable Reversible eDSL: NiLang}
+%\begin{wrapfigure}{l}{0.5\textwidth}
+%\begin{mdframed}[
+    %frametitle={Why Julia ?},
+    %outerlinewidth=0.6pt,
+    %innertopmargin=6pt,
+    %innerbottommargin=6pt,
+    %roundcorner=4pt]
+%\end{mdframed}
+%\end{wrapfigure}
+
+    Although there are a lot reversible programming language candidates, they lack the basic components for scientific programming like arrays and complex numbers, and most of them are designed as a stand alone language that can not be embeded in other machine learning frameworks.
+Hence we develop an embedded domain-specific language (eDSL) NiLang in Julia language~\cite{Bezanson2012,Bezanson2017} that implements reversible programming. One can write reversible control flows, instructions, and memory managements inside a macro.
 Julia is a popular language for scientific programming. We choose Julia as the host language for multiple purposes. The most important consideration is speed that crucial for a GP-AD. Its clever design of type inference and just in time compiling provides a C like speed.
 Also, it has a rich ecosystem for meta-programming. The package for pattern matching \href{https://github.com/thautwarm/MLStyle.jl}{MLStyle} allow us to define an eDSL conveniently. Last but not least, its multiple-dispatch provides the polymorphism that will be used in our AD engine.
-%In the past, we see many implementations of AD languages work as an independent language.
-%However, we hope our eDSL can benefit people in Julia's community directly.
-The main feature of NiLang is contained in a single macro \texttt{@i} that compiles a reversible function.
-We can use \texttt{macroexpand} to show the compiling a reversible function to the native Julia function.
+Comparing with a regular reversible programming language, NiLang features
+\begin{enumerate}
+    \item array operations,
+    \item rich number systems, including floating point number, complex number, fixed point number and logarithmic number,
+    \item introduce the concept of \textit{dataview} to allow flexible data field access,
+    \item assuming the floating point $\mathrel{+}=$ and $\mathrel{-}=$ operations being reversible to each other.
+    \item allowing user to insert host language code like printing and asserting it as ``safe''.
+\end{enumerate}
+All these changes are motivated by making it a practical platform for differential applications, while last two features are not compatible with reversible hardwares.
+By the time of writting, the version of NiLang is v0.7.2.
+Let's start by defining a reversible adder.
 
 \begin{minipage}{.88\columnwidth}
-\begin{lstlisting}
-julia> using NiLangCore, MacroTools
-
-julia> MacroTools.prettify(@macroexpand @i function f(x, y)
-           SWAP(x, y)
-       end)
-quote
-    $(Expr(:meta, :doc))
-    function $(Expr(:where, :(f(x, y))))
-        dove = wrap_tuple(SWAP(x, y))
-        x = dove[1]
-        y = dove[2]
-        (x, y)
-    end
-    if NiLangCore._typeof(f) != _typeof(~f)
-        function $(Expr(:where, :((hummingbird::_typeof(~f))(x, y))))
-            toad = wrap_tuple((~SWAP)(x, y))
-            x = toad[1]
-            y = toad[2]
-            (x, y)
-        end
-    end
+\begin{lstlisting}[mathescape=true,caption={A reversible adder},label={lst:complex}]
+@i function adder(y!::Real, x::Real)
+    y! += x
 end
+
+@assert adder(2, 3) == (5, 3)
+@assert (~adder)(5, 3) == (2, 3)
 \end{lstlisting}
 \end{minipage}
 
-Here, the version of NiLang is v0.4.0.
-Macro \texttt{@i} generates two functions that reversible to each other \texttt{f} and \texttt{$\sim$f}. \texttt{$\sim$f} is an callable of type \texttt{Inv\{typeof(f)\}}, where the type parameter \texttt{typeof(f)} stands for the type of the function \texttt{f}.
-In the body of \texttt{f}, \texttt{NiLangCore.wrap\_tuple} is used to unify output data types to tuples.
-The outputs of \texttt{SWAP} are assigned back to its input variables.
-At the end of this function, this macro attaches a return statement that returns all input variables.
-
-The compilation of a reversible function to native Julia functions is consisted of three stages: \textit{preprocessing}, \textit{reversing} and \textit{translation}.
-\Fig{fig:compiling} shows the compilation of the complex valued log function body, which is originally defined as follows.
+Macro \texttt{@i} generates two functions that reversible to each other \texttt{adder} and \texttt{$\sim$adder}, each defines a mapping $\mathbb{R}^2 \rightarrow \mathbb{R}^2$.
+A reversible $\mathrel{+}=$ instruction is always defined as $y += f(args...)$, where $f$ is a mapping that allows to be irreversible, or just leave empty for identity mapping.
+We can easily check these two functions are reversible to each other.
+Then let's see a more advanced example of computing the complex valued log.
 
 \begin{minipage}{.88\columnwidth}
-    \begin{lstlisting}[mathescape=true,caption={Reversible complex valued log function $y\mathrel{+}=\log(|x|) + i{\rm Arg}(x)$.},label={lst:complex}]
+\begin{lstlisting}[mathescape=true,caption={Reversible complex valued log function $y\mathrel{+}=\log(|x|) + i{\rm Arg}(x)$.},label={lst:complex}]
 @i function (:+=)(log)(y!::Complex{T}, x::Complex{T}) where T
     @routine begin
         n ← zero(T)
@@ -330,18 +331,23 @@ end
 \end{lstlisting}
 \end{minipage}
 
+Here, \texttt{n ← zero(T)} is the ancilla allocation statement. One can input ``$\leftarrow$'' and ``$\rightarrow$'' by typing ``$\backslash$leftarrow[TAB KEY]'' and ``$\backslash$rightarrow[TAB KEY]'' respectively in a Julia editor or REPL.
+\texttt{@routine} and \texttt{\sim @routine} are macros for computing-uncomputing. i.e. \texttt{~@routine} means running the statement after \texttt{@routine} backwards.
+One can use the \texttt{begin ... end} statement to wrap multiple statements as one.
+NiLang view every field of a variable as mutable, so that the real part (\texttt{y!.re}) and imaginary (\texttt{y!.im}) of a complex number can also be changed directly.
+
+The compilation of a reversible function to native Julia functions is consisted of three stages: \textit{preprocessing}, \textit{reversing} and \textit{translation} as shown in \Fig{fig:compiling}.
+
 \begin{figure}
     \centerline{\includegraphics[width=0.95\columnwidth,trim={0cm 0cm 0cm 0cm},clip]{compiling_v2.pdf}}
     \caption{Compiling the body of the complex valued log function defined in \Lst{lst:complex}.}\label{fig:compiling}
 \end{figure}
 
-In the \textit{preprocessing} stage, the compiler pre-processes human inputs to reversible NiLang IR.
+In the \textit{preprocessing} stage, the compiler pre-processes human inputs to the reversible NiLang IR.
 The preprocessor removes redundant grammars and expands shortcuts. In the left most code box in \Fig{fig:compiling}, one uses \texttt{@routine <stmt>} statement to record a statement, and \texttt{$\sim$@routine} to insert the corresponding inverse statement for uncomputing.
 The computing-uncomputing macros \texttt{@routine} and \texttt{$\sim$@routine} is expanded in this stage.
-Here, one can input ``$\leftarrow$'' and ``$\rightarrow$'' by typing ``$\backslash$leftarrow[TAB KEY]'' and ``$\backslash$rightarrow[TAB KEY]'' respectively in a Julia editor or REPL.
 In the \textit{reversing} stage, based on this symmetric and reversible IR, the compiler generates reversed statements.
 In the \textit{translation} stage, the compiler translates this reversible IR as well as its inverse to native Julia code. It adds \texttt{@assignback} before each function call, inserts codes for reversibility check, and handle control flows.
-We can expand the \texttt{@assignback} macro to see the compiled expression.
 As a final step, the compiler attaches a return statement that returns all updated input arguments at the end of a function definition.
 Now, the function is ready to execute on the host language.
 
@@ -361,11 +367,11 @@ In the uncomputing stage, we attach each scalar and array element with an extra 
 \begin{lstlisting}[mathescape=true]
 @i @inline function (:-=)(exp)(out!::GVar, x::GVar{T}) where T
     @routine @invcheckoff begin
-        anc1 ← zero(value(x))
-        anc1 += exp(value(x))
+        anc1 ← zero(T)
+        anc1 += exp(x.x)
     end
-    value(out!) -= identity(anc1)
-    grad(x) += grad(out!) * anc1
+    out!.x -= anc1
+    x.g += out!.g * anc1
     ~@routine
 end
 \end{lstlisting}

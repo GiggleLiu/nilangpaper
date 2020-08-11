@@ -946,8 +946,6 @@ How to solve the shared write in CUDA programming is still an open problem, whic
 \subsection{Several future directions}\label{sec:outlook}
 
 We can use NiLang to solve some existing issues related to AD.
-Reversible programming can make use of reversibility to save memory.
-Reversibility has been used in reducing the memory allocations in machine learning models such as recurrent neural networks~\cite{MacKay2018}, Hyperparameter learning~\cite{Maclaurin2015} and residual neural networks~\cite{Behrmann2018}.
 We can use it to generate AD rules for existing machine learning packages like \href{https://github.com/JuliaDiff/ReverseDiff.jl}{ReverseDiff}, Zygote~\cite{Innes2019}, Knet~\cite{Yuret2016}, and Flux~\cite{Innes2018a}.
 Many backward rules for sparse arrays and linear algebra operations have not been defined yet in these packages.
 We can also use the flexible time-space tradeoff in reversible programming to overcome the memory wall problem in some applications.
