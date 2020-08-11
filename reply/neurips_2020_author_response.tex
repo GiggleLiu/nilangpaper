@@ -31,7 +31,7 @@ e.g. People benchmarked different packages in the bundle adjustment application 
 \end{wrapfigure}
 Tapenade is $10^{3-5}$ times faster than PyTorch and TensorFlow. However Tapenade is commercial, close sourced and C/Fortran based.
 We are proud that NiLang is even better than Tapenade in this benchmark.
-We strongly recommend referees to read the ADBench paper [arXiv:1807.10129], you will find that we have chosen one of the worlds' best generic AD package as our baseline.
+If you have read the ADBench paper [arXiv:1807.10129], you will find that we have chosen one of the worlds' best generic AD package as our baseline.
 We don't benchmark the popular Julia package Flux because we benchmarked its backend Zygote instead, where NiLang shows more than one order advantage in time.
 
 Some referees are wondering if reversible computing is equivalent to traditional AD with optimized checkpointing.
