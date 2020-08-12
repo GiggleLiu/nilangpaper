@@ -208,8 +208,24 @@ In \Sec{sec:example}, we show the example codes used in the benchmarks.
 In \Sec{sec:discussion}, we discuss some important issues, the space time tradeoff, the instruction set, the gradient on ancilla problem, the shared memory problem, and also the future directions to go.
 
 \section{NiLang in Detail}\label{app:detail}
-\subsection{NiLang Grammar}\label{app:grammar}
+\subsection{NiLang Compilation}\label{app:compile}
+The compilation of a reversible function to native Julia functions is consisted of three stages: \textit{preprocessing}, \textit{reversing} and \textit{translation} as shown in \Fig{fig:compiling}.
 
+\begin{figure}
+    \centerline{\includegraphics[width=0.95\columnwidth,trim={0cm 0cm 0cm 0cm},clip]{compiling_v2.pdf}}
+    \caption{Compiling the body of the complex valued log function defined in \Lst{lst:complex}.}\label{fig:compiling}
+\end{figure}
+
+In the \textit{preprocessing} stage, the compiler pre-processes human inputs to the reversible NiLang IR.
+The preprocessor removes redundant grammars and expands shortcuts. In the left most code box in \Fig{fig:compiling}, one uses \texttt{@routine <stmt>} statement to record a statement, and \texttt{$\sim$@routine} to insert the corresponding inverse statement for uncomputing.
+The computing-uncomputing macros \texttt{@routine} and \texttt{$\sim$@routine} is expanded in this stage.
+In the \textit{reversing} stage, based on this symmetric and reversible IR, the compiler generates reversed statements.
+In the \textit{translation} stage, the compiler translates this reversible IR as well as its inverse to native Julia code. It adds \texttt{@assignback} before each function call, inserts codes for reversibility check, and handle control flows.
+As a final step, the compiler attaches a return statement that returns all updated input arguments at the end of a function definition.
+Now, the function is ready to execute on the host language.
+
+
+\subsection{NiLang Grammar}\label{app:grammar}
 To define a reversible function one can use ``@i'' plus a standard function definition like bellow
 
 \begin{minipage}{.88\columnwidth}

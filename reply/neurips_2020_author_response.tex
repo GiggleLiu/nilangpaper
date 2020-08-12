@@ -16,9 +16,9 @@
 
 \begin{document}
 
-First, thank all the reviewers for offering valuable suggestions to help to improve the writing of the paper.
-The reviewers generally agree that our paper is innovative in some aspects, but needs some improvement in the writing.
-We will keep improving our writing before the camera ready.
+First, thank all the reviewers for offering valuable suggestions to help to improve the paper and also for generally agreeing that our paper is innovative in some aspects.
+We find reviewer \#1 is more hornest than \#3 in answering question 5, our paper was badly written.
+So we decided to rewrite it and will keep improving it before the camera ready.
 
 Reviewer \#1 think our work lack the comparison to strong baselines like TensorFlow and PyTorch.
 This is not true, Tapenade is a very strong baseline in the field of \textbf{generic} AD.
@@ -35,7 +35,7 @@ We don't benchmark the popular Julia package Flux because we benchmarked its bac
 
 Reviewer \#2 is wondering if reversible computing is equivalent to traditional AD with optimized checkpointing.
 We agree that with \textit{proper coding style} and the use of reversibility, optimal checkpointing is equivalent to reversible programming.
-However, the \texttt{proper coding style} is very difficult for a user without reversible thinking in mind.
+However, the \textit{proper coding style} is very difficult for a user without reversible thinking in mind.
 In the sparse matrix dot product example in the Appendix.
 NiLang requires a user to preallocate a \texttt{branch\_keeper} to store the decisions of branches to enforce reversibility inside the loop.
 However, if a user is writing it in free style, checkpointing has to insert stack operations inside the loop, which will slow down the program significantly.
