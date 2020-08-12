@@ -356,7 +356,8 @@ end
 \section{Reversible automatic differentiation}\label{sec:bp}
 
 \subsection{First order gradient}\label{sec:jacobian}
-The instructions executed by the reversible program looks like
+If we inline all the instructions, the program would be like \Lst{lst:expand-complex}.
+The automatically generated inverse program (i.e. $(y, x) \rightarrow (y-\log(x), x)$)}) is like \Lst{lst:reversed-complex}.
 
 \begin{minipage}{.45\textwidth}
     \begin{lstlisting}[mathescape=true,caption={The expanded function body of \Lst{lst:bcast-complex}.},label={lst:expand-complex}, frame=tlrb]
@@ -396,11 +397,13 @@ N → min(length(x), length(y!))
 \end{minipage}
 
 
-Then we insert
+If we want to compute the adjoint of the complex valued \texttt{(:+=)(log)} function, one simply insert the gradient code into the reversed code in \Lst{lst:reversed-complex}.
+As show in \Lst{lst:grad-complex}, the original code is highlighted with yellow background color, they now apply on the value field (\texttt{.x}) of the input value.
+Along with these reversed code, we have inserted a bundle of extra code to update the gradient field (\texttt{.g}). \texttt{@zeros TYPE var1 var2...} is the macro to allocate multiple ancillas. Since these ``allocated'' variables are scalars, they do not really access the system memory. Its inverse operations starts with \texttt{$\sim$@zeros} returns zero emptied ancillas to the system.
 
 \begin{minipage}{.88\columnwidth}
 %\begin{multicols}{2}[\captionof{lstlisting}{Insert the gradient code into \Lst{lst:reversed-complex}.}]
-    \listingcaption{Insert the gradient code into \Lst{lst:reversed-complex}.}\label{grad-complex}}
+    \listingcaption{Insert the gradient code into \Lst{lst:reversed-complex}.}\label{lst:grad-complex}}
     \begin{lstlisting}[mathescape=true,label={lst:grad-complex}, multicols=2]
 N ← min(length(x), length(y!))
 for i=N:-1:1
@@ -458,6 +461,7 @@ end
 
 In really implementation, we utilize Julia's multiple dispatch. And ``insert'' the gradient code by overloading the basic instructions for the gradient wrapper type \texttt{GVar}.
 The same strategy has been used in the ForwardDiff package in Julia.
+Thanks to the just in time compiling technology, the above code does not run as long as it looks. Computing the gradient takes similar time as computing the complex valued log lone with Julia's builtin log function.
 
 One does not need to define a similar function on \texttt{(:+=)(log)} because macro \texttt{@i} will generate it automatically. Notice that taking inverse and computing gradients commute~\cite{Mcinerney2015}.
 
