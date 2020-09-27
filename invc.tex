@@ -210,11 +210,11 @@ Department of Computer Science, University of Tsukuba\\
 \maketitle
 
 \begin{abstract}
-Reverse-mode automatic differentiation (AD) suffers from the issue of having too much space overhead in order to trace back intermediate computational states for back propagation.
-The traditional method to trace back states is called checkpointing that stores intermedite states into a global stack and restore state through either stack pop or re-computing.
-The overhead of stack manipulations and re-computing makes the general purposed (or not tensor based) AD engines unable to meet many industrial needs.
-Instead of checkpointing, we propose to use reverse computing to trace back states by designing and implementing a reversible programming eDSL, where a program can be executed bi-directionally without implicit stack operations. The absence of implicit stack operations make the program compatible with existing compiler features, including utilizing existing optimization passes and compiling the code as GPU kernels.
-We implement AD for sparse matrix operations and some machine learning applications to show that the performance our framework has the state-of-the-art performance.
+Reverse-mode automatic differentiation (AD) suffers from the issue of having too much space overhead to trace back intermediate computational states for backpropagation.
+The traditional method to trace back states is called checkpointing that stores intermediate states into a global stack and restore state through either stack pop or re-computing.
+The overhead of stack manipulations and re-computing makes the general purposed (not tensor-based) AD engines unable to meet many industrial needs.
+Instead of checkpointing, we propose to use reverse computing to trace back states by designing and implementing a reversible programming eDSL, where a program can be executed bi-directionally without implicit stack operations. The absence of implicit stack operations makes the program compatible with existing compiler features, including utilizing existing optimization passes and compiling the code as GPU kernels.
+We implement AD for sparse matrix operations and some machine learning applications to show that the performance of our framework has state-of-the-art performance.
 \end{abstract}
 
 %\begin{multicols}{2}
@@ -248,61 +248,72 @@ Meanwhile, one can also utilize the reversibility to reverse the program without
 
 \section{Language design}\label{sec:lang}
 
-\subsection{An introduction to the reversible language design}
-
-\subsubsection{Reversible memory management}
-    A distinct feature of reversible memory management is that the content of a variable must be known when it is deallocated.
-    We denote the allocation of a zero emptied memory as \texttt{x $\leftarrow$ 0}, and the corresponding deallocation as \texttt{x $\rightarrow$ 0}.
-    If a variable is allocated and deallocated in a local scope, we call it an ancilla.
-    A variable can also be pushed to a stack and used later with a pop statement.
-    %A reversible stack is different in that it zero-clears the variable after pushing and presupposes that the variable being zero-cleared before popping.
-%Knowing the contents in the memory when deallocating is not easy. Hence Charles H. Bennett introduced the famous compute-copy-uncompute paradigm~\cite{Bennett1973} for reversible programming.
-
-\subsubsection{Reversible control flows}
-One can define reversible \texttt{if}, \texttt{for} and \texttt{while} statements in a reversible program.
-\Fig{fig:controlflow} (a) shows the flow chart of executing the reversible \texttt{if} statement. There are two condition expressions in this chart, a precondition and a postcondition. The precondition decides which branch to enter in the forward execution. After executing the specific branch, the program checks the consistency between precondition and postcondition to make sure they are consistent. To reverse this statement, one can exchange the precondition and postcondition, and reverse the expressions in both branches.
-\Fig{fig:controlflow} (b) shows the flow chart of the reversible \texttt{while} statement. There are also two conditions expressions. Before executing the condition expressions, the program preassumes the postcondition is false.
-After each iteration, the program asserts the postcondition to be true. To reverse this statement, one can exchange the precondition and postcondition, and reverse the body statements.
-The reversible \texttt{for} statement is similar to the irreversible one except that after execution, the program will assert the iterator to be unchanged. To reverse this statement, one can exchange \texttt{start} and \texttt{stop} and inverse the sign of \texttt{step}.
-\begin{figure}
-    \centerline{\includegraphics[width=0.9\columnwidth,trim={0 0cm 0 0cm},clip]{controlflow_v2.pdf}}
-    \caption{The flow chart for reversible (a) \texttt{if} statement and (b) \texttt{while} statement. ``pre'' and ``post'' represents precondition and postconditions respectively.}\label{fig:controlflow}
-\end{figure}
-
-\subsubsection{Reversible arithmetic instructions}
-    Mathematically, a irreversilbe mapping \texttt{y = f(args...)} can be trivially transfromed to its reversible form \texttt{y += f(args...)} or \texttt{y $\veebar$= f(args...)} ($\veebar$ is the bitwise \texttt{XOR}), where \texttt{y} is a pre-emptied variable. But in numeric computing with finite precision, this is not the whole story, because the reversibility of arithmetic instruction is closely related to the number system.
-    For integer and fixed point number system, \texttt{y += f(args...)} and \texttt{y -= f(args...)} are rigorously reversible. For logarithmic number system and tropical number system~\cite{Speyer2009}, \texttt{y *= f(args...)} and \texttt{y /= f(args...)} as reversible (not introducing the zero element). While for floating point numbers, none of the above operations are regorously reversible. However, for convenience, we ignore the rounding errors in floating point \texttt{+} and \texttt{-} operations and treat them on equal footing with fixed point numbers in the following discussion.
-Besides the above operations, \texttt{SWAP} operation that exchanges the values of two variables is also widely used in reversible programming.
-
-\subsection{NiLang, a reversible eDSL suited for scientific computing}
-In the introduction, we introduced some reversible programming languages. These languages lacks essential components for scientific programming like arrays and complex numbers. Meanwhile most of them are designed as a stand alone language that can not be embeded in other machine learning frameworks.
+In the introduction, we have introduced several reversible programming languages. These languages lacks essential components for scientific programming like arrays and complex numbers, while none of them can be embeded in other machine learning frameworks easily.
 Hence we developped an embedded domain-specific language (eDSL) NiLang on top of the host language language Julia~\cite{Bezanson2012,Bezanson2017}.
-Julia is a popular language for scientific programming and machine learning. We choose Julia because the speed is our primary concern. Julia is a language with high abstraction, however, its clever design of type inference and just in time compiling make it has a C like speed.
+Julia is a popular language for scientific programming and machine learning. We choose Julia mainly for speed. Julia is a language with high abstraction, however, its clever design of type inference and just in time compiling make it has a C like speed.
 Also, it has rich features for meta-programming, and the package for pattern matching \href{https://github.com/thautwarm/MLStyle.jl}{MLStyle} allows us to define an eDSL compiler in less than 2000 lines.
 Comparing with a regular reversible programming language, NiLang features array operations, rich number systems including floating point number, complex number, fixed point number and logarithmic number.
 Besides the above nice features, it also has some "bad" features to meet the practical needs. For example, it views the floating point $\mathrel{+}$ and $\mathrel{-}$ operations as reversible. It also allows user to extend instruction sets and sometimes inserting external statements. These features are not compatible with future reversible hardwares.
 By the time of writting, the version of NiLang is v0.7.2.
 
-Let's start learning it by defining a reversible adder.
+\subsection{Reversible functions and arithmetic instructions}
+    Mathematically, a irreversilbe mapping \texttt{y = f(args...)} can be trivially transfromed to its reversible form \texttt{y += f(args...)} or \texttt{y $\veebar$= f(args...)} ($\veebar$ is the bitwise \texttt{XOR}), where \texttt{y} is a pre-emptied variable. But in numeric computing with finite precision, this is not the whole story, because the reversibility of arithmetic instruction is closely related to the number system.
+    For integer and fixed point number system, \texttt{y += f(args...)} and \texttt{y -= f(args...)} are rigorously reversible. For logarithmic number system and tropical number system~\cite{Speyer2009}, \texttt{y *= f(args...)} and \texttt{y /= f(args...)} as reversible (not introducing the zero element). While for floating point numbers, none of the above operations are regorously reversible. However, for convenience, we ignore the rounding errors in floating point \texttt{+} and \texttt{-} operations and treat them on equal footing with fixed point numbers in the following discussion.
+Besides the above operations, \texttt{SWAP} operation that exchanges the values of two variables is also widely used in reversible programming.
+
+The following code defines a reversible multiplier.
 
 \begin{minipage}{.88\columnwidth}
-\begin{lstlisting}[mathescape=true,caption={A reversible adder},label={lst:adder}]
-@i function adder(y!::Real, x::Real)
-    y! += x
-end
+\begin{lstlisting}[mathescape=true,caption={A reversible mutiplier},label={lst:mutiplier}]
+julia> using NiLang
 
-@assert adder(2, 3) == (5, 3)
-@assert (~adder)(5, 3) == (2, 3)
+julia> @i function multiplier(y!::Real, a::Real, b::Real)
+           y! += a * b
+       end
+
+julia> multiplier(2, 3, 5)
+(17, 3, 5)
+
+julia> (~multiplier)(17, 3, 5)
+(2, 3, 5)
 \end{lstlisting}
 \end{minipage}
 
-Macro \texttt{@i} generates two functions that reversible to each other \texttt{adder} and \texttt{$\sim$adder}, each defines a mapping $\mathbb{R}^2 \rightarrow \mathbb{R}^2$. The $!$ after a symbol is a part of the name to indicate that a variable is changed.
-A reversible $\mathrel{+}=$ instruction is always defined as \texttt{y += f(args...)}, where \texttt{f} is a mapping that allows to be irreversible, or just leave empty for identity mapping.
-We can easily check these two functions are reversible to each other.
-Then let's see a more advanced example of computing the complex valued log (a built in function).
+Macro \texttt{@i} generates two functions that are reversible to each other \texttt{multiplier} and \texttt{$\sim$multiplier}, each defines a mapping $\mathbb{R}^3 \rightarrow \mathbb{R}^3$. The $!$ after a symbol is a part of the name, as a convension to indicate that this variable is changed.
+
+\subsection{Reversible memory management}
+    A distinct feature of reversible memory management is that the content of a variable must be known when it is deallocated.
+    We denote the allocation of a zero emptied memory as \texttt{x $\leftarrow$ 0}, and the corresponding deallocation as \texttt{x $\rightarrow$ 0}.
+    A variable can also be pushed to a stack and used later with a pop statement.
+    If a variable is allocated and deallocated in a local scope, we call it an ancilla.
+    %A reversible stack is different in that it zero-clears the variable after pushing and presupposes that the variable being zero-cleared before popping.
+%Knowing the contents in the memory when deallocating is not easy. Hence Charles H. Bennett introduced the famous compute-copy-uncompute paradigm~\cite{Bennett1973} for reversible programming.
+
+The following code defines the complex valued log.
 
 \begin{minipage}{.88\columnwidth}
 \begin{lstlisting}[mathescape=true,caption={Reversible complex valued log function $y\mathrel{+}=\log(|x|) + i{\rm Arg}(x)$.},label={lst:complex}]
+@i @inline function (:+=)(log)(y!::Complex{T}, x::Complex{T}) where T
+    n ← zero(T)
+    n += abs(x)
+
+    y!.re += log(n)
+    y!.im += angle(x)
+
+    n -= abs(x)
+    n → zero(T)
+end
+\end{lstlisting}
+\end{minipage}
+
+Here, the macro \texttt{@inline} tells the compiler that this function can be inlined. One can input ``$\leftarrow$'' and ``$\rightarrow$'' by typing ``$\backslash$leftarrow[TAB KEY]'' and ``$\backslash$rightarrow[TAB KEY]'' respectively in a Julia editor or REPL.
+NiLang does not have immutable structs, so that the real part \texttt{y!.re} and imaginary \texttt{y!.im} of a complex number can be changed directly.
+It is easy to verify that the bottom two lines in the function body are the reverse of the top two lines. We call the bottom two lines \textit{uncomputes} the top two lines.
+The motivation is to zero clear the contents in ancilla \texttt{n} so that it can be deallocated correctly.
+\textit{Compute-copy-uncompute} is a useful design pattern in reversible programming so that we created a pair of macros \texttt{@routine} and \texttt{$\sim$@routine} for it. One can rewrite the above function as the following.
+
+\begin{minipage}{.88\columnwidth}
+    \begin{lstlisting}[mathescape=true,caption={Compute-copy-uncompute version of \Lst{lst:complex}},label={lst:complex2}]
 @i @inline function (:+=)(log)(y!::Complex{T}, x::Complex{T}) where T
     @routine begin
         n ← zero(T)
@@ -315,12 +326,19 @@ end
 \end{lstlisting}
 \end{minipage}
 
-Here, the macro \texttt{@inline} tells the compiler that this function can be inlined. \texttt{n ← zero(T)} is the ancilla allocation statement. One can input ``$\leftarrow$'' and ``$\rightarrow$'' by typing ``$\backslash$leftarrow[TAB KEY]'' and ``$\backslash$rightarrow[TAB KEY]'' respectively in a Julia editor or REPL.
-\texttt{@routine} and \texttt{$\sim$@routine} are macros for computing and uncomputing. i.e. \texttt{$\sim$@routine} means running the statement marked with \texttt{@routine} backwards.
-One can use the \texttt{begin ... end} statement to wrap multiple statements as one.
-NiLang view every field of a variable as mutable, so that the real part (\texttt{y!.re}) and imaginary (\texttt{y!.im}) of a complex number can also be changed directly.
+\subsection{Reversible control flows}
+One can define reversible \texttt{if}, \texttt{for} and \texttt{while} statements in a reversible program.
+\Fig{fig:controlflow} (a) shows the flow chart of executing the reversible \texttt{if} statement. There are two condition expressions in this chart, a precondition and a postcondition. The precondition decides which branch to enter in the forward execution. After executing the specific branch, the program checks the consistency between precondition and postcondition to make sure they are consistent. To reverse this statement, one can exchange the precondition and postcondition, and reverse the expressions in both branches.
+\Fig{fig:controlflow} (b) shows the flow chart of the reversible \texttt{while} statement. There are also two conditions expressions. Before executing the condition expressions, the program preassumes the postcondition is false.
+After each iteration, the program asserts the postcondition to be true. To reverse this statement, one can exchange the precondition and postcondition, and reverse the body statements.
+The reversible \texttt{for} statement is similar to the irreversible one except that after execution, the program will assert the iterator to be unchanged. To reverse this statement, one can exchange \texttt{start} and \texttt{stop} and inverse the sign of \texttt{step}.
+\begin{figure}
+    \centerline{\includegraphics[width=0.9\columnwidth,trim={0 0cm 0 0cm},clip]{controlflow_v2.pdf}}
+    \caption{The flow chart for reversible (a) \texttt{if} statement and (b) \texttt{while} statement. ``pre'' and ``post'' represents precondition and postconditions respectively.}\label{fig:controlflow}
+\end{figure}
 
 We can want to apply this \texttt{log} function to an array, we can define
+
 \begin{minipage}{.88\columnwidth}
 \begin{lstlisting}[mathescape=true,caption={Applying the log function to an array.},label={lst:bcast-complex}]
 @i function broadcasted_log!(y!::Array{Complex{T}, N}, x::Array{Complex{T}, N}) where T
