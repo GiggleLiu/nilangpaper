@@ -472,130 +472,161 @@ Even in cases where allocation inside the loop can not be avoided, reversible pr
 
 \section{Reversible automatic differentiation}\label{sec:bp}
 
-\subsection{First order gradient}\label{sec:jacobian}
-If we inline all the instructions, the program would be like \Lst{lst:expand-complex}.
+\subsection{Back propagation}\label{sec:jacobian}
+To back propagate the program, we first reverse the code through source code transformation, and then insert the gradient code through operator overloading.
+If we inline all the instructions in \Lst{lst:complex2}, the program would be like \Lst{lst:expand-complex}.
 The automatically generated inverse program (i.e. $(y, x) \rightarrow (y-\log(x), x)$)}) is like \Lst{lst:reversed-complex}.
 
 \begin{minipage}{.45\textwidth}
-    \begin{lstlisting}[mathescape=true,caption={The expanded function body of \Lst{lst:bcast-complex}.},label={lst:expand-complex}, frame=tlrb]
-N ← min(length(x), length(y!))
-for i=1:N
-    @routine begin
-        nsq ← zero(T)
-        n ← zero(T)
-        nsq += x[i].re ^ 2
-        nsq += x[i].im ^ 2
-        n += sqrt(nsq)
-    end
-    y![i].re += log(n)
-    y![i].im += atan(x[i].im, x[i].re)
-    ~@routine
+\begin{lstlisting}[mathescape=true,caption={The function body of \Lst{lst:complex2}.},label={lst:expand-complex}, frame=tlrb]
+@routine begin
+    nsq ← zero(T)
+    n ← zero(T)
+    nsq += x[i].re ^ 2
+    nsq += x[i].im ^ 2
+    n += sqrt(nsq)
 end
-N → min(length(x), length(y!))
+y![i].re += log(n)
+y![i].im += atan(x[i].im, x[i].re)
+~@routine
 \end{lstlisting}
 \end{minipage}\hfill
 \begin{minipage}{.45\textwidth}
     \begin{lstlisting}[mathescape=true,caption={The inverse of \Lst{lst:expand-complex}.},label={lst:reversed-complex}, frame=tlrb]
-N ← min(length(x), length(y!))
-for i=N:-1:1
-    @routine begin
-        nsq ← zero(T)
-        n ← zero(T)
-        nsq += x[i].re ^ 2
-        nsq += x[i].im ^ 2
-        n += sqrt(nsq)
-    end
-    y![i].re -= log(n)
-    y![i].im -= atan(x[i].im, x[i].re)
-    ~@routine
+@routine begin
+    nsq ← zero(T)
+    n ← zero(T)
+    nsq += x[i].re ^ 2
+    nsq += x[i].im ^ 2
+    n += sqrt(nsq)
 end
-N → min(length(x), length(y!))
+y![i].re -= log(n)
+y![i].im -= atan(x[i].im, x[i].re)
+~@routine
 \end{lstlisting}
 \end{minipage}
 
 
 To compute the adjoint of the computational process in \Lst{lst:expand-complex}, one simply insert the gradient code into its inverse in \Lst{lst:reversed-complex}.
-The resulting code is show in \Lst{lst:grad-complex}, the original arithmetic instructions are highlighted with yellow background color, they now apply on the value field (\texttt{.x}) of the input value.
-Along with these reversed code, we have inserted a bundle of extra code to update the gradient field (\texttt{.g}). \texttt{@zeros TYPE var1 var2...} is the macro to allocate multiple ancillas. Since these ``allocated'' variables are scalars, they do not really access the system memory. Its inverse operations starts with \texttt{$\sim$@zeros} returns zero emptied ancillas to the system.
+The resulting inlined code is show in \Lst{lst:grad-complex}.
 
 \begin{minipage}{.88\columnwidth}
-%\begin{multicols}{2}[\captionof{lstlisting}{Insert the gradient code into \Lst{lst:reversed-complex}.}]
-    \listingcaption{Insert the gradient code into \Lst{lst:reversed-complex}.}\label{lst:grad-complex}
-    \begin{lstlisting}[mathescape=true,label={lst:grad-complex}, multicols=2]
-N ← min(length(x), length(y!))
-for i=N:-1:1
-   @routine begin
-       nsq ← zero(GVar{T,T})
-       n ← zero(GVar{T,T})
+\listingcaption{Insert the gradient code into \Lst{lst:reversed-complex}, codes highlighted with yellow background are for uncomputing.}\label{lst:grad-complex}
+\begin{lstlisting}[mathescape=true,label={lst:grad-complex}, multicols=2]
+@routine begin
+   nsq ← zero(GVar{T,T})
+   n ← zero(GVar{T,T})
 
-       gsqa ← zero(T)
-       gsqa += x[i].re.x * 2
-       x[i].re.g -= gsqa * nsq.g
-       gsqa -= nsq.x * 2
-       gsqa -= x[i].re.x * 2
-       gsqa → zero(T)
-       $\text{\colorbox{yellow}{nsq.x += x[i].re.x \textasciicircum 2}} $
+   gsqa ← zero(T)
+   gsqa += x[i].re.x * 2
+   x[i].re.g -= gsqa * nsq.g
+   gsqa -= nsq.x * 2
+   gsqa -= x[i].re.x * 2
+   gsqa → zero(T)
+   $\text{\colorbox{yellow}{nsq.x += x[i].re.x \textasciicircum 2}} $
 
-       gsqb ← zero(T)
-       gsqb += x[i].im.x * 2
-       x[i].im.g -= gsqb * nsq.g
-       gsqb -= x[i].im.x * 2
-       gsqb → zero(T)
-       $\text{\colorbox{yellow}{nsq.x += x[i].im.x \textasciicircum 2}} $
+   gsqb ← zero(T)
+   gsqb += x[i].im.x * 2
+   x[i].im.g -= gsqb * nsq.g
+   gsqb -= x[i].im.x * 2
+   gsqb → zero(T)
+   $\text{\colorbox{yellow}{nsq.x += x[i].im.x \textasciicircum 2}} $
 
-       @zeros T ra rb
-       ra += sqrt(nsq.x)
-       rb += 2 * ra
-       nsq.g -= n.g / rb
-       rb -= 2 * ra
-       ra -= sqrt(nsq.x)
-       ~@zeros T ra rb
-       $\text{\colorbox{yellow}{n.x += sqrt(nsq.x)}} $
-   end
+   @zeros T ra rb
+   rta += sqrt(nsq.x)
+   rb += 2 * ra
+   nsq.g -= n.g / rb
+   rb -= 2 * ra
+   ra -= sqrt(nsq.x)
+   ~@zeros T ra rb
+   $\text{\colorbox{yellow}{n.x += sqrt(nsq.x)}} $
+end
 
-   $\text{\colorbox{yellow}{y![i].re.x -= log(n.x)}} $
-   n.g += y![i].re.g / n.x
+$\text{\colorbox{yellow}{y![i].re.x -= log(n.x)}} $
+n.g += y![i].re.g / n.x
 
-   $\text{\colorbox{yellow}{y![i].im.x-=atan(x[i].im.x,x[i].re.x)}} $
-   @zeros T xy2 jac_x jac_y
-   xy2 += abs2(x[i].re.x)
-   xy2 += abs2(x[i].im.x)
-   jac_y += x[i].re.x / xy2
-   jac_x += (-x[i].im.x) / xy2
-   x[i].im.g += y![i].im.g * jac_y
-   x[i].re.g += y![i].im.g * jac_x
-   jac_x -= (-x[i].im.x) / xy2
-   jac_y -= x[i].re.x / xy2
-   xy2 -= abs2(x[i].im.x)
-   xy2 -= abs2(x[i].re.x)
-   ~@zeros T xy2 jac_x jac_y
+$\text{\colorbox{yellow}{y![i].im.x-=atan(x[i].im.x,x[i].re.x)}} $
+@zeros T xy2 jac_x jac_y
+xy2 += abs2(x[i].re.x)
+xy2 += abs2(x[i].im.x)
+jac_y += x[i].re.x / xy2
+jac_x += (-x[i].im.x) / xy2
+x[i].im.g += y![i].im.g * jac_y
+x[i].re.g += y![i].im.g * jac_x
+jac_x -= (-x[i].im.x) / xy2
+jac_y -= x[i].re.x / xy2
+xy2 -= abs2(x[i].im.x)
+xy2 -= abs2(x[i].re.x)
+~@zeros T xy2 jac_x jac_y
 
-   ~@routine
+~@routine
+\end{lstlisting}
+\end{minipage}
+
+Here, \texttt{@zeros TYPE var1 var2...} is the macro to allocate multiple variables of the same type. Its inverse operations starts with \texttt{$\sim$@zeros} deallocates zero emptied variables.
+In practise, This transfromation is achieved not by source code transformation, but by changing the element type to \texttt{GVar} that containing two fields, value \texttt{x} and gradient \texttt{g}.
+With multiple dispatching primitive instructions on this new type, values and gradients can be updated simultaneously.
+Although the code looks much longer, the computing time (with reversibility check closed) is not.
+
+\begin{minipage}{.88\textwidth}
+\begin{lstlisting}[mathescape=true,caption={Time and allocation to differentiate complex valued log.},label={lst:time-complex}, frame=tlrb]
+julia> @inline function (ir_log)(x::Complex{T}) where T
+           log(abs(x)) + im*angle(x)
+       end
+
+julia> @btime ir_log(x) setup=(x=1.0+1.2im); # native code
+  30.097 ns (0 allocations: 0 bytes)
+
+julia> @btime (@instr y += log(x)) setup=(x=1.0+1.2im; y=0.0+0.0im); # reversible code
+  17.542 ns (0 allocations: 0 bytes)
+
+julia> @btime (@instr ~(y += log(x))) setup=(x=GVar(1.0+1.2im, 0.0+0.0im); y=GVar(0.1+0.2im, 1.0+0.0im)); # adjoint code
+  25.932 ns (0 allocations: 0 bytes)
+\end{lstlisting}
+\end{minipage}
+
+The performance is unreasonably good because the generated Julia code is further compiled to LLVM so that it can enjoy existing optimization passes.
+For example, the optimization passes can find out that for a irreversible device, uncomputing local variables \texttt{n} and \texttt{nsq} has no effect the to return values, so that it will skip the uncomputing pass automatically.
+This is in contrast with the traditional approaches that focus a lot on data caching optimization.
+NiLang's code is favorable to compilers because it does not rely on the global stack to reverse the code.
+In this case, we also see the boundary between source code transformation and operator overloading can be vague.
+
+One can define the adjoint of a primitive instruction as a reversible function either on the function itself or its inverse rather than defining them seperately, because the adjoint program of reversible functions are reversible to each other too.
+\begin{align}
+    f: (\vec x, \vec g_x) &\rightarrow (\vec y, \frac{\partial \vec y}{\partial \vec x}\vec g_x)\\
+    f^{-1}: (\vec y, \vec g_y) &\rightarrow (\vec x, \frac{\partial \vec x}{\partial \vec y}\vec g_y)
+\end{align}
+It can be easily verified by applying the above two mappings concequtively, which turns out to be an identity mapping considering $\frac{\partial \vec y}{\partial \vec x} \frac{\partial \vec x}{\partial \vec y} = \mathbbm{1}$.
+As an example, the joint functions for primitive instructions \texttt{(:+=)(sqrt)} and \texttt{(:-=)(sqrt)} used above can be defined as in \Lst{lst:sqrt}.
+
+\begin{minipage}{.88\textwidth}
+    \begin{lstlisting}[mathescape=true,caption={Adjoints for primitive instructions \texttt{(:+=)(sqrt)} and \texttt{(:-=)(sqrt)}.},label={lst:sqrt}, frame=tlrb]
+@i @inline function (:-=)(sqrt)(out!::GVar, x::GVar{T}) where T
+    @routine @invcheckoff begin
+        @zeros T a b
+        a += sqrt(x.x)
+        b += 2 * a
+    end
+    out!.x -= a
+    x.g += out!.g / b
+    ~@routine
 end
 \end{lstlisting}
 \end{minipage}
 
-
-In really implementation, instead of inserting codes directly, we utilize Julia's multiple dispatch and ``insert'' the gradient code by overloading the basic instructions for the wrapper type \texttt{GVar}.
-The same strategy has been used in the ForwardDiff package in Julia.
-Thanks to the just in time compiling technology, the above code does not run as long as it looks. Computing the gradient takes similar time as computing the complex valued log with Julia's builtin log function alone.
-One does not need to define gradient function for the inversed program in \Lst{lst:reversed-complex}, because taking inverse and computing gradients commute~\cite{Mcinerney2015}. Hence, we can simply reverse the gradient function in \Lst{lst:grad-complex}.
-
 \subsection{Hessians}
 Combining forward mode AD and reverse mode AD is a simple yet efficient way to obtain Hessians.
-By wrapping the elementary type with \texttt{Dual} defined in package ForwardDiff~\cite{Revels2016} and throwing it into the gradient program defined in NiLang,
-one obtains one row/column of the Hessian matrix straightforward.
-We will examplify it in a benchmark in \Sec{sec:graphbench}.
+By wrapping the elementary type with \texttt{Dual} defined in package ForwardDiff~\cite{Revels2016} and throwing it into the gradient program defined in NiLang, one obtains one row/column of the Hessian matrix.
+We will use this approach to compute Hessians in the graph embeding benchmark in \Sec{sec:graphbench}.
 
 \subsection{CUDA kernels}
 CUDA programming is playing a significant role in high-performance computing. In Julia, one can write GPU compatible functions in native Julia language with \href{https://github.com/JuliaGPU/KernelAbstractions.jl}{KernelAbstractions}~\cite{Besard2018}.
 Since NiLang does not push variables into stack automatically for users, it is safe to write differentiable GPU kernels with NiLang.
-We will show this feature in the benchmarks of bundle adjustment (BA) in \Sec{sec:ba}.
-Here, one should notice that the shared read in forward pass will become shared write in the backward pass, which may result in incorrect gradients. We will review this issue in the supplimentary material.
+We will differentiate CUDA kernels with no more than extra 10 lines in the bundle adjustment (BA) benchmark in \Sec{sec:ba}.
 
 \section{Benchmarks}\label{sec:benchmark}
 
-It is interesting to see how does our framework comparing with the state-of-the-art GP-AD frameworks, including source code transformation based Tapenade and Zygote and operator overloading based ForwardDiff and ReverseDiff.
+We benchmark our framework with the state-of-the-art GP-AD frameworks, including source code transformation based Tapenade and Zygote and operator overloading based ForwardDiff and ReverseDiff. 
 Since most DS-AD packages like famous Tensorflow and Pytorch are not dessigned for the using cases used in our benchmarks, we do not include those package to avoid an unfair comparison.
 In the following benchmarks, the CPU device is Intel(R) Xeon(R) Gold 6230 CPU @ 2.10GHz, and the GPU device is Nvidia Titan V.
 % the GPU time is estimated by broadcasting the gradient function on CUDA array of size $2^{17}$ and taking the average.
@@ -744,6 +775,7 @@ The strangeness of the reversible programming style is due mainly to our lack of
 The main limitation of NiLang is using floating point number might cause the accumulation of rounding errors.
 A better number system for a reversible programming language might be a combination of fixed point numbers and logarithmic numbers.
 Most analytic functions can be computed by Taylor explasion with constant memory and time overhead. One can see supplimentary material for an example of computing the Bessel function.
+In the previous text, we use NiLang to differentiate CUDA kernel functions, one should notice that the shared read in the forward pass will become shared write in the adjoint pass when updating the gradient fields, which may result in incorrect gradients.
 
 \section*{Broader Impact}
 Our automatic differentiation in a reversible eDSL brings the field of reversible computing to the modern context. We believe it will be accepted by the public to meet current scientific automatic differentiation needs and aim for future energy-efficient reversible devices.
