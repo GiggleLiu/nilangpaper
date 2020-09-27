@@ -150,7 +150,6 @@
 \newcommand{\Eq}[1]{Eq.~(\ref{#1})}
 \newcommand{\Fig}[1]{Fig.~\ref{#1}}
 \newcommand{\Lst}[1]{Listing.~\ref{#1}}
-\newcommand{\Ref}[1]{Ref.~\cite{#1}}
 \newcommand{\Tbl}[1]{Table~\ref{#1}}
 \newcommand{\Sec}[1]{Sec.~\ref{#1}}
 \newcommand{\App}[1]{Appendix \ref{#1}}
@@ -555,7 +554,7 @@ Finally, after checking the correctness of the program, one can turn off the rev
 \subsection{The first kind Bessel function}\label{sec:bessel}
 A Bessel function of the first kind of order $\nu$ can be computed via Taylor expansion
 \begin{equation}
-    J_\nu(z) = \sum\limits_{n=0}^{\infty} \frac{(z/2)^\nu}{\Gamma(k+1)\Gamma(k+\nu+1)} (-z^2/4)^{n}
+    J_\nu(z) = \sum\limits_{n=0}^{\infty} \frac{(z/2)^\nu}{\Gamma(\nu+1)\Gamma(k+\nu+1)} (-z^2/4)^{n}
 \end{equation}
 where $\Gamma(n) = (n-1)!$ is the Gamma function. One can compute the accumulated item iteratively as $s_n = -\frac{z^2}{4} s_{n-1}$. The irreversible implementation is
 
@@ -598,98 +597,53 @@ A computational graph is more likely a mathematical expression. It can not descr
     }\label{fig:cgraphs}
 \end{figure*}
 
-Before showing the reversible implementation, we introduce how to obtain the product of a sequence of numbers reversibly.
-Consecutive multiplication requires an increasing size of tape to cache an intermediate state $x_1 x_2 \ldots x_n$, since one can not deallocate the previous state $x_1 x_2 \ldots x_{n-1}$ directly since \texttt{*=} and \texttt{/=} are not considered as reversible here.
-To mitigate the space overhead, the standard approach in reversible computing is the pebble game model~\cite{Perumalla2013} (or the checkpointing technique in machine learning),
-where the cache size can be reduce in the cost of increasing the time complexity, however, constant cache size is not achievable in this scheme.
-Hence, we introduce the following reversible approximate multiplier.
-
-\begin{minipage}{.88\columnwidth}
-    \begin{lstlisting}[numberstyle=\scriptsize\color{gray},numbers=left,numbersep=8pt]
-@i @inline function imul(out!, x, anc!)
-    anc! += out! * x
-    out! -= anc! / x
-    SWAP(out!, anc!)
-end
-\end{lstlisting}
-\end{minipage}
-
-Here, the third argument $\texttt{anc!}$ is a \textit{dirty ancilla}, which should be a value $\approx 0$.
-Line 2 computes the result and accumulates it to the dirty ancilla, so that we have an approximate output in \texttt{anc!}.
-Line 3 removes the content in \texttt{out!} approximately using the information stored in \texttt{anc!}.
-Line 4 swaps the contents in \texttt{out!} and \texttt{anc!}.
-Finally, we have an approximate output and a dirtier ancilla.
-%The ``approximate uncomputing'' trick can be extensively used in practice. It mitigates the artificial irreversibility brought by the number system that we have adopted at the cost of output precision.
-The reason why this trick works here lies in the fact that \texttt{*=} and \texttt{/=} are mathematically reversible (except the zero point) to each other.
-One can approximately uncomputing the contents in the register at the cost of rounding errors.
-This rounding error introduced in such a way only affects the function output, and does not sacrifice the reversibility.
-With this approximate multiplier, we implement the reversible $J_\nu$ as follows.
+With the logarithmic number system, we implement the reversible $J_\nu$ as follows.
 
 \begin{minipage}{\columnwidth}
 \begin{lstlisting}[multicols=2]
-using NiLang, NiLang.AD
-
-@i function ibesselj(out!, ν, z; atol=1e-8)
-    k ← 0
-    fact_nu ← zero(ν)
-    halfz ← zero(z)
-    halfz_power_nu ← zero(z)
-    halfz_power_2 ← zero(z)
-    out_anc ← zero(z)
-    anc1 ← zero(z)
-    anc2 ← zero(z)
-    anc3 ← zero(z)
-    anc4 ← zero(z)
-    anc5 ← zero(z)
-
-    @routine begin
-        halfz += z / 2
-        halfz_power_nu += halfz ^ ν
-        halfz_power_2 += halfz ^ 2
-        ifactorial(fact_nu, ν)
-
-        anc1 += halfz_power_nu/fact_nu
-        out_anc += identity(anc1)
-        while (abs(unwrap(anc1))>atol && abs(unwrap(anc4)) < atol, k!=0)
-            k += identity(1)
-            @routine begin
-                anc5 += identity(k)
-                anc5 += identity(ν)
-                anc2 -= k * anc5
-                anc3 += halfz_power_2 / anc2
-            end
-            imul(anc1, anc3, anc4)
-            out_anc += identity(anc1)
-            ~@routine
-        end
-    end
-    out! += identity(out_anc)
-    ~@routine
-end
-
-@i function ifactorial(out!, n)
-    anc ← zero(n)
-    out! += identity(1)
-    for i=1:n
-        imul(out!, i, anc)
-    end
-end
-
-@i @inline function imul(out!::T, x::T, anc!::T) where T<:Integer
-    anc! += out! * x
-    out! -= anc! ÷ x
-    SWAP(out!, anc!)
+@i function ibesselj(y!::T, ν, z::T; atol=1e-8) where T
+	if z == 0
+		if v == 0
+			out! += 1
+		end
+	else
+		@routine @invcheckoff begin
+			k ← 0
+			@ones ULogarithmic{T} lz halfz halfz_power_2 s
+			@zeros T out_anc
+			lz *= convert(z)
+			halfz *= lz / 2
+			halfz_power_2 *= halfz ^ 2
+			# s *= (z/2)^ν/ factorial(ν)
+			s *= halfz ^ ν
+			for i=1:ν
+				s /= i
+			end
+			out_anc += convert(s)
+			while (s.log > -25, k!=0) # upto precision e^-25
+				k += 1
+				# s *= 1 / k / (k+ν) * (z/2)^2
+				s *= halfz_power_2 / (k*(k+ν))
+				if k%2 == 0
+					out_anc += convert(s)
+				else
+					out_anc -= convert(s)
+				end
+			end
+		end
+		y! += out_anc
+		~@routine
+	end
 end
 \end{lstlisting}
 \end{minipage}
 
-The above algorithm uses a constant number of ancillas, while the time overhead is also a constant factor.
-Ancilla \texttt{anc4} plays the role of \textit{dirty ancilla} in multiplication, and it is uncomputed rigorously in the uncomputing stage marked by \texttt{$\sim$@routine}.
+The above algorithm uses a constant number of ancillas, while the time overhead is also a constant.
 This reversible program can be diagrammatically represented as a memory oriented computational graph as shown in \Fig{fig:cgraphs} (b).
-This diagram can be used to analyze variables uncomputing. In this example, routine ``B'' uses \texttt{hz\_2}, \texttt{$\nu$} and \texttt{k} as control parameters, and changes the contents in \texttt{anc2}, \texttt{anc3} and \texttt{anc5}.
-The following \texttt{imul} and \texttt{(:+=)(identity)} copies the result to output without changing these variables.
-Hence we can apply the inverse routine \texttt{$\sim$B} to safely restore contents in \texttt{anc2}, \texttt{anc3} and \texttt{anc5}, and this examplifies the compute-copy-uncompute paradigm.
+This diagram can be used to analyze variables uncomputing.
+%So far, the coversion between logarithmic system and fixed/floating point number system are not efficiently implemented.
 
+One can obtain gradients of this function by calling \texttt{Grad(ibesselj)}.
 \begin{minipage}{.88\columnwidth}
 \begin{lstlisting}
 julia> out!, x = 0.0, 1.0
@@ -700,7 +654,6 @@ julia> Grad(ibesselj)(Val(1), out!, 2, x)
 \end{lstlisting}
 \end{minipage}
 
-One can obtain gradients of this function by calling \texttt{Grad(ibesselj)}.
 Here, \texttt{Grad(ibesselj)} returns a callable instance of type \texttt{Grad\{typeof(ibesselj)\}}. The first parameters \texttt{Val(1)} specifies the position of loss in argument list. 
 The Hessian can be obtained by feeding dual-numbers into this gradient function.
 
@@ -724,45 +677,6 @@ julia> grad(hxx).partials[1]
 
 Here, the gradient field of \texttt{hxx} is defined as $\frac{\partial {\rm out!}}{\partial x}$, which is a Dual number.
 It has a field \texttt{partials} that store the Hessian $\frac{\partial{\rm out!}^2}{\partial x^2}$.
-
-\subsubsection{Benchmark}\label{sec:besselbench}
-We differentiate the first type Bessel function in \App{sec:bessel} and show the benchmarks in \Tbl{tbl:besselj}.
-In the table, Julia is the CPU time used for running the irreversible forward program. It is the baseline for benchmarking.
-NiLang (call/uncall) is the time of reversible call or uncall. Both of them are $\sim2$ times slower than its irreversible counterpart. Since Bessel function has only one input argument, forward mode AD tools are faster than reverse mode AD, both source-to-source framework ForwardDiff and operator overloading framework Tapenade have the a comparable computing time with the pure function call.
-\begin{table}[h!]\centering
-\begin{minipage}{0.8\columnwidth}
-\ra{1.3}
-    \scalebox{1.0}{
-        \begin{tabularx}{\textwidth}{X X c}\toprule
-            & $T_{\rm min}$/ns & Space/KB\\
-            \hline
-            Julia-O & 18 & 0\\
-            NiLang-O & 32 & 0\\
-            Tapenade-O & 32 & 0\\
-            \hline
-            ForwardDiff-G & 38 & 0\\
-            %Manual & Backward & 83 & 0\\
-            NiLang-G & 201 & 0\\
-            NiLang-G (CUDA) & 1.4 & 0\\
-            ReverseDiff-G & 1406 & 1.2\\
-            Zygote-G & 22596 & 13.47\\
-            Tapenade-G (Forward) & 30 & 0\\
-            Tapenade-G (Backward) & 111 & > 0\\
-            \bottomrule
-        \end{tabularx}
-    }
-    \caption{Time and space used for computing objective (O) and gradient (G) of the first kind Bessel function $J_2(1.0)$.
-    The CUDA benchmark time is averaged over a batch size of 4000, which is not a fair comparison but shows how much performance can we get from GPU in the parallel computing context.
-}\label{tbl:besselj}
-\end{minipage}
-\end{table}
-
-NiLang.AD is the reverse mode AD submodule in NiLang, and it takes ~11 times the native Julia program, and is also 2 times slower than Tapenade. However, the key point is, there is no extra memory allocation like stack operations in the whole computation. The controllable memory allocation of NiLang makes it compatible with CUDA program.
-%For people who are interested in CUDA programming, we prepared another example in \App{app:cuda}, which implements a differentiable quantum simulation kernel on GPU.
-%So far, the generated backward rule faces the shared write problem, which requires further investigation.
-%, and 
-In other backward mode AD like Zygote, ReverseDiff and Tapenade, the memory allocation in heap is nonzero due to the checkpointing.
-
 
 \subsection{Solving a graph embedding problem}\label{sec:graph}
 Graph embedding can be used to find a proper representation for an order parameter~\cite{Takahashi2020} in condensed matter physics.
