@@ -290,9 +290,7 @@ Macro \texttt{@i} generates two functions that are reversible to each other \tex
     %A reversible stack is different in that it zero-clears the variable after pushing and presupposes that the variable being zero-cleared before popping.
 %Knowing the contents in the memory when deallocating is not easy. Hence Charles H. Bennett introduced the famous compute-copy-uncompute paradigm~\cite{Bennett1973} for reversible programming.
 
-The following code defines the complex valued log.
-
-\begin{minipage}{.88\columnwidth}
+\begin{minipage}{.45\columnwidth}
 \begin{lstlisting}[mathescape=true,caption={Reversible complex valued log function $y\mathrel{+}=\log(|x|) + i{\rm Arg}(x)$.},label={lst:complex}]
 @i @inline function (:+=)(log)(y!::Complex{T}, x::Complex{T}) where T
     n ← zero(T)
@@ -305,15 +303,8 @@ The following code defines the complex valued log.
     n → zero(T)
 end
 \end{lstlisting}
-\end{minipage}
-
-Here, the macro \texttt{@inline} tells the compiler that this function can be inlined. One can input ``$\leftarrow$'' and ``$\rightarrow$'' by typing ``$\backslash$leftarrow[TAB KEY]'' and ``$\backslash$rightarrow[TAB KEY]'' respectively in a Julia editor or REPL.
-NiLang does not have immutable structs, so that the real part \texttt{y!.re} and imaginary \texttt{y!.im} of a complex number can be changed directly.
-It is easy to verify that the bottom two lines in the function body are the reverse of the top two lines. We call the bottom two lines \textit{uncomputes} the top two lines.
-The motivation is to zero clear the contents in ancilla \texttt{n} so that it can be deallocated correctly.
-\textit{Compute-copy-uncompute} is a useful design pattern in reversible programming so that we created a pair of macros \texttt{@routine} and \texttt{$\sim$@routine} for it. One can rewrite the above function as the following.
-
-\begin{minipage}{.88\columnwidth}
+\end{minipage}\hfill
+\begin{minipage}{.45\columnwidth}
     \begin{lstlisting}[mathescape=true,caption={Compute-copy-uncompute version of \Lst{lst:complex}},label={lst:complex2}]
 @i @inline function (:+=)(log)(y!::Complex{T}, x::Complex{T}) where T
     @routine begin
@@ -327,6 +318,13 @@ end
 \end{lstlisting}
 \end{minipage}
 
+\Lst{lst:complex} defines the complex valued accumulative log function.
+The macro \texttt{@inline} tells the compiler that this function can be inlined. One can input ``$\leftarrow$'' and ``$\rightarrow$'' by typing ``$\backslash$leftarrow[TAB KEY]'' and ``$\backslash$rightarrow[TAB KEY]'' respectively in a Julia editor or REPL.
+NiLang does not have immutable structs, so that the real part \texttt{y!.re} and imaginary \texttt{y!.im} of a complex number can be changed directly.
+It is easy to verify that the bottom two lines in the function body are the reverse of the top two lines. We call the bottom two lines \textit{uncomputes} the top two lines.
+The motivation is to zero clear the contents in ancilla \texttt{n} so that it can be deallocated correctly.
+\textit{Compute-copy-uncompute} is a useful design pattern in reversible programming so that we created a pair of macros \texttt{@routine} and \texttt{$\sim$@routine} for it. One can rewrite the above function as in \Lst{lst:complex2}.
+
 \subsection{Reversible control flows}
 One can define reversible \texttt{if}, \texttt{for} and \texttt{while} statements in a reversible program.
 \Fig{fig:controlflow} (a) shows the flow chart of executing the reversible \texttt{if} statement. There are two condition expressions in this chart, a precondition and a postcondition. The precondition decides which branch to enter in the forward execution. After executing the specific branch, the program checks the consistency between precondition and postcondition to make sure they are consistent. To reverse this statement, one can exchange the precondition and postcondition, and reverse the expressions in both branches.
@@ -338,21 +336,46 @@ The reversible \texttt{for} statement is similar to the irreversible one except 
     \caption{The flow chart for reversible (a) \texttt{if} statement and (b) \texttt{while} statement. ``pre'' and ``post'' represents precondition and postconditions respectively.}\label{fig:controlflow}
 \end{figure}
 
-We can want to apply this \texttt{log} function to an array, we can define
+The following code computes the Fobonacci number recursively and reversibly.
 
 \begin{minipage}{.88\columnwidth}
-\begin{lstlisting}[mathescape=true,caption={Applying the log function to an array.},label={lst:bcast-complex}]
-@i function broadcasted_log!(y!::Array{Complex{T}, N}, x::Array{Complex{T}, N}) where T
-    N ← min(length(x), length(y!))
-    for i=1:N
-        y![i] += log(x[i])
+\begin{lstlisting}[mathescape=true,caption={Computing Fibonacci number recursibly and reversibly.},label={lst:fib}]
+@i function rrfib(out!, n)
+    @invcheckoff if (n >= 1, ~)
+        counter ← 0
+        counter += n
+        while (counter > 1, counter!=n)
+            rrfib(out!, counter-1)
+            counter -= 2
+        end
+        counter -= n % 2
+        counter → 0
     end
+    out! += 1
 end
 \end{lstlisting}
 \end{minipage}
 
+Here, \texttt{out!} is an integer initialized to \texttt{0} for storing outputs.
+The preconditions and postconditions are wrapped into a tuple. In the \texttt{if} statement, the postcondition is the same as the precondition, hence we omit the postcondition by inserting a "\texttt{$\sim$}" in the second field as a placeholder.
+In the while statement, the postcondition is true only for the initial loop.
+Once code is proven correct, one can turn off the reversibility check by adding \texttt{@invcheckoff} before a statement.
+This will remove the reversibility check and make the code faster and compatible with GPU kernels (kernel functions can not handle exceptions).
+
 \subsection{Reverse computing is not checkpointing}\label{sec:timespace}
-In history, there have been many discussions about time-space tradeoff on a reversible Turing machine (RTM).
+There are two approaches to trace back intermediate states in reversible computing, one is checkpointing and another is reverse computing.
+When we talk about reversible programming languages, we always refers to those implement reverse computing. 
+The physical origin of why people prefer recovering information through reverse computing lies in how reversible computing devices saves energy.
+Taking adiabatic CMOS as an example, its logic unit can be charged up and charged down (signal recovery).
+To recover energy in the charging down phase, the output signal must be the same as when it was charged up.
+This brings challenges to circuit archetecture designs.
+Naively, one can connect the output of a logic unit to the input of the next one directly in a cascade fashion.
+While all logic units does not charged down until the computation ends.
+In cascade stage $n$, the activity factor scales as $1/n$ and the circuit performance suffers accordingly.~\cite{Athas1994}
+Designs considered as more practical, such as SCRL and 2LAL and recent S2LAL use pipeline structure.
+Where basic instructions are reversible so that signals can be recovered through uncomputing.
+To compile code to adiabatic CMOS, a programming language must implement reverse computing.
+
 In the most straightforward g-segment tradeoff scheme~\cite{Bennett1989,Levine1990,Perumalla2013}, an RTM model has either a space overhead that is proportional to computing time $T$ or a computational overhead that sometimes can be exponential to the program size comparing with an irreversible counterpart.
 This is similar to the checkpointing~\cite{Griewank2008, Chen2016} that widely used in many machine learning frameworks.
 Both reverse computing and checkpointing can make a program reversible.
@@ -366,11 +389,49 @@ This is the underlying reason why reversible languages do not use checkpointing.
 It is a solid proof from the practise that it is the reversible programming rather than the checkpointing that can differentiate the whole language from the machine instruction level.
 When there is not time overhead, both have a space overhead propotional to time.
 When a polynomial overhead in time is allowed, reversible computing has a minimum space overhead of $O(S\log(T))$  [Robert Y. Levine, 1990]. While for checkpointing, there can be no space overhead. One can just recompute from beginning to obtain any intermediate state.
-Reverse computing shows advantage in
 
-\subsubsection{handling mutable arrays}
-\subsubsection{utilizing reversibility}
-\subsubsection{helping users code better}
+Reverse computing shows advantage in handling effective codes with mutable structures and arrays.
+For example the affine transformation can be implemented without any overhead.
+\begin{minipage}{.88\columnwidth}
+\begin{lstlisting}[mathescape=true,caption={Affine transformation without extra memory cost.},label={lst:affine}]
+@i function i_affine!(y!::AbstractVector{T}, W::AbstractMatrix{T}, b::AbstractVector{T}, x::AbstractVector{T}) where T
+    @safe @assert size(W) == (length(y!), length(x)) && length(b) == length(y!)
+    @invcheckoff for j=1:size(W, 2)
+        for i=1:size(W, 1)
+            @inbounds y![i] += W[i,j]*x[j]
+        end
+    end
+    @invcheckoff for i=1:size(W, 1)
+        @inbounds y![i] += b[i]
+    end
+end
+\end{lstlisting}
+\end{minipage}
+
+Reverse computing also provides a path to utilize reversibility.
+It can differentiate the inplace version of unitary matrix multiplication, which can be used to implement memory efficient recurrent neural networks ~\cite{Jing2016}.
+
+\begin{minipage}{.88\columnwidth}
+\begin{lstlisting}[mathescape=true,caption={Two level decomposition of a unitary matrix.},label={lst:affine}]
+@i function i_umm!(x!::AbstractArray, θ)
+    M ← size(x!, 1)
+    N ← size(x!, 2)
+    k ← 0
+    @safe @assert length(θ) == M*(M-1)/2
+    for l = 1:N
+        for j=1:M
+            for i=M-1:-1:j
+                INC(k)
+                ROT(x![i,l], x![i+1,l], θ[k])
+            end
+        end
+    end
+    k → length(θ)
+end
+\end{lstlisting}
+\end{minipage}
+
+Last but not least, it encourages users to code in a memory friendly style.
 %Reverse computing shows advantage in time-space tradeoff not only for being able to make use of reversibility,
 %but also for encouraging people to code with reversible thinking.
 Reversible programming does not allocate automatically for people, so that the programmer need to think how to make the program reversible and cache friendly.
