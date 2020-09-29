@@ -1,0 +1,33 @@
+\section{Efficient algorithms to convert between logarithmic numbers and fixed point numbers}
+
+\section{The overhead in reversible computing}
+The algorithmic overhead is often not considered. This is important because, it is related to how to correctly estimate the efficiency of reversible hardwares and how to tradeoff energy and time in the archetecture design.
+To help discussion, we assume our computing device are composed of reversible operations + \texttt{ERASE}.
+The energy consumption can be computed as
+\begin{align}
+    \begin{split}
+    &\texttt{number of reversible gates * $E_{\rm RG}$} ~+\\
+    &\texttt{number of erasure gates * $E_{\rm ERASE}$}
+    \end{split}
+\end{align}
+Reversible memory operations might cost more than a regular reversible instruction. But here we treat them as the same to simplify the discussion.
+When designing instructions in gate level, performing operations on registers or caches, we don't want the extra memory persist and goto the main memory. Hence we have either double the number of reversible gates to uncompute extra memory, or free up the space directly.
+For different hardwares, the energy efficiency ratio of a reversible device $\gamma = E_{\rm REVERSIBLE}/E_{ERASE}$ is different.
+There is a crossover that when 
+\begin{align}
+    \frac{\textit{the space to deallocate}}{\textit{number of reversible gates to compute the results}} < \gamma
+\end{align}
+deallocating directly is more energy efficient, otherwise, uncomputing is more enery efficient.
+\subsection{From logic gates to instructions}
+Let's take the reversible adder as an example. Reversible adder for bitwidth $n$ introduces $n$-bit carry bits as garbage space, the number of gates is.
+\subsubsection{The generic reversible computing case}
+\subsubsection{The logic reversible computing case}
+
+\subsection{Kernel level}
+The energy consumption of erasing information in the kernel level
+
+\subsection{Arithmetic level}
+
+\subsection{Application level}
+
+
