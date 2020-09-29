@@ -696,8 +696,35 @@ This is because the instruction length of differentiating basic arithmetic instr
 
 
 \subsection{Graph embedding problem}\label{sec:graphbench}
+Graph embedding can be used to find a proper representation for an order parameter~\cite{Takahashi2020} in condensed matter physics.
+\Ref{Takahashi2020} considers a problem of finding the minimum Euclidean space dimension $k$ that a Petersen graph can embed into, that the distances between pairs of connected vertices are $l_1$, and the distance between pairs of disconnected vertices are $l_2$, where $l_2 > l_1$.
+The Petersen graph is shown in \Fig{fig:petersen}.
+Let us denote the set of connected and disconnected vertex pairs as $L_1$ and $L_2$, respectively. This problem can be variationally solved with the following loss.
+\begin{align}
+    \begin{split}
+        \mathcal{L} &= \Var({\rm dist}(L_1)) + \Var({\rm dist}(L_2)) \\
+        &+\exp({\rm relu}(\overline{{\rm dist}(L_1)} - \overline{{\rm dist}(L_2)} + 0.1))) - 1
+    \end{split}
+\end{align}
+The first line is a summation of distance variances in two sets of vertex pairs, where $\Var(X)$ is the variance of samples in $X$.
+The second line is used to guarantee $l_2 > l_1$, where $\overline{X}$ means taking the average of samples in $X$.
+Its reversible implementation could be found in our benchmark repository.
+
+We repeat the training for dimension $k$ from $1$ to $10$.
+In each training, we fix two of the vertices and optimize the positions of the rest. Otherwise, the program will find the trivial solution with overlapped vertices. 
+For $k < 5$, the loss is always much higher than $0$,
+while for $k\geq5$, we can get a loss close to machine precision with high probability.
+From the $k=5$ solution, it is easy to see $l_2/l_1 = \sqrt{2}$.
+An Adam optimizer with a learning rate $0.01$~\cite{Kingma2014} requires $\sim2000$ steps training.
+The trust region Newton's method converges much faster, which requires $\sim 20$ computations of Hessians to reach convergence.
+Although training time is comparable, the converged precision of the later is much better.
+\begin{figure}
+    \centerline{\includegraphics[width=0.4\columnwidth,trim={0 1cm 0 0},clip]{petersen.pdf}}
+    \caption{The Petersen graph has 10 vertices and 15 edges. We want to find a minimum embedding dimension for it.}\label{fig:petersen}
+\end{figure}
+
 Since one can combine ForwardDiff and NiLang to obtain Hessians,
-it is interesting to see how much performance we can get in differentiating the graph embedding program. The problem definition could be found in \App{graph-embedding}.
+it is interesting to see how much performance we can get in differentiating the graph embedding program.
 
 \begin{table}[h!]\centering
     \small
