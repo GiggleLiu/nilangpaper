@@ -21,3 +21,4 @@ codes/.benchmarks/
 output/
 *.o
 *.out
+*.xdv

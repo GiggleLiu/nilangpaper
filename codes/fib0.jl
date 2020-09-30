@@ -1,21 +1,32 @@
 using NiLang
 
 @i function rfib(out!, n::T) where T
-    @anc n1 = zero(T)
-    @anc n2 = zero(T)
-    @routine init begin
-        n1 += identity(n)
-        n1 -= identity(1)
-        n2 += identity(n)
-        n2 -= identity(2)
+    @zeros T n1 n2
+    @routine begin
+        n1 += n - 1
+        n2 += n - 2
     end
-    if (value(n) <= 2, ~)
-        out! += identity(1)
+    if n <= 2
+        out! += 1
     else
         rfib(out!, n1)
         rfib(out!, n2)
     end
-    ~@routine init
+    ~@routine
+end
+
+@i function rfib2(out!, n)
+    @invcheckoff if n >= 1
+        counter ← 0
+        counter += n
+        while (counter > 1, counter!=n)
+            rfib2(out!, counter-1)
+            counter -= 2
+        end
+        counter -= n % 2
+        counter → 0
+    end
+    out! += 1
 end
 
 @i function rfibn(n!, z)

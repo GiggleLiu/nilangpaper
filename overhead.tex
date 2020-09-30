@@ -1,0 +1,77 @@
+\section{Efficient algorithms to convert between logarithmic numbers and fixed point numbers}
+
+\section{The overhead in reversible computing}
+The algorithmic overhead is often not considered. This is important because, it is related to how to correctly estimate the efficiency of reversible hardwares and how to tradeoff energy and time in the archetecture design.
+To help discussion, we assume our computing device are composed of reversible operations + \texttt{ERASE}.
+The energy consumption can be computed as
+\begin{align}
+    \begin{split}
+    &\texttt{number of reversible gates * $E_{\rm RG}$} ~+\\
+    &\texttt{number of erasure gates * $E_{\rm ERASE}$}
+    \end{split}
+\end{align}
+Reversible memory operations might cost more than a regular reversible instruction. But here we treat them as the same to simplify the discussion.
+When designing instructions in gate level, performing operations on registers or caches, we don't want the extra memory persist and goto the main memory. Hence we have either double the number of reversible gates to uncompute extra memory, or free up the space directly.
+For different hardwares, the energy efficiency ratio of a reversible device $\gamma = E_{\rm REVERSIBLE}/E_{ERASE}$ is different.
+There is a crossover that when 
+\begin{align}
+    \frac{\textit{the space to deallocate}}{\textit{number of reversible gates to compute the results}} < \gamma
+\end{align}
+deallocating directly is more energy efficient, otherwise, uncomputing is more enery efficient.
+\subsection{From logic gates to instructions}
+Let's take the reversible adder as an example. Reversible adder for bitwidth $n$ introduces $n$-bit carry bits as garbage space, the number of gates is.
+\subsubsection{The generic reversible computing case}
+\subsubsection{The logic reversible computing case}
+
+\subsection{Kernel level}
+The energy consumption of erasing information in the kernel level
+
+\subsection{Arithmetic level}
+
+\subsection{Application level}
+
+\section*{Discussions}
+Our automatic differentiation in a reversible eDSL brings the field of reversible computing to the modern context.
+Reversible computing has been gradually accepted as the only approach to break the curse of energy-efficiency.
+However, it is completely not compatible with current software stack.
+
+We verified that reversible software stack can be a power tool on its own in the domain of scientific AD.
+In fact, we have already used it to differentiated a spin-glass solver to find the optimal configuration on a $28\times 28$ square lattice in a reasonable time~\cite{Liu2020}, which is not possible without flexible memory management.
+For the future, energy consumption is an even more fundamental issue than computing time and memory. Current computing devices, including CPU, GPU, TPU, and NPU consume much energy, which will finally hit the "energy wall". We must get prepared for the technical evolution of reversible computing (quantum or classical), which may cost several orders less energy than current devices.
+
+We also see some drawbacks to the current design. It requires the programmer to change to programing style rather than put effort into optimizing regular codes. It is not fully compatible with modern software stacks. Everything, including instruction sets and BLAS functions, should be redesigned to support reversible programming better. We put more potential issues and opportunities in the discussion section of the supplementary material. Solving these issues requires the participation of people from multiple fields.
+
+Although reversible programming is equally powerful as regular programming. It is generally hard for one to get used to this programming style.
+With more and more experience, we find writting a reversible program is just as simple as writting a regular program.
+\begin{quoting}
+The strangeness of the reversible programming style is due mainly to our lack of experience with it. -- ~\cite{Baker1992}
+\end{quoting}
+
+\subsection{Nitpicking NiLang}
+The main limitation of NiLang is using floating point number might cause the accumulation of rounding errors.
+A better number system for a reversible programming language might be a combination of fixed point numbers and logarithmic numbers.
+Most analytic functions can be computed by Taylor explasion with constant memory and time overhead. One can see supplimentary material for an example of computing the Bessel function.
+In the previous text, we use NiLang to differentiate CUDA kernel functions, one should notice that the shared read in the forward pass will become shared write in the adjoint pass when updating the gradient fields, which may result in incorrect gradients.
+
+%When we talk about reversible programming languages, we always refers to those implement reverse computing. 
+%The physical origin of why people prefer recovering information through reverse computing lies in how reversible computing devices save energy. In adiabatic CMOS, the signal energy can not be recovered if the memory is freed directly.
+%Taking adiabatic CMOS as an example, its logic unit can be charged up and charged down (signal energy recovery).
+%To avoid non-adiabatic process, the output signal must be the same as when it was charged up in the charging down phase.
+%This brings challenges to circuit archetecture designs.
+%Naively, one can connect the output of a logic unit to the input of the next one directly in a cascade~\cite{Hall1992} fashion.
+%Meanwhile, all logic units does not charged down until the computation ends.
+%In cascade stage $n$, the activity factor scales as $1/n$ and the circuit performance suffers accordingly.~\cite{Athas1994}
+%Designs considered as more practical, such as SCRL and 2LAL and recent S2LAL use pipeline structure.
+%This is why logic units are designed as reversible pipeline structure.
+%Where basic instructions are reversible so that signals can be recovered through uncomputing.
+%To compile code to adiabatic CMOS, a programming language must implement reverse computing.
+
+%Checkpointing shares the same spirit with the cascade layout~\cite{Hall1992} for connecting adiabatic logic units.
+%The cascade layout is believe not practical because the very first input (the allocated memory at the checkpoint) must remain valid when the last output is allowed to go invalid. For $n$ level cascading, the activity factor for each stage will descrease as $1/n$, resulting into poor circuit performance.
+%On the other side, the reverse computing correspondence pipeline layout~\cite{Athas1994} can restore the input signals by running inverse operation of circuit blocks, which has been widely used mordern reversible circuit design~\cite{Anantharam2004}.
+%This is the underlying reason why reversible languages do not use checkpointing.
+%It is a solid proof from the practise that it is the reversible programming rather than the checkpointing that can differentiate the whole language from the machine instruction level.
+%When there is not time overhead, both have a space overhead propotional to time.
+%When a polynomial overhead in time is allowed, reversible computing has a minimum space overhead of $O(S\log(T))$  [Robert Y. Levine, 1990]. While for checkpointing, there can be no space overhead. One can just recompute from beginning to obtain any intermediate state.
+
+
