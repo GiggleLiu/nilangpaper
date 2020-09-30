@@ -207,7 +207,7 @@ We implement AD for sparse matrix operations and some machine learning applicati
 \end{abstract}
 
 \section{Introduction}\label{sec:intro}
-  Most of the popular automatic differentiation (AD) tools in the market, such as TensorFlow~\cite{Tensorflow2015}, Pytorch~\cite{Paszke2017}, and Flux~\cite{Innes2018a} implements reverse mode AD at the tensor level to meet the need in machine learning. Later, People in the scientific computing domain also realized the power of these AD tools, they use these tools to solve scientific problems such as seismic inversion~\cite{Zhu2020}, variational quantum circuits simulation~\cite{Bergholm2018} and variational tensor network simulation~\cite{Liao2019,Roberts2019}. To meet the diverse need in these applications, one sometimes has to define backward rules manually, for example
+  Most of the popular automatic differentiation (AD) tools in the market, such as TensorFlow~\cite{Tensorflow2015}, Pytorch~\cite{Paszke2017}, and Flux~\cite{Innes2018a} implements reverse mode AD at the tensor level to meet the need in machine learning. Later, People in the scientific computing domain also realized the power of these AD tools, they use these tools to solve scientific problems such as seismic inversion~\cite{Zhu2020}, variational quantum circuits simulation~\cite{Bergholm2018,Luo2019} and variational tensor network simulation~\cite{Liao2019,Roberts2019}. To meet the diverse need in these applications, one sometimes has to define backward rules manually, for example
 \begin{enumerate}
 \item To differentiate sparse matrix operations used in Hamiltonian engineering~\cite{Xie2020}, people defined backward rules for sparse matrix multiplication and dominant eigensolvers~\cite{Golub2012},
 \item In tensor network algorithms to study the phase transition problem~\cite{Liao2019,Seeger2017,Wan2019,Hubig2019}, people defined backward rules for singular value decomposition (SVD) function and QR decomposition~\cite{Golub2012}.
@@ -218,7 +218,7 @@ However, these tools have their limitations too. In many practical applications,
 We need a new GP-AD framework that does not cache for users automatically. Hence we propose to implement the reverse mode AD on a reversible (domain-specific) programming language~\cite{Perumalla2013,Frank2017}, where intermediate states can be traced backward without accessing an implicit stack.
 Reversible programming provides flexible time-space trade-off.
 It also allows people to utilize the reversibility to reverse a program without any overhead.
-In machine learning, reversibility is proven to significantly decrease the memory usage in unitary recurrent neural networks~\cite{MacKay2018}, normalizing flow~\cite{Dinh2014}, hyper-parameter learning~\cite{Maclaurin2015} and residual neural networks~\cite{Behrmann2018}.
+In machine learning, reversibility is proven to significantly decrease the memory usage in unitary recurrent neural networks~\cite{MacKay2018}, normalizing flow~\cite{Dinh2014}, hyper-parameter learning~\cite{Maclaurin2015} and residual neural networks~\cite{Gomez2017, Behrmann2018}.
 Reversible programming will make these happen naturally.
 
 There have been many prototypes of reversible languages like Janus~\cite{Lutz1986}, R (not the popular one)~\cite{Frank1997}, Erlang~\cite{Lanese2018} and object-oriented ROOPL~\cite{Haulund2017}.
@@ -593,7 +593,7 @@ For NiLang benchmarks, we have turned the reversibility check off to achieve a b
 
 \subsection{Gaussian mixture model and bundle adjustment}\label{sec:ba}
 
-We reproduced the benchmarks for Gaussian mixture model (GMM) and bundle adjustment (BA) in ~\cite{Srajer2018} by re-writing the programs in a reversible style. We show the results in \Tbl{tbl:gmm} and \Tbl{tbl:ba}. In our new benchmarks, we also rewrite the ForwardDiff program for a fair benchmark, this explains the difference between our results and the original benchmark. The Tapenade data is obtained by executing the docker file provided by the original benchmark, which provides a baseline for comparison.
+We reproduced the benchmarks for Gaussian mixture model (GMM) and bundle adjustment (BA) in ~\cite{Srajer2018} by re-writing the programs in a reversible style. We show the results in \Tbl{tbl:gmm} and \Tbl{tbl:ba}. The Tapenade data is obtained by executing the docker file provided by the original benchmark, which provides a baseline for comparison.
 
 \begin{table}[h!]\centering
     \scriptsize
@@ -617,12 +617,10 @@ We reproduced the benchmarks for Gaussian mixture model (GMM) and bundle adjustm
 \end{minipage}
 \end{table}
 
-In the GMM benchmark, NiLang's objective function has overhead comparing with irreversible programs in most cases.
-Except the uncomputing overhead, it is also because our naive reversible matrix-vector multiplication is much slower than the highly optimized BLAS function, where the matrix-vector multiplication is the bottleneck of the computation.
-The forward mode AD suffers from too large input dimension in the large number of parameters regime.
-Although ForwardDiff batches the gradient fields, the overhead proportional to input size still dominates.
-The source to source AD framework Tapenade is faster than NiLang in all scales of input parameters,
-but the ratio between computing the gradients and the objective function are close.
+NiLang's objective function is $\sim 2\times$ slower than normal code due to the uncomputing overhead.
+In this case, NiLang does not show advantage to Tapenade in obtaining gradients, the ratio between computing the gradients and the objective function are close.
+This is because the bottleneck of this model is the matrix vector multiplication, traditional AD can already handle this function well.
+We emphasis the extra memory usage in NiLang is approximately 0.5\% of the original program, this should be better than most existing AD frameworks.
 
 \begin{table}[h!]\centering
     \scriptsize
@@ -647,11 +645,9 @@ but the ratio between computing the gradients and the objective function are clo
 \end{minipage}
 \end{table}
 
-In the BA benchmark, reverse mode AD shows slight advantage over ForwardDiff.
-The bottleneck of computing this large sparse Jacobian is computing the Jacobian of a elementary function with 15 input arguments and 2 output arguments, where input space is larger than the output space.
-In this instance, our reversible implementation is even faster than the source code transformation based AD framework Tapenade.
-Comparing with Tapenade that inserting stack operations into the code automatically. NiLang gives users the flexibility to memory management, so that the code can be compiled to GPU.
-With KernelAbstractions, we compile our reversible program to GPU with no more than 10 lines of code, which provides a >200x speed up.
+NiLang performs the best on CPU, while having zero allocation during computing local Jacobians of size $15 \times 2$.
+We also compiled our adjoint program to GPU with no more than 10 lines of code with KernelAbstractions, which provides another $\sim 200\times$ speed up.
+Parallelizing the adjoint code requires the forward code not reading the same variable simultaneously in different threads, and this requirement is satisfied here.
 
 You can find more benchmarks in \App{app:morebenchmarks}, including differentiating sparse matrix dot product and obtaining Hessians in the graph embedding application.
 
@@ -659,10 +655,10 @@ You can find more benchmarks in \App{app:morebenchmarks}, including differentiat
 Jin-Guo Liu thank Lei Wang for motivating the project with possible applications to reversible integrator, normalizing flow, and neural ODE.
 Johann-Tobias Schäg for deepening the discussion about reversible programming with his mathematicians head.
 Marisa Kiresame and Xiu-Zhe Luo for discussion on the implementation details of source-to-source automatic differentiation,
-Shuo-Hui Li for helpful discussion on differential geometry, Tong Liu and An-Qi Chen for helpful discussion on quantum adders and multipliers, Ying-Bo Ma for correcting typos by submitting pull requests, Chris Rackauckas for helpful discussion on reversible integrator, Mike Innes for reviewing the comments about Zygote, Jun Takahashi for discussion about the graph embedding problem, Simon Byrne and Chen Zhao for helpful discussion on floating-point and logarithmic numbers.
+Shuo-Hui Li and Xun Gao for helpful discussion on differential geometry, Tong Liu and An-Qi Chen for helpful discussion on quantum adders and multipliers, Ying-Bo Ma for correcting typos by submitting pull requests, Chris Rackauckas for helpful discussion on reversible integrator, Mike Innes for reviewing the comments about Zygote, Jun Takahashi for discussion about the graph embedding problem, Simon Byrne and Chen Zhao for helpful discussion on floating-point and logarithmic numbers.
 The authors are supported by the National Natural Science Foundation of China under Grant No.~11774398, the Strategic Priority Research Program of Chinese Academy of Sciences Grant No.~XDB28000000.
 
-\bibliographystyle{apsrev4-1}
+\bibliographystyle{iclr2021_conference}
 \bibliography{invc}
 
 \appendix
@@ -696,8 +692,7 @@ This is because the instruction length of differentiating basic arithmetic instr
 
 
 \subsection{Graph embedding problem}\label{sec:graphbench}
-Graph embedding can be used to find a proper representation for an order parameter~\cite{Takahashi2020} in condensed matter physics.
-\Ref{Takahashi2020} considers a problem of finding the minimum Euclidean space dimension $k$ that a Petersen graph can embed into, that the distances between pairs of connected vertices are $l_1$, and the distance between pairs of disconnected vertices are $l_2$, where $l_2 > l_1$.
+Graph embedding can be used to find a proper representation for an order parameter~\cite{Takahashi2020} in condensed matter physics. People want to find a minimum Euclidean space dimension $k$ that a Petersen graph can embed into, that the distances between pairs of connected vertices are $l_1$, and the distance between pairs of disconnected vertices are $l_2$, where $l_2 > l_1$.
 The Petersen graph is shown in \Fig{fig:petersen}.
 Let us denote the set of connected and disconnected vertex pairs as $L_1$ and $L_2$, respectively. This problem can be variationally solved with the following loss.
 \begin{align}
