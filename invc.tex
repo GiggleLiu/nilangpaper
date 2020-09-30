@@ -212,18 +212,22 @@ We implement AD for sparse matrix operations and some machine learning applicati
 \item To differentiate sparse matrix operations used in Hamiltonian engineering~\cite{Xie2020}, people defined backward rules for sparse matrix multiplication and dominant eigensolvers~\cite{Golub2012},
 \item In tensor network algorithms to study the phase transition problem~\cite{Liao2019,Seeger2017,Wan2019,Hubig2019}, people defined backward rules for singular value decomposition (SVD) function and QR decomposition~\cite{Golub2012}.
 \end{enumerate}
-To avoid defining backward rules manually, one can also use a general purposed AD (GP-AD) software like Tapenade~\cite{Hascoet2013}, OpenAD~\cite{Utke2008} and Zygote~\cite{Innes2018, Innes2019} to differentiate a general program. These tools have been used in non-tensor based applications such as bundle adjustment~\cite{Shen2018} and earth system simulation~\cite{Forget2015}.
-However, these tools have their limitations too. In many practical applications, differentiating a program might do billions of computations. Frequent caching of data slows down the program significantly, while the memory usage will become a bottleneck as well. Although most of them are source-code-transformation based, they can not be used to differentiate GPU kernel functions because implicit stack operations are not compatible with kernel functions.
+Instead of defining backward rules manually, one can also use a general purposed AD (GP-AD) framework like Tapenade~\cite{Hascoet2013}, OpenAD~\cite{Utke2008} and Zygote~\cite{Innes2018, Innes2019}.
+Researchers have used these tools in practical applications such as bundle adjustment~\cite{Shen2018} and earth system simulation~\cite{Forget2015}, where differentiating scalar operations is important.
+However, the power of these tools are often limited by their relatively poor performance. In many practical applications, a program might do billions of computations. In each computaional step, the AD engine might cache some data for backpropagation~\cite{Griewank2008}. Frequent caching of data slows down the program significantly, while the memory usage will become a bottleneck as well. Caching implicitly also make these frameworks incompatible with kernel functions.
+To avoid such issues, we need a new GP-AD framework that does not cache automatically for users.
 
-We need a new GP-AD framework that does not cache for users automatically. Hence we propose to implement the reverse mode AD on a reversible (domain-specific) programming language~\cite{Perumalla2013,Frank2017}, where intermediate states can be traced backward without accessing an implicit stack.
-Reversible programming provides flexible time-space trade-off.
-It also allows people to utilize the reversibility to reverse a program without any overhead.
-In machine learning, reversibility is proven to significantly decrease the memory usage in unitary recurrent neural networks~\cite{MacKay2018}, normalizing flow~\cite{Dinh2014}, hyper-parameter learning~\cite{Maclaurin2015} and residual neural networks~\cite{Gomez2017, Behrmann2018}.
+In this paper, we propose to implement the reverse mode AD on a reversible (domain-specific) programming language~\cite{Perumalla2013,Frank2017}, where intermediate states can be traced backward without accessing an implicit stack.
+Reversible programming allows people to utilize the reversibility to reverse a program.
+In machine learning, reversibility is proven to substaintially decrease the memory usage in unitary recurrent neural networks~\cite{MacKay2018}, normalizing flow~\cite{Dinh2014}, hyper-parameter learning~\cite{Maclaurin2015} and residual neural networks~\cite{Gomez2017, Behrmann2018}.
 Reversible programming will make these happen naturally.
+The power of reversible programming is not limited to handling these reversible applications, any program can be written in a reversible style.
+Converting an irreversible program to the reversible form would cost overheads in time and space.
+Reversible programming provides a flexible time-space trade-off scheme that different with checkpointing, \textit{reverse computing}~\cite{Bennett1989,Levine1990}, to let user handle these overheads explicitly.
 
 There have been many prototypes of reversible languages like Janus~\cite{Lutz1986}, R (not the popular one)~\cite{Frank1997}, Erlang~\cite{Lanese2018} and object-oriented ROOPL~\cite{Haulund2017}.
 In the past, the primary motivation to study reversible programming is to support reversible computing devices~\cite{Frank1999} such as adiabatic complementary metal-oxide-semiconductor (CMOS)~\cite{Koller1992}, molecular mechanical computing system~\cite{Merkle2018} and superconducting system~\cite{Likharev1977,Semenov2003,Takeuchi2014,Takeuchi2017}, and these reversible computing devices are orders more energy-efficient. Landauer~\cite{Landauer1961} proves that only when a device does not erase information (i.e. reversible), its energy efficiency can go beyond the thermal dynamic limit.
-However, these reversible programming languages can not be used in real scientific computing, since most of them do not have basic elements like floating point numbers, arrays, and complex numbers. This motivates us to build a new embedded domain-specific language (eDSL) in Julia~\cite{Bezanson2012,Bezanson2017} as a new playground of GP-AD.
+However, these reversible programming languages can not be used directly in real scientific computing, since most of them do not have basic elements like floating point numbers, arrays, and complex numbers. This motivates us to build a new embedded domain-specific language (eDSL) in Julia~\cite{Bezanson2012,Bezanson2017} as a new playground of GP-AD.
 
     In this paper, we first introduce the language design of NiLang in \Sec{sec:lang}.
     In \Sec{sec:bp}, we explain the implementation of automatic differentiation in NiLang.
@@ -231,21 +235,20 @@ However, these reversible programming languages can not be used in real scientif
 
 \section{Language design}\label{sec:lang}
 
-NiLang is an embedded domain-specific language (eDSL) NiLang on top of the host language Julia~\cite{Bezanson2012,Bezanson2017}.
+NiLang is an embedded domain-specific language (eDSL) NiLang built on top of the host language Julia~\cite{Bezanson2012,Bezanson2017}.
 Julia is a popular language for scientific programming and machine learning. We choose Julia mainly for speed. Julia is a language with high abstraction, however, its clever design of type inference and just in time compiling make it has a C like speed.
 Meanwhile, it has rich features for meta-programming. Its package for pattern matching \href{https://github.com/thautwarm/MLStyle.jl}{MLStyle} allows us to define an eDSL in less than 2000 lines.
 Comparing with a regular reversible programming language, NiLang features array operations, rich number systems including floating-point numbers, complex numbers, fixed-point numbers, and logarithmic numbers.
 It also implements the compute-copy-uncompute~\cite{Bennett1973} macro to increase code reusability.
 Besides the above ``nice'' features, it also has some ``bad'' features to meet the practical needs. For example, it views the floating-point $\mathrel{+}$ and $\mathrel{-}$ operations as reversible. It also allows users to extend instruction sets and sometimes inserting external statements. These features are not compatible with future reversible hardware.
 NiLang's source code is available online \href{https://github.com/GiggleLiu/NiLang.jl}{https://github.com/GiggleLiu/NiLang.jl}, \href{https://github.com/GiggleLiu/NiLangCore.jl}{https://github.com/GiggleLiu/NiLangCore.jl}.
-By the time of writing, the version of NiLang is v0.7.2.
+By the time of writing, the version of NiLang is v0.7.3.
 
 \subsection{Reversible functions and instructions}
     Mathematically, any irreversilbe mapping \texttt{y = f(args...)} can be trivially transformed to its reversible form \texttt{y += f(args...)} or \texttt{y $\veebar$= f(args...)} ($\veebar$ is the bit-wise \texttt{XOR}), where \texttt{y} is a pre-emptied variable. But in numeric computing with finite precision, this is not always true. The reversibility of arithmetic instruction is closely related to the number system.
     For integer and fixed point number system, \texttt{y += f(args...)} and \texttt{y -= f(args...)} are rigorously reversible. For logarithmic number system and tropical number system~\cite{Speyer2009}, \texttt{y *= f(args...)} and \texttt{y /= f(args...)} as reversible (not introducing the zero element). While for floating point numbers, none of the above operations are regorously reversible. However, for convenience, we ignore the rounding errors in floating point \texttt{+} and \texttt{-} operations and treat them on equal footing with fixed point numbers in the following discussion.
 Other reversible operations includes \texttt{SWAP}, \texttt{ROT}, \texttt{NEG} et. al., and this instruction set is extensible.
-
-The following code defines a reversible multiplier.
+One can define a reversible multiplier in NiLang as in \Lst{lst:multiplier}.
 
 \begin{minipage}{.88\columnwidth}
 \begin{lstlisting}[mathescape=true,caption={A reversible multiplier},label={lst:multiplier}]
@@ -266,10 +269,11 @@ julia> (~multiplier)(17, 3, 5)
 Macro \texttt{@i} generates two functions that are reversible to each other, \texttt{multiplier} and \texttt{$\sim$multiplier}, each defines a mapping $\mathbb{R}^3 \rightarrow \mathbb{R}^3$. The $!$ after a symbol is a part of the name, as a conversion to indicate the mutated variables.
 
 \subsection{Reversible memory management}
-    A distinct feature of reversible memory management is that the content of a variable must be known when it is deallocated.
-    We denote the allocation of a pre-emptied memory as \texttt{x $\leftarrow$ 0}, and its inverse, deallocating a \textbf{zero emptied} variable, as \texttt{x $\rightarrow$ 0}.
-    An unknown variable can be pushed to a stack and used in the uncomputing stage with a pop statement.
-    If a variable is allocated and deallocated in the local scope, we call it an ancilla.
+A distinct feature of reversible memory management is that the content of a variable must be known when it is deallocated.
+We denote the allocation of a pre-emptied memory as \texttt{x $\leftarrow$ 0}, and its inverse, deallocating a \textbf{zero emptied} variable, as \texttt{x $\rightarrow$ 0}.
+An unknown variable can not be dealocate, but can be pushed to a stack pop out later in the uncomputing stage.
+If a variable is allocated and deallocated in the local scope, we call it an ancilla.
+\Lst{lst:complex} defines the complex valued accumulative log function.
 
 \begin{minipage}{.45\columnwidth}
 \begin{lstlisting}[mathescape=true,caption={Reversible complex valued log function $y\mathrel{+}=\log(|x|) + i{\rm Arg}(x)$.},label={lst:complex}]
@@ -299,8 +303,7 @@ end
 \end{lstlisting}
 \end{minipage}
 
-\Lst{lst:complex} defines the complex valued accumulative log function.
-The macro \texttt{@inline} tells the compiler that this function can be inlined. One can input ``$\leftarrow$'' and ``$\rightarrow$'' by typing ``$\backslash$leftarrow[TAB KEY]'' and ``$\backslash$rightarrow[TAB KEY]'' respectively in a Julia editor or REPL.
+Here, the macro \texttt{@inline} tells the compiler that this function can be inlined. One can input ``$\leftarrow$'' and ``$\rightarrow$'' by typing ``$\backslash$leftarrow[TAB KEY]'' and ``$\backslash$rightarrow[TAB KEY]'' respectively in a Julia editor or REPL.
 NiLang does not have immutable structs, so that the real part \texttt{y!.re} and imaginary \texttt{y!.im} of a complex number can be changed directly.
 It is easy to verify that the bottom two lines in the function body are the inverse of the top two lines. i.e., the bottom two lines \textit{uncomputes} the top two lines.
 The motivation of uncomputing is to zero clear the contents in ancilla \texttt{n} so that it can be deallocated correctly.
@@ -309,15 +312,14 @@ The motivation of uncomputing is to zero clear the contents in ancilla \texttt{n
 \subsection{Reversible control flows}
 One can define reversible \texttt{if}, \texttt{for} and \texttt{while} statements in a reversible program.
 \Fig{fig:controlflow} (a) shows the flow chart of executing the reversible \texttt{if} statement. There are two condition expressions in this chart, a precondition and a postcondition. The precondition decides which branch to enter in the forward execution. After executing the specific branch, the program checks the consistency between precondition and postcondition to make sure they are consistent. To reverse this statement, one can exchange the precondition and postcondition, and reverse the expressions in both branches.
-\Fig{fig:controlflow} (b) shows the flow chart of the reversible \texttt{while} statement. There are also two conditions expressions. Before executing the condition expressions, the program presumes the postcondition is false.
+\Fig{fig:controlflow} (b) shows the flow chart of the reversible \texttt{while} statement. It also has two condition expressions. Before executing the condition expressions, the program presumes the postcondition is false.
 After each iteration, the program asserts the postcondition to be true. To reverse this statement, one can exchange the precondition and postcondition, and reverse the body statements.
 The reversible \texttt{for} statement is similar to the irreversible one except that after execution, the program will assert the iterator to be unchanged. To reverse this statement, one can exchange \texttt{start} and \texttt{stop} and inverse the sign of \texttt{step}.
 \begin{figure}
     \centerline{\includegraphics[width=0.9\columnwidth,trim={0 0cm 0 0cm},clip]{controlflow_v2.pdf}}
     \caption{The flow chart for reversible (a) \texttt{if} statement and (b) \texttt{while} statement. ``pre'' and ``post'' represents precondition and postcondition respectively.}\label{fig:controlflow}
 \end{figure}
-
-The following code computes the Fibonacci number recursively and reversibly.
+\Lst{lst:fib} computes the Fibonacci number recursively and reversibly.
 
 \begin{minipage}{.88\columnwidth}
 \begin{lstlisting}[mathescape=true,caption={Computing Fibonacci number recursively and reversibly.},label={lst:fib}]
@@ -351,7 +353,7 @@ They also have many differences. When a polynomial overhead in time is allowed, 
 For checkpointing, there can be no space overhead, since one can just recompute from beginning to obtain any intermediate state with time complexity $O(T^2)$.
 In practical using cases, reverse computing has the following advantages.
 
-Reverse computing shows the advantage of handling effective codes with mutable structures and arrays.
+Reverse computing can handling effective codes with mutable structures and arrays.
 For example, the affine transformation can be implemented without any overhead.
 
 \begin{minipage}{.88\columnwidth}
@@ -371,7 +373,6 @@ end
 \end{minipage}
 
 Here, the expression following the \texttt{@safe} macro is an external irreversible statement.
-
 Reverse computing can utilize reversibility to trace back states without extra memory cost.
 For example, we can define the unitary matrix multiplication that can be used in a type of memory-efficient recurrent neural network~\cite{Jing2016}.
 
@@ -435,11 +436,11 @@ Since the fixed-point number is not reversible under \texttt{*=}, naive checkpoi
 
 \subsection{Backpropagation}\label{sec:jacobian}
 To backpropagate the program, we first reverse the code through source code transformation and then insert the gradient code through operator overloading.
-If we inline all the instructions in \Lst{lst:complex2}, the program would be like \Lst{lst:expand-complex}.
-The automatically generated inverse program (i.e. $(y, x) \rightarrow (y-\log(x), x)$) is like \Lst{lst:reversed-complex}.
+If we inline all the functions in \Lst{lst:complex2}, the function body would be like \Lst{lst:expand-complex}.
+The automatically generated inverse program (i.e. $(y, x) \rightarrow (y-\log(x), x)$) would be like \Lst{lst:reversed-complex}.
 
 \begin{minipage}{.45\textwidth}
-\begin{lstlisting}[mathescape=true,caption={The function body of \Lst{lst:complex2}.},label={lst:expand-complex}, frame=tlrb]
+\begin{lstlisting}[mathescape=true,caption={The inlined function body of \Lst{lst:complex2}.},label={lst:expand-complex}, frame=tlrb]
 @routine begin
     nsq ← zero(T)
     n ← zero(T)
@@ -524,7 +525,7 @@ xy2 -= abs2(x[i].re.x)
 \end{minipage}
 
 Here, \texttt{@zeros TYPE var1 var2...} is the macro to allocate multiple variables of the same type. Its inverse operations starts with \texttt{$\sim$@zeros} deallocates zero emptied variables.
-In practise, ``inserting gradients'' is not achieved by source code transformation, but by changing the element type to \texttt{GVar}, a composite type with two fields, value \texttt{x} and gradient \texttt{g}.
+In practise, ``inserting gradients'' is not achieved by source code transformation, but by operator overloading. We change the element type to a composite type \texttt{GVar} with two fields, value \texttt{x} and gradient \texttt{g}.
 With multiple dispatching primitive instructions on this new type, values and gradients can be updated simultaneously.
 Although the code looks much longer, the computing time (with reversibility check closed) is not.
 
@@ -546,7 +547,7 @@ julia> @btime (@instr ~(y += log(x))) setup=(x=GVar(1.0+1.2im, 0.0+0.0im); y=GVa
 \end{minipage}
 
 The performance is unreasonably good because the generated Julia code is further compiled to LLVM so that it can enjoy existing optimization passes.
-For example, the optimization passes can find out that for an irreversible device, uncomputing local variables \texttt{n} and \texttt{nsq} does not affect return values, so that it will ignore the code for uncomputing automatically.
+For example, the optimization passes can find out that for an irreversible device, uncomputing local variables \texttt{n} and \texttt{nsq} to zeros does not affect return values, so that it will ignore the uncomputing process automatically.
 Unlike checkpointing based approaches that focus a lot in the optimization of data caching on a global stack, NiLang does not have any optimization pass in itself.
 Instead, it throws itself to existing optimization passes in Julia. Without accessing the global stack, NiLang's code is quite friendly to optimization passes.
 In this case, we also see the boundary between source code transformation and operator overloading can be vague in a Julia, in that the generated code can be very different from how it looks.
