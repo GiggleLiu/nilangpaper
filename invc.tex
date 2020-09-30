@@ -214,12 +214,12 @@ We implement AD for sparse matrix operations and some machine learning applicati
 \end{enumerate}
 Instead of defining backward rules manually, one can also use a general purposed AD (GP-AD) framework like Tapenade~\cite{Hascoet2013}, OpenAD~\cite{Utke2008} and Zygote~\cite{Innes2018, Innes2019}.
 Researchers have used these tools in practical applications such as bundle adjustment~\cite{Shen2018} and earth system simulation~\cite{Forget2015}, where differentiating scalar operations is important.
-However, the power of these tools are often limited by their relatively poor performance. In many practical applications, a program might do billions of computations. In each computaional step, the AD engine might cache some data for backpropagation~\cite{Griewank2008}. Frequent caching of data slows down the program significantly, while the memory usage will become a bottleneck as well. Caching implicitly also make these frameworks incompatible with kernel functions.
+However, the power of these tools are often limited by their relatively poor performance. In many practical applications, a program might do billions of computations. In each computational step, the AD engine might cache some data for backpropagation~\cite{Griewank2008}. Frequent caching of data slows down the program significantly, while the memory usage will become a bottleneck as well. Caching implicitly also make these frameworks incompatible with kernel functions.
 To avoid such issues, we need a new GP-AD framework that does not cache automatically for users.
 
 In this paper, we propose to implement the reverse mode AD on a reversible (domain-specific) programming language~\cite{Perumalla2013,Frank2017}, where intermediate states can be traced backward without accessing an implicit stack.
 Reversible programming allows people to utilize the reversibility to reverse a program.
-In machine learning, reversibility is proven to substaintially decrease the memory usage in unitary recurrent neural networks~\cite{MacKay2018}, normalizing flow~\cite{Dinh2014}, hyper-parameter learning~\cite{Maclaurin2015} and residual neural networks~\cite{Gomez2017, Behrmann2018}.
+In machine learning, reversibility is proven to substantially decrease the memory usage in unitary recurrent neural networks~\cite{MacKay2018}, normalizing flow~\cite{Dinh2014}, hyper-parameter learning~\cite{Maclaurin2015} and residual neural networks~\cite{Gomez2017, Behrmann2018}.
 Reversible programming will make these happen naturally.
 The power of reversible programming is not limited to handling these reversible applications, any program can be written in a reversible style.
 Converting an irreversible program to the reversible form would cost overheads in time and space.
@@ -525,7 +525,7 @@ xy2 -= abs2(x[i].re.x)
 \end{minipage}
 
 Here, \texttt{@zeros TYPE var1 var2...} is the macro to allocate multiple variables of the same type. Its inverse operations starts with \texttt{$\sim$@zeros} deallocates zero emptied variables.
-In practise, ``inserting gradients'' is not achieved by source code transformation, but by operator overloading. We change the element type to a composite type \texttt{GVar} with two fields, value \texttt{x} and gradient \texttt{g}.
+In practice, ``inserting gradients'' is not achieved by source code transformation, but by operator overloading. We change the element type to a composite type \texttt{GVar} with two fields, value \texttt{x} and gradient \texttt{g}.
 With multiple dispatching primitive instructions on this new type, values and gradients can be updated simultaneously.
 Although the code looks much longer, the computing time (with reversibility check closed) is not.
 
