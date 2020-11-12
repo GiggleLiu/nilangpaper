@@ -280,9 +280,12 @@ Here, the overhead in time is polynomial. The treeverse like partition does not 
 \end{table}
 
 The reverse computing does not show advantage in worse-case complexity. However, it has several advantages in practise.
-It can making use of the reversibility to save memory. The above discussion assumes every operations is irreversible. However, most program contains a lot reversible instructions.
+\textit{First}, It can making use of the reversibility to save memory. The above discussion assumes every operations is irreversible. However, most program contains a lot reversible instructions.
 For example, the accumulation multilication operations in many BLAS functions and sparse matrix operations are reversible.
-Reverse computing does not allocate automatically for users, user can optimize the memory access patterns on their own experience.
+\textit{Second}, Reverse computing does not allocate automatically for users, user can optimize the memory access patterns on their own experience.
+\textit{Third}, Reverse computing can operate on effective codes, so that it fits better with morden languages.
+\textit{Fourth}, Reverse computing can utilize the existing compiler to optimize the code better.
+\textit{Fifth}, Reverse computing brings user reversible thinking.
 
 \section{Language design}\label{sec:lang}
 
