@@ -257,9 +257,6 @@ On the other side, the optimal tradeoff of reverse computing also has a recursiv
 \end{align}
 Here, the overhead in time is polynomial. The treeverse like partition does not apply here because one can not complete the first sweep to create initial checkpoints without introducing any space overheads.
 
-Since the fixed-point number is not reversible under \texttt{*=}, naive checkpointing would require stack operations inside a loop. With reversible thinking, we can convert the fixed-point number to logarithmic numbers to utilize the reversibility of \texttt{*=} as shown in \Lst{lst:power2}. Here, the algorithm to convert a regular fixed-point number to a logarithmic number can be efficient~\cite{Turner2010}.
-
-
 \begin{figure}
     \centerline{\includegraphics[width=0.88\columnwidth,trim={0 0cm 0 0cm},clip]{tradeoff.pdf}}
     \caption{(a) Treeverse algorithm for optimal checkpointing~\cite{Griewank1992}. $\eta(n, k) \equiv \left(\begin{matrix} n + k \\ k \end{matrix}\right)$ is the binomial function. (b) Bennett's time space tradeoff scheme for reverse computing~\cite{Bennett1973,Levine1990}， $P$ and $Q$ are computing and uncomputing respectively.}\label{fig:tradeoff}
@@ -281,6 +278,11 @@ Since the fixed-point number is not reversible under \texttt{*=}, naive checkpoi
     \caption{$T$ and $S$ are the time and space of the original program. In the reverse computing algorithm, $\epsilon(k)=\frac{\ln(2-(1/k))}{\ln k}$ and $c(k)=\frac{k-1}{\ln k}$. In the treeverse algorithm, the $t$ and $d$ satisfies $T=\mathcal{C}_{t+d}^d$}\label{tbl:timespace}
 \end{minipage}
 \end{table}
+
+The reverse computing does not show advantage in worse-case complexity. However, it has several advantages in practise.
+It can making use of the reversibility to save memory. The above discussion assumes every operations is irreversible. However, most program contains a lot reversible instructions.
+For example, the accumulation multilication operations in many BLAS functions and sparse matrix operations are reversible.
+Reverse computing does not allocate automatically for users, user can optimize the memory access patterns on their own experience.
 
 \section{Language design}\label{sec:lang}
 
@@ -796,5 +798,6 @@ end
 \end{lstlisting}
 \end{minipage}
 
+Since the fixed-point number is not reversible under \texttt{*=}, naive checkpointing would require stack operations inside a loop. With reversible thinking, we can convert the fixed-point number to logarithmic numbers to utilize the reversibility of \texttt{*=} as shown in \Lst{lst:power2}. Here, the algorithm to convert a regular fixed-point number to a logarithmic number can be efficient~\cite{Turner2010}.
 
 \end{document}
