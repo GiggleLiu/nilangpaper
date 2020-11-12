@@ -41,6 +41,7 @@
 \usepackage{mathrsfs}
 \usepackage{float}
 \usepackage[normalem]{ulem}
+\usepackage{makecell}
 \usepackage{indentfirst}
 \usepackage{txfonts}
 \usepackage[epsilon, tsrm, altpo]{backnaur}
@@ -122,6 +123,8 @@ Listing \thelstlisting: #1\hfill%\hfill%
 %%%%%% Convention related
 \newcommand{\SWAP}{{\rm SWAP}}
 \newcommand{\CNOT}{{\rm CNOT}}
+\newcommand{\ln{{\rm ln}}
+\renewcommand{\bigO}{{\mathcal{O}}}
 \newcommand{\X}{{\rm X}}
 \renewcommand{\H}{{\rm H}}
 \newcommand{\Rx}{{\rm Rx}}
@@ -223,7 +226,7 @@ In machine learning, reversibility is proven to substantially decrease the memor
 Reversible programming will make these happen naturally.
 The power of reversible programming is not limited to handling these reversible applications, any program can be written in a reversible style.
 Converting an irreversible program to the reversible form would cost overheads in time and space.
-Reversible programming provides a flexible time-space trade-off scheme that different with checkpointing, \textit{reverse computing}~\cite{Bennett1989,Levine1990}, to let user handle these overheads explicitly.
+Reversible programming provides a flexible time-space trade-off scheme that different with checkpointing~\cite{Griewank1992}, \textit{reverse computing}~\cite{Bennett1989,Levine1990}, to let user handle these overheads explicitly.
 
 There have been many prototypes of reversible languages like Janus~\cite{Lutz1986}, R (not the popular one)~\cite{Frank1997}, Erlang~\cite{Lanese2018} and object-oriented ROOPL~\cite{Haulund2017}.
 In the past, the primary motivation to study reversible programming is to support reversible computing devices~\cite{Frank1999} such as adiabatic complementary metal-oxide-semiconductor (CMOS)~\cite{Koller1992}, molecular mechanical computing system~\cite{Merkle2018} and superconducting system~\cite{Likharev1977,Semenov2003,Takeuchi2014,Takeuchi2017}, and these reversible computing devices are orders more energy-efficient. Landauer~\cite{Landauer1961} proves that only when a device does not erase information (i.e. reversible), its energy efficiency can go beyond the thermal dynamic limit.
@@ -232,6 +235,152 @@ However, these reversible programming languages can not be used directly in real
     In this paper, we first introduce the language design of NiLang in \Sec{sec:lang}.
     In \Sec{sec:bp}, we explain the implementation of automatic differentiation in NiLang.
     In \Sec{sec:benchmark}, we benchmark the performance of NiLang's AD with other AD software and explain why it is fast.
+
+\section{Reverse computing style memory management}\label{timespace}
+
+There are two approaches to trace back intermediate states of a computational process, one is checkpointing~\cite{Griewank2008, Chen2016} and another is reverse computing.
+Reverse computing and checkpointing share many similarities.
+When there is no time overhead, both have a space overhead $\sim O(T)$ (i.e. linear to time).
+They also have many differences. When a polynomial overhead in time is allowed, reversible computing has a minimum space overhead of $O(S\log(T/S))$~\cite{Bennett1989,Levine1990,Perumalla2013}.
+For checkpointing, there can be no space overhead, since one can just recompute from beginning to obtain any intermediate state with time complexity $O(T^2)$.
+In practical using cases, we need to trade off space and time. The most successful checkpointing algorithm that widely used in automatic differentiation is the treeverse algorithm in \Fig{fig:tradeoff}(a). Where the computational process is binomially partitioned into sectors. At the begining of each sector, a snapshot is stored into the main memory. The states in the last sector is retrieved by above space efficient $O(T^2)$ algorithm. After that, the last checkpoint can be freed. The remaining sectors are further partitioned into $d$ sub-sectors. The earlier sectors has more quota of snapshots while the later has less, so that the total number of snapshots are remained the same.
+Recursively apply this treeverse algorithm, the time and space overheads are both logarithmic. The approximated overhead in time and space are
+\begin{align}
+    T' = tT\\
+    S' = dS
+\end{align}
+Where $T = \eta(t, d)$. One can easily find a solution that both $t$ and $d$ are logarithmic functions of time.
+
+On the other side, the optimal tradeoff of reverse computing also has a recursive structure as shown in \Fig{fig:tradeoff} (b). The program is partitioned evenly into $k$ sectors, in each sector, the program is computed in a reversible compute-copy-uncompute style. Both compute and uncomputed are reversible programs that can be further devided in to $k$ sub-sectors.
+\begin{align}
+    T' = T\left(\frac{T}{S}\right)^{\frac{\ln(2-(1/k))}{\ln k}}\\
+    S' = \frac{k-1}{\ln k}S\log\frac{T}{S}
+\end{align}
+Here, the overhead in time is polynomial. The treeverse like partition does not apply here because one can not complete the first sweep to create initial checkpoints without introducing any space overheads.
+
+Since the fixed-point number is not reversible under \texttt{*=}, naive checkpointing would require stack operations inside a loop. With reversible thinking, we can convert the fixed-point number to logarithmic numbers to utilize the reversibility of \texttt{*=} as shown in \Lst{lst:power2}. Here, the algorithm to convert a regular fixed-point number to a logarithmic number can be efficient~\cite{Turner2010}.
+
+
+\begin{figure}
+    \centerline{\includegraphics[width=0.88\columnwidth,trim={0 0cm 0 0cm},clip]{tradeoff.pdf}}
+    \caption{(a) Treeverse algorithm for optimal checkpointing~\cite{Griewank1992}. $\eta(n, k) \equiv \left(\begin{matrix} n + k \\ k \end{matrix}\right)$ is the binomial function. (b) Bennett's time space tradeoff scheme for reverse computing~\cite{Bennett1973,Levine1990}， $P$ and $Q$ are computing and uncomputing respectively.}\label{fig:tradeoff}
+\end{figure}
+
+Let's start from the worse case that none of the operation in the computation is \texttt{intrinsically} reversible.
+The word intrinsics means not allocating additional memory comparing with its irreversible counter part or mathematical representation.
+
+Consider a program $f_n \circ f_{n-1} \circ ... \circ f_1$ that none of $f_i$ is bijective. The time-efficient reversible algorithm can be defined as in \Lst{lst:space-efficient}.
+
+\begin{minipage}{.45\columnwidth}
+\begin{lstlisting}[mathescape=true,caption={Reverse computing space efficiently},label={lst:space-efficient}]
+compute $r_{n-1}$
+
+# copy results to a pre-emptied memory
+$r_{n}$ += $f_{n}$($r_{n-1}$)
+
+uncompute $r_{n-1}$
+\end{lstlisting}
+\end{minipage}
+\begin{minipage}{.45\columnwidth}
+\begin{lstlisting}[mathescape=true,caption={Checkpointing space efficiently},label={lst:checkpointing-space-efficient}]
+# forward
+pass
+
+# backward
+$r_{n} = f_n \circ  f_{n-1} \circ \ldots \circ f_1 (x)$
+$r_{n-1} = f_{n-1} \circ f_{n-2} \ldots \circ f_1 (x)$
+...
+$r_1 = f_1 (x)$
+\end{lstlisting}
+\end{minipage}
+
+\begin{minipage}{.45\columnwidth}
+\begin{lstlisting}[mathescape=true,caption={Reverse computing time efficiently},label={lst:space-efficient}]
+# forward, input ($x$,$r_n=0$,STACK)
+$r_1$ ← 0
+$r_{1}$ += $f_1$($x$)
+$x$ →  STACK
+$r_2$ ← 0
+$r_{2}$ += $f_2$($r_1$)
+$r_{1}$ → STACK
+...
+$r_n$ ← 0
+$r_{n}$ += $f_{n}$($r_{n-1}$)
+$r_{n-1}$ → STACK
+
+# bakcward, input ($x$,$r_n$,STACK)
+$r_{n-1}$ ← STACK
+$r_{n}$ -= $f_{n}$($r_{n-1}$)
+$r_1$ → 0
+...
+$r_{1}$ ← STACK
+$r_{2}$ -= $f_{2}$($r_1$)
+$r_1$ → 0
+$x$ ←  STACK
+$r_{1}$ -= $f_{1}$($x$)
+$r_1$ → 0
+\end{lstlisting}
+\end{minipage}
+\begin{minipage}{.45\columnwidth}
+\begin{lstlisting}[mathescape=true,caption={Checkpointing time efficiently},label={lst:checkpointing-time-efficient}]
+# forward, input ($x$,STACK)
+$r_{1}$ = $f_1$($x$)
+$r_{1}$ → STACK
+$r_{2}$ = $f_2$($r_1$)
+$r_{2}$ → STACK 
+...
+$r_{n}$ = $f_{n}$($r_{n-1}$)
+$r_{n}$ → STACK 
+
+# backward, input (STACK)
+$r_{n}$ ←  STACK
+$r_{n-1}$ ←  STACK
+...
+$r_1$ ←  STACK
+\end{lstlisting}
+\end{minipage}
+
+NOTE: the push operation in reversible context zero-empties the variable automatically. The push in the checkpointing scheme deallocate the variable directly.
+
+NOTE2: Morden compiler helps!
+
+\begin{minipage}{.45\columnwidth}
+\begin{lstlisting}[mathescape=true,caption={Reverse computing with reversibility},label={lst:reverse-reversible}]
+# forward, input ($x$)
+$f_1$($x$)
+$f_{2}$($x$)
+...
+$f_{n}$($x$)
+
+# bakcward, input ($x$)
+$f_{n}^{-1}$($x$)
+...
+$f_{2}^{-1}$($x$)
+$f_1^{-1}$($x$)
+\end{lstlisting}
+\end{minipage}
+
+\begin{table}[h!]\centering
+    \scriptsize
+\begin{minipage}{\columnwidth}
+\ra{1.3}
+    \scalebox{1.0}{
+        \begin{tabularx}{\textwidth}{bsss}\toprule
+            \thead{\textbf{Method}} & \thead{most time efficient \\ (Time/Space)} & \thead{most space efficient \\ (Time/Space)} & \thead{intermediate}\\
+            \hline
+            Checkpointing                           & $\bigO(T)/\bigO(T+S)$   & $\bigO(T^2)/\bigO(S)$                   & $\sim\frac{t^4}{24}/dS$\\
+            Reverse computing (irreversible limit)  & $\bigO(T)/\bigO(T+S)$   & $\bigO(T(\frac{T}{S})^{0.585})/\bigO(S\log(\frac{T}{S}))$ & $T(\frac{T}{S})^{\epsilon(k)}/c(k)S\log(\frac{T}{S})$ \\
+            Reverse computing (reversible limit)    & $\bigO(T)/\bigO(S)$     & $\bigO(T)/\bigO(S)$                     & $T/S$ \\
+            \bottomrule
+        \end{tabularx}
+    }
+    \caption{$T$ and $S$ are the time and space of the original program. In the reverse computing algorithm, $\epsilon(k)=\frac{\ln(2-(1/k))}{\ln k}$ and $c(k)=\frac{k-1}{\ln k}$. In the treeverse algorithm, the $t$ and $d$ satisfies $T=\mathcal{C}_{t+d}^d$}\label{tbl:timespace}
+\end{minipage}
+\end{table}
+
+
+The same amount of memory is required by the checkpointing method.
+These two examples are used to demonstrate the two limits, in practise, we need to balance time and space.
 
 \section{Language design}\label{sec:lang}
 
@@ -344,93 +493,6 @@ The precondition and postcondition are wrapped into a tuple. In the \texttt{if} 
 In the while statement, the postcondition is true only for the initial loop.
 Once code is proven correct, one can turn off the reversibility check by adding \texttt{@invcheckoff} before a statement.
 This will remove the reversibility check and make the code faster and compatible with GPU kernels (kernel functions can not handle exceptions).
-
-\subsection{Reverse computing is not checkpointing}\label{sec:timespace}
-There are two approaches to trace back intermediate states of a computational process, one is checkpointing~\cite{Griewank2008, Chen2016} and another is reverse computing.
-Reverse computing and checkpointing share many similarities.
-When there is no time overhead, both have a space overhead $\sim O(T)$ (i.e. linear to time).
-They also have many differences. When a polynomial overhead in time is allowed, reversible computing has a minimum space overhead of $O(S\log(T))$~\cite{Bennett1989,Levine1990,Perumalla2013}.
-For checkpointing, there can be no space overhead, since one can just recompute from beginning to obtain any intermediate state with time complexity $O(T^2)$.
-In practical using cases, reverse computing has the following advantages.
-
-Reverse computing can handling effective codes with mutable structures and arrays.
-For example, the affine transformation can be implemented without any overhead.
-
-\begin{minipage}{.88\columnwidth}
-\begin{lstlisting}[mathescape=true,caption={Inplace affine transformation.},label={lst:affine}]
-@i function i_affine!(y!::AbstractVector{T}, W::AbstractMatrix{T}, b::AbstractVector{T}, x::AbstractVector{T}) where T
-    @safe @assert size(W) == (length(y!), length(x)) && length(b) == length(y!)
-    @invcheckoff for j=1:size(W, 2)
-        for i=1:size(W, 1)
-            @inbounds y![i] += W[i,j]*x[j]
-        end
-    end
-    @invcheckoff for i=1:size(W, 1)
-        @inbounds y![i] += b[i]
-    end
-end
-\end{lstlisting}
-\end{minipage}
-
-Here, the expression following the \texttt{@safe} macro is an external irreversible statement.
-Reverse computing can utilize reversibility to trace back states without extra memory cost.
-For example, we can define the unitary matrix multiplication that can be used in a type of memory-efficient recurrent neural network~\cite{Jing2016}.
-
-\begin{minipage}{.88\columnwidth}
-\begin{lstlisting}[mathescape=true,caption={Two level decomposition of a unitary matrix.},label={lst:affine}]
-@i function i_umm!(x!::AbstractArray, θ)
-    M ← size(x!, 1)
-    N ← size(x!, 2)
-    k ← 0
-    @safe @assert length(θ) == M*(M-1)/2
-    for l = 1:N
-        for j=1:M
-            for i=M-1:-1:j
-                INC(k)
-                ROT(x![i,l], x![i+1,l], θ[k])
-            end
-        end
-    end
-    k → length(θ)
-end
-\end{lstlisting}
-\end{minipage}
-
-Last but not least, reversible programming encourages users to code in a memory friendly style.
-Since allocations in reversible programming are explicit, programmers have the flexibility to control how to allocate memory and which number system to use.
-For example, to compute the power of a positive fixed-point number and an integer, one can easily write irreversible code as in \Lst{lst:power1}
-
-\begin{minipage}{.45\columnwidth}
-\begin{lstlisting}[mathescape=true,caption={A regular power function.},label={lst:power1}]
-function mypower(x::T, n::Int) where T
-    y = one(T)
-    for i=1:n
-        y *= x
-    end
-    return y
-end
-\end{lstlisting}
-\end{minipage}\hfill
-\begin{minipage}{.45\columnwidth}
-\begin{lstlisting}[mathescape=true,caption={A reversible power function.},label={lst:power2}]
-@i function mypower(out,x::T,n::Int) where T
-    if (x != 0, ~)
-        @routine begin
-            ly ← one(ULogarithmic{T})
-            lx ← one(ULogarithmic{T})
-            lx *= convert(x)
-            for i=1:n
-                ly *= x
-            end
-        end
-        out += convert(ly)
-        ~@routine
-    end
-end
-\end{lstlisting}
-\end{minipage}
-
-Since the fixed-point number is not reversible under \texttt{*=}, naive checkpointing would require stack operations inside a loop. With reversible thinking, we can convert the fixed-point number to logarithmic numbers to utilize the reversibility of \texttt{*=} as shown in \Lst{lst:power2}. Here, the algorithm to convert a regular fixed-point number to a logarithmic number can be efficient~\cite{Turner2010}.
 
 \section{Reversible automatic differentiation}\label{sec:bp}
 
@@ -755,5 +817,84 @@ In \Tbl{tbl:graphembedding}, we show the the performance of different implementa
 As the baseline, (a) shows the time for computing the function call. We have reversible and irreversible implementations, where the reversible program is slower than the irreversible native Julia program by a factor of $\sim2$ due to the uncomputing overhead.
 The reversible program shows the advantage of obtaining gradients when the dimension $k \geq 3$. The larger the number of inputs, the more advantage it shows due to the overhead proportional to input size in forward mode AD.
 The same reason applies to computing Hessians, where the combo of NiLang and ForwardDiff gives the best performance for $k \geq 3$.
+
+\section{Cases where reverse computing shows advantage}
+Reverse computing can handling effective codes with mutable structures and arrays.
+For example, the affine transformation can be implemented without any overhead.
+
+\begin{minipage}{.88\columnwidth}
+\begin{lstlisting}[mathescape=true,caption={Inplace affine transformation.},label={lst:affine}]
+@i function i_affine!(y!::AbstractVector{T}, W::AbstractMatrix{T}, b::AbstractVector{T}, x::AbstractVector{T}) where T
+    @safe @assert size(W) == (length(y!), length(x)) && length(b) == length(y!)
+    @invcheckoff for j=1:size(W, 2)
+        for i=1:size(W, 1)
+            @inbounds y![i] += W[i,j]*x[j]
+        end
+    end
+    @invcheckoff for i=1:size(W, 1)
+        @inbounds y![i] += b[i]
+    end
+end
+\end{lstlisting}
+\end{minipage}
+
+Here, the expression following the \texttt{@safe} macro is an external irreversible statement.
+Reverse computing can utilize reversibility to trace back states without extra memory cost.
+For example, we can define the unitary matrix multiplication that can be used in a type of memory-efficient recurrent neural network~\cite{Jing2016}.
+
+\begin{minipage}{.88\columnwidth}
+\begin{lstlisting}[mathescape=true,caption={Two level decomposition of a unitary matrix.},label={lst:affine}]
+@i function i_umm!(x!::AbstractArray, θ)
+    M ← size(x!, 1)
+    N ← size(x!, 2)
+    k ← 0
+    @safe @assert length(θ) == M*(M-1)/2
+    for l = 1:N
+        for j=1:M
+            for i=M-1:-1:j
+                INC(k)
+                ROT(x![i,l], x![i+1,l], θ[k])
+            end
+        end
+    end
+    k → length(θ)
+end
+\end{lstlisting}
+\end{minipage}
+
+Last but not least, reversible programming encourages users to code in a memory friendly style.
+Since allocations in reversible programming are explicit, programmers have the flexibility to control how to allocate memory and which number system to use.
+For example, to compute the power of a positive fixed-point number and an integer, one can easily write irreversible code as in \Lst{lst:power1}
+
+\begin{minipage}{.45\columnwidth}
+\begin{lstlisting}[mathescape=true,caption={A regular power function.},label={lst:power1}]
+function mypower(x::T, n::Int) where T
+    y = one(T)
+    for i=1:n
+        y *= x
+    end
+    return y
+end
+\end{lstlisting}
+\end{minipage}\hfill
+\begin{minipage}{.45\columnwidth}
+\begin{lstlisting}[mathescape=true,caption={A reversible power function.},label={lst:power2}]
+@i function mypower(out,x::T,n::Int) where T
+    if (x != 0, ~)
+        @routine begin
+            ly ← one(ULogarithmic{T})
+            lx ← one(ULogarithmic{T})
+            lx *= convert(x)
+            for i=1:n
+                ly *= x
+            end
+        end
+        out += convert(ly)
+        ~@routine
+    end
+end
+\end{lstlisting}
+\end{minipage}
+
 
 \end{document}
