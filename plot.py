@@ -737,7 +737,7 @@ class PLT(object):
         xs2 = [3.00e+1, 3.30e+2, 1.20e+3, 3.30e+3, 1.07e+4, 2.15e+4, 5.36e+4, 4.29e+5]
         with DataPlt(filename="fig9.%s"%tp, figsize=(10,4)) as dp:
             ax1 = plt.subplot(122)
-            plt.title("Bundle Adjustment (Jacobian)", fontsize=14)
+            plt.title("(b) Bundle Adjustment", fontsize=14)
             plt.xlabel("# of parameters")
             plt.plot(xs, data)
             #plt.plot(xs, data_t)
@@ -747,7 +747,7 @@ class PLT(object):
             plt.legend(["Julia-O", "NiLang-O", "Tapenade-O", "ForwardDiff-J", "NiLang-J", "Tapenade-J", "NiLang-J (GPU)"], fontsize=12, loc="upper center", ncol=1, bbox_to_anchor=(1.45, 0.8))
 
             ax1 = plt.subplot(121)
-            plt.title("Gaussian Mixture Model (Gradient)", fontsize=14)
+            plt.title("(a) Gaussian Mixture Model", fontsize=14)
             for i in range(data2.shape[1]):
                 if i==3:
                     plt.plot(xs2[:4], data2[:4,3])
