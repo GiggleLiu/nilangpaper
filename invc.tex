@@ -238,7 +238,7 @@ However, these reversible programming languages can not be used directly in real
 
 There are two approaches to trace back intermediate states of a computational process, one is checkpointing~\cite{Griewank2008, Chen2016} and another is reverse computing.
 Reverse computing and checkpointing share many similarities.
-Consider an irreversible program with computing time $T$ and peak run-time memory $S$. \Tbl{tbl:timespace} shows that both schemes suffer from a space overhead that linear to time when executing in time $\bigO(T)$.
+Consider an irreversible program with computing time $T$ and run-time memory $S$. \Tbl{tbl:timespace} shows that both schemes suffer from a space overhead that linear to time when executing in time $\bigO(T)$.
 In reversible computing, to reach a minimum space overhead of $O(S\log(T/S))$~\cite{Bennett1989,Levine1990,Perumalla2013}, the program has a polynomial overhead in time.
 While in checkpointing, there can be no space overhead. Since one can just recompute from beginning to obtain any intermediate state with time complexity $O(T^2)$.
 \begin{table}[h!]\centering
@@ -254,7 +254,7 @@ While in checkpointing, there can be no space overhead. Since one can just recom
             \bottomrule
         \end{tabularx}
     }
-    \caption{$T$ and $S$ are the time and space of the original irreversible program. We put a ``worse case'' after the ``Reverse computing'' because the reversibility of the original program is not utilized.}\label{tbl:timespace}
+    \caption{$T$ and $S$ are the time and space of the original irreversible program. We put a ``worst case'' after the ``Reverse computing'' because the reversibility of the original program is not utilized.}\label{tbl:timespace}
 \end{minipage}
 \end{table}
 
@@ -308,7 +308,7 @@ Julia is a popular language for scientific programming and machine learning. We 
 Meanwhile, it has rich features for meta-programming. Its package for pattern matching \href{https://github.com/thautwarm/MLStyle.jl}{MLStyle} allows us to define an eDSL in less than 2000 lines.
 Comparing with a regular reversible programming language, NiLang features array operations, rich number systems including floating-point numbers, complex numbers, fixed-point numbers, and logarithmic numbers.
 It also implements the compute-copy-uncompute~\cite{Bennett1973} macro to increase code reusability.
-Besides the above ``nice'' features, it also has some ``bad'' features to meet the practical needs. For example, it views the floating-point $\mathrel{+}$ and $\mathrel{-}$ operations as reversible. It also allows users to extend instruction sets and sometimes inserting external statements. These features are not compatible with future reversible hardware.
+Besides the above reversible hardware compatible features, it also has some reversible hardware incompatible features to meet the practical needs. For example, it views the floating-point $\mathrel{+}$ and $\mathrel{-}$ operations as reversible. It also allows users to extend instruction sets and sometimes inserting external statements. These features are not compatible with future reversible hardware.
 NiLang's source code is available online \href{https://github.com/GiggleLiu/NiLang.jl}{https://github.com/GiggleLiu/NiLang.jl}, \href{https://github.com/GiggleLiu/NiLangCore.jl}{https://github.com/GiggleLiu/NiLangCore.jl}.
 By the time of writing, the version of NiLang is v0.7.3.
 
@@ -379,13 +379,59 @@ The motivation of uncomputing is to zero clear the contents in ancilla \texttt{n
 
 \subsection{Reversible control flows}
 One can define reversible \texttt{if}, \texttt{for} and \texttt{while} statements in a reversible program.
-\Fig{fig:controlflow} (a) shows the flow chart of executing the reversible \texttt{if} statement. There are two condition expressions in this chart, a precondition and a postcondition. The precondition decides which branch to enter in the forward execution. After executing the specific branch, the program checks the consistency between precondition and postcondition to make sure they are consistent. To reverse this statement, one can exchange the precondition and postcondition, and reverse the expressions in both branches.
+\Fig{fig:controlflow} (a) shows the flow chart of executing the reversible \texttt{if} statement. There are two condition expressions in this chart, a precondition and a postcondition. The precondition decides which branch to enter in the forward execution, while the postcondition decides which branch to enter in the backward execution. The pseudo-code for the forward and backward passes are shown in \Lst{lst:reversibleif1} and \Lst{lst:reversibleif2}.
+
+\begin{minipage}{.45\columnwidth}
+\begin{lstlisting}[mathescape=true,caption={Translating a reversible \texttt{if} statement (forward)},label={lst:reversibleif1}]
+branchkeeper = precondition
+if precondition
+    branch A
+else
+    branch B
+end
+@assert branchkeeper ==  postcondition
+\end{lstlisting}
+\end{minipage}
+\hfill
+\begin{minipage}{.45\columnwidth}
+\begin{lstlisting}[mathescape=true,caption={Translating a reversible \texttt{if} statement (backward)},label={lst:reversibleif2}]
+branchkeeper = postcondition
+if postcondition
+    ~(branch A)
+else
+    ~(branch B)
+end
+assert branchkeeper ==  precondition
+\end{lstlisting}
+\end{minipage}
+
 \Fig{fig:controlflow} (b) shows the flow chart of the reversible \texttt{while} statement. It also has two condition expressions. Before executing the condition expressions, the program presumes the postcondition is false.
-After each iteration, the program asserts the postcondition to be true. To reverse this statement, one can exchange the precondition and postcondition, and reverse the body statements.
+After each iteration, the program asserts the postcondition to be true. To reverse this statement, one can exchange the precondition and postcondition, and reverse the body statements. The pseudo-code for the forward and backward passes are shown in \Lst{lst:reversiblewhile1} and \Lst{lst:reversiblewhile2}.
+
+\begin{minipage}{.45\columnwidth}
+\begin{lstlisting}[mathescape=true,caption={Translating a reversible \texttt{while} statement (forward)},label={lst:reversiblewhile1}]
+assert postcondition == false
+while precondition
+    loop body
+    assert postcondition == true
+end
+\end{lstlisting}
+\end{minipage}
+\hfill
+\begin{minipage}{.45\columnwidth}
+\begin{lstlisting}[mathescape=true,caption={Translating a reversible \texttt{while} statement (backward)},label={lst:reversiblewhile2}]
+assert precondition == false
+while postcondition
+    ~(loop body)
+    assert precondition == true
+end
+\end{lstlisting}
+\end{minipage}
+
 The reversible \texttt{for} statement is similar to the irreversible one except that after execution, the program will assert the iterator to be unchanged. To reverse this statement, one can exchange \texttt{start} and \texttt{stop} and inverse the sign of \texttt{step}.
 \begin{figure}
-    \centerline{\includegraphics[width=0.9\columnwidth,trim={0 0cm 0 0cm},clip]{controlflow_v2.pdf}}
-    \caption{The flow chart for reversible (a) \texttt{if} statement and (b) \texttt{while} statement. ``pre'' and ``post'' represents precondition and postcondition respectively.}\label{fig:controlflow}
+    \centerline{\includegraphics[width=0.9\columnwidth,trim={0 0cm 0 0cm},clip]{controlflow.pdf}}
+    \caption{The flow chart for reversible (a) \texttt{if} statement and (b) \texttt{while} statement. ``pre'' and ``post'' represents precondition and postcondition respectively. The assersion errors are thrown to the host language instead of handling them in NiLang.}\label{fig:controlflow}
 \end{figure}
 \Lst{lst:fib} computes the Fibonacci number recursively and reversibly.
 
@@ -408,7 +454,7 @@ end
 \end{minipage}
 
 Here, \texttt{out!} is an integer initialized to \texttt{0} for storing outputs.
-The precondition and postcondition are wrapped into a tuple. In the \texttt{if} statement, the postcondition is the same as the precondition, hence we omit the postcondition by inserting a "\texttt{$\sim$}" in the second field as a placeholder.
+The precondition and postcondition are wrapped into a tuple. In the \texttt{if} statement, the postcondition is the same as the precondition, hence we omit the postcondition by inserting a "\texttt{$\sim$}" in the second field for ``copying the precondition in this field as the postcondition''.
 In the while statement, the postcondition is true only for the initial loop.
 Once code is proven correct, one can turn off the reversibility check by adding \texttt{@invcheckoff} before a statement.
 This will remove the reversibility check and make the code faster and compatible with GPU kernels (kernel functions can not handle exceptions).
@@ -425,7 +471,7 @@ Reversing the code is trivial in reversible programming, while the second sub-pr
 Inspired by the Julia package ForwardDiff~\cite{Revels2016}, we use operator overloading rather than source source transformation for better extensibility.
 We wrap each output variable with a composite type \texttt{GVar} that containing an extra gradient field, and feed it into the reversed generic program.
 Instructions are multiple dispatched to corresponding gradient instructions that updates the gradient field of \texttt{GVar} at the same time. By reversing this gradient program, we can obtain the gradient program for the reversed program $R$ too.
-One can define the adjoint of a primitive instruction as a reversible function on \textbf{either} the function itself or its inverse, because the adjoints of reversible functions are reversible to each other too.
+One can define the adjoint (``adjoint'' here means a reversed program updating gradients) of a primitive instruction as a reversible function on \textbf{either} the function itself or its inverse, because the adjoints of reversible functions are reversible to each other too.
 \begin{align}
     f: (\vec x, \vec g_x) &\rightarrow (\vec y, \vec g_x^T\frac{\partial \vec x}{\partial \vec y})\\
     f^{-1}: (\vec y, \vec g_y) &\rightarrow (\vec x, \vec g_y^T\frac{\partial \vec y}{\partial \vec x})
@@ -445,7 +491,7 @@ We will use this approach to compute Hessians in the graph embedding benchmark i
 \subsection{CUDA kernels}
 CUDA programming is playing a significant role in high-performance computing. In Julia, one can write GPU compatible functions in native Julia language with \href{https://github.com/JuliaGPU/KernelAbstractions.jl}{KernelAbstractions}~\cite{Besard2018}.
 Since NiLang does not push variables into stack automatically for users, it is safe to write differentiable GPU kernels with NiLang.
-We will differentiate CUDA kernels with no more than extra 10 lines in the bundle adjustment (BA) benchmark in \Sec{sec:ba}.
+We will differentiate CUDA kernels with no more than extra 10 lines in the bundle adjustment benchmark in \Sec{sec:ba}.
 
 \section{Benchmarks}\label{sec:benchmark}
 
@@ -456,7 +502,7 @@ For NiLang benchmarks, we have turned the reversibility check off to achieve a b
 
 \subsection{Gaussian mixture model and bundle adjustment}\label{sec:ba}
 
-We reproduced the benchmarks for Gaussian mixture model (GMM) and bundle adjustment (BA) in ~\cite{Srajer2018} by re-writing the programs in a reversible style. We show the results in \Tbl{tbl:gmm} and \Tbl{tbl:ba}. The Tapenade data is obtained by executing the docker file provided by the original benchmark, which provides a baseline for comparison.
+We reproduced the benchmarks for Gaussian mixture model (GMM) and bundle adjustment in ~\cite{Srajer2018} by re-writing the programs in a reversible style. We show the results in \Tbl{tbl:gmm} and \Tbl{tbl:ba}. The Tapenade data is obtained by executing the docker file provided by the original benchmark, which provides a baseline for comparison.
 
 \begin{table}[h!]\centering
     \scriptsize
@@ -476,7 +522,8 @@ We reproduced the benchmarks for Gaussian mixture model (GMM) and bundle adjustm
             \bottomrule
         \end{tabularx}
     }
-    \caption{Absolute runtimes in seconds for computing the objective (O) and gradients (G) of GMM with 10k data points. ``-'' represents missing data due to not finishing the computing in limited time.}\label{tbl:gmm}
+    \caption{Absolute runtimes in seconds for computing the objective (O) and gradients (G) of GMM with 10k data points. ``-'' represents missing data due to not finishing the computing in limited time. Here we did not write the kernel function, hence we can not show the benchmarks on GPU.
+    }\label{tbl:gmm}
 \end{minipage}
 \end{table}
 
@@ -535,7 +582,7 @@ PROG_COUNTER = Ref(0)   # (2k-1)^n
 PEAK_MEM = Ref(0)       # n*(k-1)+2
 
 @i function bennett(f::AbstractVector, state::Dict{Int,T}, k::Int, base, len) where T
-    if len == 1
+    if (len == 1, ~)
         state[base+1] ← zero(T)
         f[base](state[base+1], state[base])
         @safe PROG_COUNTER[] += 1
