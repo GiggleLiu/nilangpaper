@@ -123,7 +123,6 @@ Listing \thelstlisting: #1\hfill%\hfill%
 %%%%%% Convention related
 \newcommand{\SWAP}{{\rm SWAP}}
 \newcommand{\CNOT}{{\rm CNOT}}
-\newcommand{\ln}{{\rm ln}}
 \newcommand{\bigO}{{\mathcal{O}}}
 \newcommand{\X}{{\rm X}}
 \renewcommand{\H}{{\rm H}}
@@ -276,7 +275,7 @@ The first argument \texttt{\{$s_1$,...\}} is the collection of states, \texttt{k
 
 \begin{figure}
     \centerline{\includegraphics[width=0.88\columnwidth,trim={0 0cm 0 0cm},clip]{tradeoff.pdf}}
-    \caption{(a) Treeverse algorithm for optimal checkpointing~\cite{Griewank1992}. $\eta(\tau, \delta) \equiv \left(\begin{matrix} \tau + \delta \\ \delta \end{matrix}\right)=\frac{(\tau+\delta)!}{\tau!\delta!}$ is the binomial function. (b) Bennett's time space trade-off scheme for reverse computing~\cite{Bennett1973,Levine1990}， $P$ and $Q$ are computing and uncomputing respectively. The pseudo-code is defined in \Lst{lst:bennett}.}\label{fig:tradeoff}
+    \caption{(a) Treeverse algorithm for optimal checkpointing~\cite{Griewank1992}. $\eta(\tau, \delta) \equiv \left(\begin{matrix} \tau + \delta \\ \delta \end{matrix}\right)=\frac{(\tau+\delta)!}{\tau!\delta!}$ is the binomial function. (b) Bennett's time space trade-off scheme for reverse computing~\cite{Bennett1973,Levine1990}, $P$ and $Q$ are computing and uncomputing respectively. The pseudo-code is defined in \Lst{lst:bennett}.}\label{fig:tradeoff}
 \end{figure}
 
 \begin{minipage}{.88\columnwidth}
@@ -294,12 +293,13 @@ bennett($\{s_1,...\}$, k, i, len)
 \end{minipage}
 
 The reverse computing does not show advantage in worse-case complexity comparing with checkpointing.
-But the following traits make it performs better in many practical applications.
-\textit{First}, It can making use of the reversibility to save memory. The above discussion assumes every operations is irreversible. However, most program contains a lot reversible instructions, e.g. the accumulation multiplication operations in many BLAS functions and sparse matrix operations. In \App{app:reversibility}, we show how to implement a unitary matrix multiplication without introducing any overheads in space and time.
-\textit{Second}, Reverse computing does not allocate automatically for users, user can optimize the memory access patterns for their own devices like GPU.
-\textit{Third}, Reverse computing can operate on effective codes, so that it fits better with modern languages. In \App{app:effectivecode}, we show how to manipulate inplace functions on arrays with NiLang.
-\textit{Fourth}, Reverse computing can utilize the existing compiler to optimize the code better because it does not automatically introduce global stack operations that harm the purity of functions.
-\textit{Fifth}, Reverse computing encourages user reversible thinking, reversible thinking can lead user to a constant memory, constant time overhead implementation of chained multiplication algorithms as shown in \App{app:chainedmul}.
+But the following traits make it perform better in many practical applications.
+\textit{First}, it can making use of the reversibility to save memory. The above discussion assumes every operations is irreversible, however, most program contains a lot reversible instructions like the accumulation multiplication operations in many BLAS functions and sparse matrix functions. In \App{app:reversibility}, we show how to implement a unitary matrix multiplication without introducing overheads in space and time.
+\textit{Second}, reverse computing does not allocate automatically for users, user can optimize the memory access patterns for their own devices like GPU.
+\textit{Third}, reverse computing can operate on effective codes, so that it fits better with modern languages. In \App{app:effectivecode}, we show how to manipulate inplace functions on arrays with NiLang.
+\textit{Fourth}, reverse computing can utilize the existing compiler to optimize the code better because it does not automatically introduce global stack operations that harm the purity of functions.
+\textit{Fifth}, reverse computing encourages user to thinking reversibly. Reversible thinking can lead user to a constant memory, constant time overhead implementation of chained multiplication algorithms as shown in \App{app:chainedmul}.
+Transpiling a regular code to a reversible code is not hard, but it is unlikely to provide user a better performance than optimal checkpointing. Instead, thinking how to write instructions and control flows reversibly do.
 
 \section{Language design}\label{sec:lang}
 
@@ -566,7 +566,7 @@ instructions = fill(PlusEq(f), N)
 # run the program
 @instr bennett(instructions, state, k, 1, N)
 
-@test state[N+1] ≈ 2.0^N && length(state) == 2
+@test state[N+1] $\approx$ 2.0^N && length(state) == 2
 @test PEAK_MEM[] == n*(k-1) + 2
 @test PROG_COUNTER[] == (2*k-1)^n
 \end{lstlisting}
