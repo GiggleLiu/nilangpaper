@@ -744,7 +744,7 @@ class PLT(object):
             plt.yscale("log")
             plt.xscale("log")
             # Julia  NiLang Tapenade ForwardDiff NiLang.AD  NiLang (GPU)  Tapenade-J
-            plt.legend(["Julia-O", "NiLang-O", "Tapenade-O", "ForwardDiff-J", "NiLang-J", "Tapenade-J", "NiLang-J (GPU)"], fontsize=10, loc="upper center", ncol=1, bbox_to_anchor=(1.45, 0.8))
+            plt.legend(["Julia-O", "NiLang-O", "Tapenade-O", "ForwardDiff-J", "NiLang-J", "Tapenade-J", "NiLang-J (GPU)"], fontsize=12, loc="upper center", ncol=1, bbox_to_anchor=(1.45, 0.8))
 
             ax1 = plt.subplot(121)
             plt.title("Gaussian Mixture Model (Gradient)", fontsize=14)
