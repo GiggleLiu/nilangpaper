@@ -245,21 +245,21 @@ For checkpointing, there can be no space overhead, since one can just recompute 
 In practical using cases, we need to trade off space and time. The most successful checkpointing algorithm that widely used in automatic differentiation is the treeverse algorithm in \Fig{fig:tradeoff}(a). Where the computational process is binomially partitioned into sectors. At the begining of each sector, a snapshot is stored into the main memory. The states in the last sector is retrieved by above space efficient $O(T^2)$ algorithm. After that, the last checkpoint can be freed. The remaining sectors are further partitioned into $d$ sub-sectors. The earlier sectors has more quota of snapshots while the later has less, so that the total number of snapshots are remained the same.
 Recursively apply this treeverse algorithm, the time and space overheads are both logarithmic. The approximated overhead in time and space are
 \begin{align}
-    T' = tT\\
-    S' = dS
+    T_c = tT\\
+    S_c = dS
 \end{align}
 Where $T = \eta(t, d)$. One can easily find a solution that both $t$ and $d$ are logarithmic functions of time.
 
 On the other side, the optimal tradeoff of reverse computing also has a recursive structure as shown in \Fig{fig:tradeoff} (b). The program is partitioned evenly into $k$ sectors, in each sector, the program is computed in a reversible compute-copy-uncompute style. Both compute and uncomputed are reversible programs that can be further devided in to $k$ sub-sectors.
 \begin{align}
-    T' = T\left(\frac{T}{S}\right)^{\frac{\ln(2-(1/k))}{\ln k}}\\
-    S' = \frac{k-1}{\ln k}S\log\frac{T}{S}
+    T_r = T\left(\frac{T}{S}\right)^{\frac{\ln(2-(1/k))}{\ln k}}\\
+    S_r = \frac{k-1}{\ln k}S\log\frac{T}{S}
 \end{align}
 Here, the overhead in time is polynomial. The treeverse like partition does not apply here because one can not complete the first sweep to create initial checkpoints without introducing any space overheads.
 
 \begin{figure}
     \centerline{\includegraphics[width=0.88\columnwidth,trim={0 0cm 0 0cm},clip]{tradeoff.pdf}}
-    \caption{(a) Treeverse algorithm for optimal checkpointing~\cite{Griewank1992}. $\eta(n, k) \equiv \left(\begin{matrix} n + k \\ k \end{matrix}\right)$ is the binomial function. (b) Bennett's time space tradeoff scheme for reverse computing~\cite{Bennett1973,Levine1990}， $P$ and $Q$ are computing and uncomputing respectively.}\label{fig:tradeoff}
+    \caption{(a) Treeverse algorithm for optimal checkpointing~\cite{Griewank1992}. $\eta(n, k) \equiv \left(\begin{matrix} n + k \\ k \end{matrix}\right)$ is the binomial function. (b) Bennett's time space tradeoff scheme for reverse computing~\cite{Bennett1973,Levine1990}， $P$ and $Q$ are computing and uncomputing respectively. The pseudo-code is defined in \Lst{lst:bennett}.}\label{fig:tradeoff}
 \end{figure}
 
 \begin{table}[h!]\centering
@@ -268,16 +268,32 @@ Here, the overhead in time is polynomial. The treeverse like partition does not 
 \ra{1.3}
     \scalebox{1.0}{
         \begin{tabularx}{\textwidth}{bsss}\toprule
-            \thead{\textbf{Method}} & \thead{most time efficient \\ (Time/Space)} & \thead{most space efficient \\ (Time/Space)}\\
+            \thead{\textbf{Method}} & \thead{most time efficient \\ ($T'$/$S'$)} & \thead{most space efficient \\ ($T'$/$S'$)}\\
             \hline
             Checkpointing                           & $\bigO(T)/\bigO(T+S)$   & $\bigO(T^2)/\bigO(S)$   \\
             Reverse computing (irreversible limit)  & $\bigO(T)/\bigO(T+S)$   & $\bigO(T(\frac{T}{S})^{0.585})/\bigO(S\log(\frac{T}{S}))$ \\
             \bottomrule
         \end{tabularx}
     }
-    \caption{$T$ and $S$ are the time and space of the original program. In the reverse computing algorithm, $\epsilon(k)=\frac{\ln(2-(1/k))}{\ln k}$ and $c(k)=\frac{k-1}{\ln k}$. In the treeverse algorithm, the $t$ and $d$ satisfies $T=\mathcal{C}_{t+d}^d$}\label{tbl:timespace}
+    \caption{$T$ and $S$ are the time and space of the original program. $T_c$ and $S_c$ are the time and space of the checkpointed program. $T_r$ and $S_r$ are the time and space of the reversible program.}\label{tbl:timespace}
 \end{minipage}
 \end{table}
+
+
+\begin{minipage}{.88\columnwidth}
+    \begin{lstlisting}[mathescape=true,caption={The Bennett's time-space trade-off scheme, the first argument is the collection of allocated states.
+    Statement \texttt{$s_{i+1} \leftarrow 0$} allocates a zero state to the collection, while its inverse \texttt{$s_{i+1} \rightarrow 0$} discards a zero cleared state from the collection. Its NiLang implementation is in \App{app:bennett-nilang}.},label={lst:bennett}]
+function bennett($\{s_1,...\}$, k, i, len)
+    if len == 1
+        $s_{i+1}$ ← 0
+        $f_i$($s_{i+1}$, $s_i$)
+    else
+        bennett($\{s_1,...\}$, k, i+len÷k*(j-1), len÷k) for j=1,2,...,k
+        ~bennett($\{s_1,...\}$, k, i+len÷k*(j-1), len÷k) for j=k-1,k-2,...,1
+    end
+end
+\end{lstlisting}
+\end{minipage}
 
 The reverse computing does not show advantage in worse-case complexity. However, it has several advantages in practise.
 \textit{First}, It can making use of the reversibility to save memory. The above discussion assumes every operations is irreversible. However, most program contains a lot reversible instructions.
@@ -802,5 +818,53 @@ end
 \end{minipage}
 
 Since the fixed-point number is not reversible under \texttt{*=}, naive checkpointing would require stack operations inside a loop. With reversible thinking, we can convert the fixed-point number to logarithmic numbers to utilize the reversibility of \texttt{*=} as shown in \Lst{lst:power2}. Here, the algorithm to convert a regular fixed-point number to a logarithmic number can be efficient~\cite{Turner2010}.
+\section{NiLang implementation of Bennett's time-space trade-off algorithm}\label{app:bennett-nilang}
+\begin{minipage}{.88\columnwidth}
+    \begin{lstlisting}[mathescape=true,caption={NiLang implementation of the Bennett's time-space trade-off scheme.},label={lst:bennett-nilang}]
+using NiLang, Test
+
+PROG_COUNTER = Ref(0)   # (2k-1)^n
+PEAK_MEM = Ref(0)       # n*(k-1)+2
+
+@i function bennett(f::AbstractVector, state::Dict{Int,T}, k::Int, base, len) where T
+    if len == 1
+        state[base+1] ← zero(T)
+        f[base](state[base+1], state[base])
+        @safe PROG_COUNTER[] += 1
+        @safe (length(state) > PEAK_MEM[] && (PEAK_MEM[] = length(state)))
+    else
+        n ← 0
+        n += len÷k
+        # the P process
+        for j=1:k
+            bennett(f, state, k, base+n*(j-1), n)
+        end
+        # the Q process
+        for j=k-1:-1:1
+            ~bennett(f, state, k, base+n*(j-1), n)
+        end
+        n -= len÷k
+        n → 0
+    end
+end
+
+k = 4
+n = 4
+N = k ^ n
+state = Dict(1=>1.0)
+f(x) = x * 2.0
+instructions = fill(PlusEq(f), N)
+
+# run the program
+@instr bennett(instructions, state, k, 1, N)
+
+@test state[N+1] ≈ 2.0^N && length(state) == 2
+@test PEAK_MEM[] == n*(k-1) + 2
+@test PROG_COUNTER[] == (2*k-1)^n
+\end{lstlisting}
+\end{minipage}
+
+The input \texttt{f} is a vector of functions and \texttt{state} is a dictionary.
+We also added some irreversible external statements (those marked with \texttt{@safe}) to help analyse to program.
 
 \end{document}

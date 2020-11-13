@@ -19,6 +19,9 @@ using Viznet, Compose, PlutoUI
 # ╔═╡ 798a5334-23f5-11eb-327d-37fe1aa7383e
 using SpecialFunctions
 
+# ╔═╡ 13d04016-2504-11eb-26e8-db658db521cb
+using BenchmarkTools
+
 # ╔═╡ 217ef116-23c0-11eb-2d9a-31f5ea3e5fc9
 Compose.set_default_graphic_size(10cm, 10cm)
 
@@ -224,6 +227,12 @@ end
 # ╔═╡ bcbb19f0-2471-11eb-3b55-7bab89dd150c
 checkpointing()
 
+# ╔═╡ 17a7fc3a-2504-11eb-1cc3-178a918f99e4
+@benchmark sin(0.5) seconds=1
+
+# ╔═╡ 25f77c96-2504-11eb-13f3-19f41ac48c8e
+@benchmark cos(0.5) seconds=1
+
 # ╔═╡ Cell order:
 # ╠═aa970ba4-23b7-11eb-3e8d-f5079f5eaa38
 # ╠═217ef116-23c0-11eb-2d9a-31f5ea3e5fc9
@@ -257,3 +266,6 @@ checkpointing()
 # ╠═2234a36a-2473-11eb-0fe8-b1e1bdf74311
 # ╠═f927a77a-246f-11eb-2f89-45534c64dcaa
 # ╠═bcbb19f0-2471-11eb-3b55-7bab89dd150c
+# ╠═13d04016-2504-11eb-26e8-db658db521cb
+# ╠═25f77c96-2504-11eb-13f3-19f41ac48c8e
+# ╠═17a7fc3a-2504-11eb-1cc3-178a918f99e4
