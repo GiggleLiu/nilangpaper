@@ -295,13 +295,11 @@ bennett($\{s_1,...\}$, k, i, len)
 
 The reverse computing does not show advantage in worse-case complexity comparing with checkpointing.
 But the following traits make it performs better in many practical applications.
-\textit{First}, It can making use of the reversibility to save memory. The above discussion assumes every operations is irreversible. However, most program contains a lot reversible instructions.
-For example, the accumulation multiplication operations in many BLAS functions and sparse matrix operations are reversible.
-\textit{Second}, Reverse computing does not allocate automatically for users, user can optimize the memory access patterns on their own experience.
-\textit{Third}, Reverse computing can operate on effective codes, so that it fits better with modern languages.
+\textit{First}, It can making use of the reversibility to save memory. The above discussion assumes every operations is irreversible. However, most program contains a lot reversible instructions, e.g. the accumulation multiplication operations in many BLAS functions and sparse matrix operations. In \App{app:reversibility}, we show how to implement a unitary matrix multiplication without introducing any overheads in space and time.
+\textit{Second}, Reverse computing does not allocate automatically for users, user can optimize the memory access patterns for their own devices like GPU.
+\textit{Third}, Reverse computing can operate on effective codes, so that it fits better with modern languages. In \App{app:effectivecode}, we show how to manipulate inplace functions on arrays with NiLang.
 \textit{Fourth}, Reverse computing can utilize the existing compiler to optimize the code better because it does not automatically introduce global stack operations that harm the purity of functions.
-\textit{Fifth}, Reverse computing brings user reversible thinking, so that user can write better codes for reversing.
-We exemplify these points in \App{app:rev-advantages}.
+\textit{Fifth}, Reverse computing encourages user reversible thinking, reversible thinking can lead user to a constant memory, constant time overhead implementation of chained multiplication algorithms as shown in \App{app:chainedmul}.
 
 \section{Language design}\label{sec:lang}
 
@@ -578,7 +576,7 @@ The input \texttt{f} is a vector of functions and \texttt{state} is a dictionary
 We also added some irreversible external statements (those marked with \texttt{@safe}) to help analyse to program.
 
 \section{Cases where reverse computing shows advantage}\label{app:rev-advantages}
-\subsection{Handling effective codes}
+\subsection{Handling effective codes}\label{app:effectivecode}
 Reverse computing can handling effective codes with mutable structures and arrays.
 For example, the affine transformation can be implemented without any overhead.
 
@@ -600,7 +598,7 @@ end
 
 Here, the expression following the \texttt{@safe} macro is an external irreversible statement.
 
-\subsection{Utilizing reversibility}
+\subsection{Utilizing reversibility}\label{app:reversibility}
 Reverse computing can utilize reversibility to trace back states without extra memory cost.
 For example, we can define the unitary matrix multiplication that can be used in a type of memory-efficient recurrent neural network~\cite{Jing2016}.
 
@@ -624,7 +622,7 @@ end
 \end{lstlisting}
 \end{minipage}
 
-\subsection{Encourage reversible thinking}
+\subsection{Encourages reversible thinking}\label{app:chainedmul}
 Last but not least, reversible programming encourages users to code in a memory friendly style.
 Since allocations in reversible programming are explicit, programmers have the flexibility to control how to allocate memory and which number system to use.
 For example, to compute the power of a positive fixed-point number and an integer, one can easily write irreversible code as in \Lst{lst:power1}
