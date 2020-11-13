@@ -502,58 +502,18 @@ For NiLang benchmarks, we have turned the reversibility check off to achieve a b
 
 \subsection{Gaussian mixture model and bundle adjustment}\label{sec:ba}
 
-We reproduced the benchmarks for Gaussian mixture model (GMM) and bundle adjustment in ~\cite{Srajer2018} by re-writing the programs in a reversible style. We show the results in \Tbl{tbl:gmm} and \Tbl{tbl:ba}. The Tapenade data is obtained by executing the docker file provided by the original benchmark, which provides a baseline for comparison.
+We reproduced the benchmarks for Gaussian mixture model (GMM) and bundle adjustment in ~\cite{Srajer2018} by re-writing the programs in a reversible style. We show the results in \Fig{fig:gmmba}. The Tapenade data is obtained by executing the docker file provided by the original benchmark, which provides a baseline for comparison.
 
-\begin{table}[h!]\centering
-    \scriptsize
-\begin{minipage}{\columnwidth}
-\ra{1.3}
-    \scalebox{1.0}{
-        \begin{tabularx}{\textwidth}{bssssssss}\toprule
-            \textbf{\# parameters} & 3.00e+1 & 3.30e+2 & 1.20e+3 & 3.30e+3 & 1.07e+4 & 2.15e+4 & 5.36e+4 & 4.29e+5\\
-            \hline
-            Julia-O       & 9.844e-03 & 1.166e-02 & 2.797e-01 & 9.745e-02 & 3.903e-02 & 7.476e-02 & 2.284e-01 & 3.593e+00  \\
-            NiLang-O      & 3.655e-03 & 1.425e-02 & 1.040e-01 & 1.389e-01 & 7.388e-02 & 1.491e-01 & 4.176e-01 & 5.462e+00  \\
-            Tapende-O     & 1.484e-03 & 3.747e-03 & 4.836e-02 & 3.578e-02 & 5.314e-02 & 1.069e-01 & 2.583e-01 & 2.200e+00\\
-            \hline
-            ForwardDiff-G & 3.551e-02 & 1.673e+00 & 4.811e+01 & 1.599e+02 & -         & -         & -         & -  \\
-            NiLang-G      & 9.102e-03 & 3.709e-02 & 2.830e-01 & 3.556e-01 & 6.652e-01 & 1.449e+00 & 3.590e+00 & 3.342e+01  \\
-            Tapenade-G    & 5.484e-03 & 1.434e-02 & 2.205e-01 & 1.497e-01 & 4.396e-01 & 9.588e-01 & 2.586e+00 & 2.442e+01\\
-            \bottomrule
-        \end{tabularx}
-    }
-    \caption{Absolute runtimes in seconds for computing the objective (O) and gradients (G) of GMM with 10k data points. ``-'' represents missing data due to not finishing the computing in limited time. Here we did not write the kernel function, hence we can not show the benchmarks on GPU.
-    }\label{tbl:gmm}
-\end{minipage}
-\end{table}
+\begin{figure}[h!]
+    \centerline{\includegraphics[width=0.95\columnwidth,trim={0 0cm 0 0},clip]{fig9.pdf}}
+    \caption{Absolute runtimes in seconds for computing the objective (-O) and Jacobians (-J). (a) GMM with 10k data points, the loss function has a single output, hence computing Jacobian is the same as computing gradient. ForwardDiff data is missing due to not finishing in limited time. The NiLang GPU data is missing because we do not write kernel here. (b) Bundle adjustment.
+    }\label{fig:gmmba}
+\end{figure}
 
 NiLang's objective function is $\sim 2\times$ slower than normal code due to the uncomputing overhead.
 In this case, NiLang does not show advantage to Tapenade in obtaining gradients, the ratio between computing the gradients and the objective function are close.
 This is because the bottleneck of this model is the matrix vector multiplication, traditional AD can already handle this function well.
 We emphasis the extra memory usage in NiLang is approximately 0.5\% of the original program, this should be better than most existing AD frameworks.
-
-\begin{table}[h!]\centering
-    \scriptsize
-\begin{minipage}{\columnwidth}
-\ra{1.3}
-    \scalebox{1.0}{
-        \begin{tabularx}{\textwidth}{bsssssss}\toprule
-            \textbf{\# measurements} & 3.18e+4 & 2.04e+5 & 2.87e+5 & 5.64e+5 & 1.09e+6 & 4.75e+6 & 9.13e+6\\
-            \hline
-            Julia-O        & 2.020e-03 & 1.292e-02 & 1.812e-02 & 3.563e-02 & 6.904e-02 & 3.447e-01 & 6.671e-01\\
-            NiLang-O       & 2.708e-03 & 1.757e-02 & 2.438e-02 & 4.877e-02 & 9.536e-02 & 4.170e-01 & 8.020e-01\\
-            Tapenade-O     & 1.632e-03 & 1.056e-02 & 1.540e-02 & 2.927e-02 & 5.687e-02 & 2.481e-01 & 4.780e-01\\
-            \hline
-            ForwardDiff-J  & 6.579e-02 & 5.342e-01 & 7.369e-01 & 1.469e+00 & 2.878e+00 & 1.294e+01 & 2.648e+01\\
-            NiLang-J       & 1.651e-02 & 1.182e-01 & 1.668e-01 & 3.273e-01 & 6.375e-01 & 2.785e+00 & 5.535e+00\\
-            NiLang-J (GPU) & 1.354e-04 & 4.329e-04 & 5.997e-04 & 1.735e-03 & 2.861e-03 & 1.021e-02 & 2.179e-02\\
-            Tapenade-J     & 1.940e-02 & 1.255e-01 & 1.769e-01 & 3.489e-01 & 6.720e-01 & 2.935e+00 & 6.027e+00\\
-            \bottomrule
-        \end{tabularx}
-    }
-    \caption{Absolute runtimes in seconds for computing the objective (O) and Jacobians (J) in bundle adjustment.}\label{tbl:ba}
-\end{minipage}
-\end{table}
 
 NiLang performs the best on CPU, while having zero allocation during computing local Jacobians of size $15 \times 2$.
 We also compiled our adjoint program to GPU with no more than 10 lines of code with KernelAbstractions, which provides another $\sim 200\times$ speed up.
@@ -562,7 +522,7 @@ Parallelizing the adjoint code requires the forward code not reading the same va
 You can find more benchmarks in \App{app:morebenchmarks}, including differentiating sparse matrix dot product and obtaining Hessians in the graph embedding application.
 
 \subsubsection*{Acknowledgments}
-Jin-Guo Liu thank Lei Wang for motivating the project with possible applications to reversible integrator, normalizing flow, and neural ODE.
+The first author thanks Lei Wang for motivating the project with possible applications to reversible integrator, normalizing flow, and neural ODE.
 Johann-Tobias Schäg for deepening the discussion about reversible programming with his mathematicians head.
 Marisa Kiresame and Xiu-Zhe Luo for discussion on the implementation details of source-to-source automatic differentiation,
 Shuo-Hui Li and Xun Gao for helpful discussion on differential geometry, Tong Liu and An-Qi Chen for helpful discussion on quantum adders and multipliers, Ying-Bo Ma for correcting typos by submitting pull requests, Chris Rackauckas for helpful discussion on reversible integrator, Mike Innes for reviewing the comments about Zygote, Jun Takahashi for discussion about the graph embedding problem, Simon Byrne and Chen Zhao for helpful discussion on floating-point and logarithmic numbers.

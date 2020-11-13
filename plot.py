@@ -728,33 +728,37 @@ class PLT(object):
 
     def fig9(self, tp='pdf'):
         data = np.loadtxt("benchmarks/data/bench_ba.dat")/1e9
-        data_t = np.array([1.940e-02, 1.255e-01, 1.769e-01, 3.489e-01, 6.720e-01, 2.935e+00, 6.027e+00])
+        #data_t = np.array([1.940e-02, 1.255e-01, 1.769e-01, 3.489e-01, 6.720e-01, 2.935e+00, 6.027e+00])
         data2 = np.loadtxt("benchmarks/data/bench_gmm.dat")/1e9
-        data_t2 = np.array([5.484e-03, 1.434e-02, 2.205e-01, 1.497e-01, 4.396e-01, 9.588e-01, 2.586e+00, 2.442e+01])
+        #data_t2 = np.array([5.484e-03, 1.434e-02, 2.205e-01, 1.497e-01, 4.396e-01, 9.588e-01, 2.586e+00, 2.442e+01])
         plt.rcParams['xtick.labelsize'] = 12
         plt.rcParams['ytick.labelsize'] = 12
         xs = [3.18e4, 2.04e5, 2.87e5, 5.64e5, 1.09e6, 4.75e6, 9.13e6]
         xs2 = [3.00e+1, 3.30e+2, 1.20e+3, 3.30e+3, 1.07e+4, 2.15e+4, 5.36e+4, 4.29e+5]
-        with DataPlt(filename="fig9.%s"%tp, figsize=(8,4)) as dp:
-            ax1 = plt.subplot(121)
-            plt.title("Bundle Adjustment (Jacobian)", fontsize=14)
-            plt.ylabel("seconds")
-            plt.xlabel("# of parameters")
-            plt.plot(xs, data[:,2:])
-            plt.plot(xs, data_t)
-            plt.yscale("log")
-            plt.xscale("log")
-            plt.legend(["ForwardDiff", "NiLang.AD", "NiLang (GPU)", "Tapenade"], fontsize=12, loc="lower right")
-
+        with DataPlt(filename="fig9.%s"%tp, figsize=(10,4)) as dp:
             ax1 = plt.subplot(122)
+            plt.title("Bundle Adjustment (Jacobian)", fontsize=14)
+            plt.xlabel("# of parameters")
+            plt.plot(xs, data)
+            #plt.plot(xs, data_t)
+            plt.yscale("log")
+            plt.xscale("log")
+            # Julia  NiLang Tapenade ForwardDiff NiLang.AD  NiLang (GPU)  Tapenade-J
+            plt.legend(["Julia-O", "NiLang-O", "Tapenade-O", "ForwardDiff-J", "NiLang-J", "Tapenade-J", "NiLang-J (GPU)"], fontsize=10, loc="upper center", ncol=1, bbox_to_anchor=(1.45, 0.8))
+
+            ax1 = plt.subplot(121)
             plt.title("Gaussian Mixture Model (Gradient)", fontsize=14)
-            plt.plot(xs2[:4], data2[:4,2])
-            plt.plot(xs2, data2[:,3:])
-            plt.plot(xs2, data_t2)
+            for i in range(data2.shape[1]):
+                if i==3:
+                    plt.plot(xs2[:4], data2[:4,3])
+                else:
+                    plt.plot(xs2, data2[:,i])
+            #plt.plot(xs2, data_t2)
             plt.yscale("log")
             plt.xlabel("# of parameters")
+            plt.ylabel("seconds")
             plt.xscale("log")
-            plt.legend(["ForwardDiff", "NiLang.AD", "Tapenade AD"], fontsize=12, loc="lower right")
+            #plt.legend(["Julia-O, NiLang-O, Tapenade-O, ForwardDiff-G", "NiLang-G", "Tapenade-G"], fontsize=10, ncol=2, loc="lower right", bbox_to_anchor=(0.5, -0.05))
 
             plt.tight_layout()
 
