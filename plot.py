@@ -739,7 +739,8 @@ class PLT(object):
             ax1 = plt.subplot(122)
             plt.title("(b) Bundle Adjustment", fontsize=14)
             plt.xlabel("# of parameters")
-            plt.plot(xs, data)
+            for i in range(data.shape[1]):
+                plt.plot(xs, data[:,i], ls="--" if i<=2 else "-")
             #plt.plot(xs, data_t)
             plt.yscale("log")
             plt.xscale("log")
@@ -752,7 +753,7 @@ class PLT(object):
                 if i==3:
                     plt.plot(xs2[:4], data2[:4,3])
                 else:
-                    plt.plot(xs2, data2[:,i])
+                    plt.plot(xs2, data2[:,i], ls="--" if i<=2 else "-")
             #plt.plot(xs2, data_t2)
             plt.yscale("log")
             plt.xlabel("# of parameters")

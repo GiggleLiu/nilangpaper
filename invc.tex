@@ -228,7 +228,7 @@ Converting an irreversible program to the reversible form would cost overheads i
 Reversible programming provides a flexible time-space trade-off scheme that different with checkpointing~\cite{Griewank1992,Griewank2008, Chen2016}, \textit{reverse computing}~\cite{Bennett1989,Levine1990}, to let user handle these overheads explicitly.
 
 There have been many prototypes of reversible languages like Janus~\cite{Lutz1986}, R (not the popular one)~\cite{Frank1997}, Erlang~\cite{Lanese2018} and object-oriented ROOPL~\cite{Haulund2017}.
-In the past, the primary motivation to study reversible programming is to support reversible computing devices~\cite{Frank1999} such as adiabatic complementary metal-oxide-semiconductor (CMOS)~\cite{Koller1992}, molecular mechanical computing system~\cite{Merkle2018} and superconducting system~\cite{Likharev1977,Semenov2003,Takeuchi2014,Takeuchi2017}, and these reversible computing devices are orders more energy-efficient. Landauer proves that only when a device does not erase information (i.e. reversible), its energy efficiency can go beyond the thermal dynamic limit.~\cite{Landauer1961}
+In the past, the primary motivation to study reversible programming is to support reversible computing devices~\cite{Frank1999} such as adiabatic complementary metal-oxide-semiconductor (CMOS)~\cite{Koller1992}, molecular mechanical computing system~\cite{Merkle2018} and superconducting system~\cite{Likharev1977,Semenov2003,Takeuchi2014,Takeuchi2017}, and these reversible computing devices are orders more energy-efficient. Landauer proves that only when a device does not erase information (i.e. reversible), its energy efficiency can go beyond the thermal dynamic limit.~\cite{Landauer1961,Reeb2014}
 However, these reversible programming languages can not be used directly in real scientific computing, since most of them do not have basic elements like floating point numbers, arrays, and complex numbers. This motivates us to build a new embedded domain-specific language (eDSL) in Julia~\cite{Bezanson2012,Bezanson2017} as a new playground of GP-AD.
 
     In this paper, we first introduce the language design of NiLang in \Sec{sec:lang}.
@@ -520,6 +520,14 @@ We also compiled our adjoint program to GPU with no more than 10 lines of code w
 Parallelizing the adjoint code requires the forward code not reading the same variable simultaneously in different threads, and this requirement is satisfied here.
 
 You can find more benchmarks in \App{app:morebenchmarks}, including differentiating sparse matrix dot product and obtaining Hessians in the graph embedding application.
+
+\section{Discussion}
+In this work, we demonstrate a new approach to back propagates a program called reversible programming AD by designing a reversible eDSL NiLang.
+NiLang is a powerful tool to differentiate code from the source code level so that can be directly useful to machine learning researches. It can generate efficient backward rules, which is exemplified in \App{app:zygote}.
+It can also be used to differentiate reversible neural networks like normalizing flows~\cite{Kobyzev2019} to save memory, e.g. back-propagating NICE network~\cite{Dinh2014} with only constant space overheads.
+Except for the above immediate benefits to the machine learning ecosystem, we also want to emphasize the broader impact of AD on reverse computing.
+AD on reverse computing is related to two of the central issues limiting many machine learning applications. One is how to overcome the memory wall that has been extensively discussed in the main text, and another is how to reduce energy consumption.
+AD on reverse computing provides a software stack that connecting machine learning with further technologies to save energy.
 
 \subsubsection*{Acknowledgments}
 The authors are grateful to the people who help improve this work and fundings that sponsored the research. To meet the anonymous criteria, we will add the acknowledgments after the open review session.
@@ -893,5 +901,65 @@ In \Tbl{tbl:graphembedding}, we show the the performance of different implementa
 As the baseline, (a) shows the time for computing the function call. We have reversible and irreversible implementations, where the reversible program is slower than the irreversible native Julia program by a factor of $\sim2$ due to the uncomputing overhead.
 The reversible program shows the advantage of obtaining gradients when the dimension $k \geq 3$. The larger the number of inputs, the more advantage it shows due to the overhead proportional to input size in forward mode AD.
 The same reason applies to computing Hessians, where the combo of NiLang and ForwardDiff gives the best performance for $k \geq 3$.
+
+\section{Porting NiLang to Zygote}\label{app:zygote}
+
+Zygote is a popular machine learning package in Julia. We can port NiLang's automatically generated backward rules to Zygote to accelerate some performance-critical functions.
+The following example shows how to speed up the backward propagation of \texttt{norm} by $\sim$50 times.
+
+\begin{minipage}{.88\textwidth}
+    \begin{lstlisting}[mathescape=true,caption={Porting NiLang to Zygote.},label={lst:zygote}, frame=tlrb]
+julia> using Zygote, NiLang, NiLang.AD, BenchmarkTools, LinearAlgebra
+
+julia> x = randn(1000);
+
+julia> @benchmark norm'(x)
+BenchmarkTools.Trial: 
+  memory estimate:  339.02 KiB
+  allocs estimate:  8083
+  --------------
+  minimum time:     228.967 μs (0.00% GC)
+  median time:      237.579 μs (0.00% GC)
+  mean time:        277.602 μs (12.06% GC)
+  maximum time:     5.552 ms (94.00% GC)
+  --------------
+  samples:          10000
+  evals/sample:     1
+
+julia> @i function r_norm(out::T, out2::T, x::AbstractArray{T}) where T
+          for i=1:length(x)
+              @inbounds out2 += x[i]^2
+          end
+          out += sqrt(out2)
+       end
+
+julia> Zygote.@adjoint function norm(x::AbstractArray{T}) where T
+          # compute the forward with regular norm (might be faster)
+          out = norm(x)
+          # compute the backward with NiLang's norm, element type is GVar
+          out, δy -> (grad((~r_norm)(GVar(out, δy), GVar(out^2), GVar(x))[3]),)
+       end
+
+julia> @benchmark norm'(x)
+BenchmarkTools.Trial: 
+  memory estimate:  23.69 KiB
+  allocs estimate:  2
+  --------------
+  minimum time:     4.015 μs (0.00% GC)
+  median time:      5.171 μs (0.00% GC)
+  mean time:        6.872 μs (13.00% GC)
+  maximum time:     380.953 μs (93.90% GC)
+  --------------
+  samples:          10000
+  evals/sample:     7
+\end{lstlisting}
+\end{minipage}
+
+We first import the \texttt{norm} function from Julia standard library LinearAlgebra.
+Zygote's builtin AD engine will generate a slow code and memory allocation of 339KB.
+Then we write a reversible norm function \texttt{r\_norm} with NiLang and port the backward function to Zygote by specifying the backward rule (the function marked with macro \texttt{Zygote.@adjoint}).
+Except for the speed up in computing time, the memory allocation also decreases to 23KB, which is equal to the sum of the original $x$ and the array used in backpropagation.
+$$(1000\times 8 + 1000\times 8\times 2)/1024 \approx 23$$
+The later one has a doubled size because \texttt{GVar} has an extra gradient field.
 
 \end{document}
