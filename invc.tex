@@ -225,7 +225,7 @@ In machine learning, reversibility is proven to substantially decrease the memor
 Reversible programming will make these happen naturally.
 The power of reversible programming is not limited to handling these reversible applications, any program can be written in a reversible style.
 Converting an irreversible program to the reversible form would cost overheads in time and space.
-Reversible programming provides a flexible time-space trade-off scheme that different with checkpointing~\cite{Griewank1992}, \textit{reverse computing}~\cite{Bennett1989,Levine1990}, to let user handle these overheads explicitly.
+Reversible programming provides a flexible time-space trade-off scheme that different with checkpointing~\cite{Griewank1992,Griewank2008, Chen2016}, \textit{reverse computing}~\cite{Bennett1989,Levine1990}, to let user handle these overheads explicitly.
 
 There have been many prototypes of reversible languages like Janus~\cite{Lutz1986}, R (not the popular one)~\cite{Frank1997}, Erlang~\cite{Lanese2018} and object-oriented ROOPL~\cite{Haulund2017}.
 In the past, the primary motivation to study reversible programming is to support reversible computing devices~\cite{Frank1999} such as adiabatic complementary metal-oxide-semiconductor (CMOS)~\cite{Koller1992}, molecular mechanical computing system~\cite{Merkle2018} and superconducting system~\cite{Likharev1977,Semenov2003,Takeuchi2014,Takeuchi2017}, and these reversible computing devices are orders more energy-efficient. Landauer proves that only when a device does not erase information (i.e. reversible), its energy efficiency can go beyond the thermal dynamic limit.~\cite{Landauer1961}
@@ -237,9 +237,7 @@ However, these reversible programming languages can not be used directly in real
 
 \section{Reverse computing as an Alternative of Checkpointing}\label{timespace}
 
-There are two approaches to trace back intermediate states of a computational process, one is checkpointing~\cite{Griewank2008, Chen2016} and another is reverse computing.
-Reverse computing and checkpointing share many similarities.
-Consider an irreversible program with computing time $T$ and run-time memory $S$. \Tbl{tbl:timespace} shows that both schemes suffer from a space overhead that linear to time when executing in time $\bigO(T)$.
+Reverse computing and checkpointing share many similarities. Consider an irreversible program with pure forward computing time $T$ and run-time memory $S$. \Tbl{tbl:timespace} shows that both schemes suffer from a space overhead that linear to time when executing in time $\bigO(T)$.
 In reversible computing, to reach a minimum space overhead of $O(S\log(T/S))$~\cite{Bennett1989,Levine1990,Perumalla2013}, the program has a polynomial overhead in time.
 While in checkpointing, there can be no space overhead. Since one can just recompute from beginning to obtain any intermediate state with time complexity $O(T^2)$.
 \begin{table}[h!]\centering
@@ -259,18 +257,18 @@ While in checkpointing, there can be no space overhead. Since one can just recom
 \end{minipage}
 \end{table}
 
-In practical using cases, we need to trade off space and time. The most successful checkpointing algorithm that widely used in automatic differentiation is the treeverse algorithm in \Fig{fig:tradeoff}(a). Where the computational process is binomially partitioned into $d$ sectors. At the beginning of each sector, a snapshot is stored into the main memory. The states in the last sector is retrieved by above space efficient $O(T^2)$ algorithm. After that, the last checkpoint can be freed. The remaining sectors are further partitioned into $d-l+1$ sub-sectors, where $l$ is the sector index counting from the tail. The earlier sectors has more quota of snapshots while the later has less, so that the total number of snapshots are remained the same.
+In practical using cases, we need to trade off space and time. The most successful checkpointing algorithm that is widely used in automatic differentiation is the treeverse algorithm in \Fig{fig:tradeoff}(a). Where the computational process is binomially partitioned into $d$ sectors. At the beginning of each sector, a snapshot is stored in the main memory. The states in the last sector are retrieved by the above space-efficient $O(T^2)$ algorithm. After that, the last checkpoint can be freed. The remaining sectors are further partitioned into $d-l+1$ sub-sectors, where $l$ is the sector index counting from the tail. The earlier sectors have more quota of snapshots while the latter sectors have less so that the total number of snapshots remain the same.
 Recursively apply this treeverse algorithm $t$ times until the sector size is $1$. The approximated overhead in time and space are
 \begin{align}
     T_c = tT, S_c = dS.
 \end{align}
 Where $T = \eta(t, d)$. By carefully choosing either a $t$ or $d$, the overhead in time and space can be both logarithmic.
 
-On the other side, the Bennett's trade-off of reverse computing also has a recursive structure as shown in \Fig{fig:tradeoff} (b). But the program is evenly partitioned into $k$ sectors. The program marches forward ($P$ process) for $k$ steps to obtain the final state $s_{k+1}$, then backward ($Q$ process) from the $k-1$th step to erase the states in between $s_{1<i\leq k}$. Each sector is further divided in to $k$ sub-sectors and recursive run the above \textit{compute-copy-uncompute} process. The time and space complexities are
+On the other side, Bennett's trade-off of reverse computing also has a recursive structure as shown in \Fig{fig:tradeoff} (b). But the program is evenly partitioned into $k$ sectors. The program marches forward ($P$ process) for $k$ steps to obtain the final state $s_{k+1}$, then backward ($Q$ process) from the $k-1$th step to erase the states in between $s_{1<i\leq k}$. Each sector is further divided in to $k$ sub-sectors and recursive run the above \textit{compute-copy-uncompute} process. The time and space complexities are
 \begin{align}
     T_r = T\left(\frac{T}{S}\right)^{\frac{\ln(2-(1/k))}{\ln k}}, S_r = \frac{k-1}{\ln k}S\log\frac{T}{S}.
 \end{align}
-Here, the overhead in time is polynomial, which is slightly worse than the treeverse algorithm. Treeverse like partition does not apply here because one can not complete the first sweep to create initial checkpoints without introducing any space overheads in reversible computing. The pseudo-code of Bennett's time-space trade-off algorithm is show in \Lst{lst:bennett}.
+Here, the overhead in time is polynomial, which is slightly worse than the treeverse algorithm. Treeverse like partition does not apply here because one can not complete the first sweep to create initial checkpoints without introducing any space overheads in reversible computing. The pseudo-code of Bennett's time-space trade-off algorithm is shown in \Lst{lst:bennett}.
 The first argument \texttt{\{$s_1$,...\}} is the collection of states, \texttt{k} is the number of partitions, \texttt{i} and \texttt{len} are the starting point and length of the working sector. A function call changes variables inplace. ``$\sim$'' is the symbol of uncomputing, which means undoing a function call.
     Statement \texttt{$s_{i+1} \leftarrow 0$} allocates a zero state and add it to the state collection. Its inverse \texttt{$s_{i+1} \rightarrow 0$} discards a zero cleared state from the collection. The NiLang implementation is in \App{app:bennett-nilang}
 
@@ -293,14 +291,14 @@ bennett($\{s_1,...\}$, k, i, len)
 \end{lstlisting}
 \end{minipage}
 
-The reverse computing does not show advantage in worse-case complexity comparing with checkpointing.
+The reverse computing does not show any advantage in worse-case complexity comparing with checkpointing.
 But the following traits make it perform better in many practical applications.
-\textit{First}, it can making use of the reversibility to save memory. The above discussion assumes every operations is irreversible, however, most program contains a lot reversible instructions like the accumulation multiplication operations in many BLAS functions and sparse matrix functions. In \App{app:reversibility}, we show how to implement a unitary matrix multiplication without introducing overheads in space and time.
+\textit{First}, it can make use of the reversibility to save memory. The above discussion assumes every operation is irreversible, however, the most program contains a lot of reversible instructions like the accumulation multiplication operations in many BLAS functions and sparse matrix functions. In \App{app:reversibility}, we show how to implement a unitary matrix multiplication without introducing overheads in space and time.
 \textit{Second}, reverse computing does not allocate automatically for users, user can optimize the memory access patterns for their own devices like GPU.
 \textit{Third}, reverse computing can operate on effective codes, so that it fits better with modern languages. In \App{app:effectivecode}, we show how to manipulate inplace functions on arrays with NiLang.
 \textit{Fourth}, reverse computing can utilize the existing compiler to optimize the code better because it does not automatically introduce global stack operations that harm the purity of functions.
-\textit{Fifth}, reverse computing encourages user to thinking reversibly. Reversible thinking can lead user to a constant memory, constant time overhead implementation of chained multiplication algorithms as shown in \App{app:chainedmul}.
-Transpiling a regular code to a reversible code is not hard, but it is unlikely to provide user a better performance than optimal checkpointing. Instead, thinking how to write instructions and control flows reversibly does.
+\textit{Fifth}, reverse computing encourages the user to think reversibly. Reversible thinking can lead the user to a constant memory, constant time overhead implementation of chained multiplication algorithms as shown in \App{app:chainedmul}.
+Transpiling a regular code to a reversible code is not hard, but it is unlikely to provide the user with better performance than optimal checkpointing. Instead, thinking about how to write instructions and control flows reversibly does.
 
 \section{Language design}\label{sec:lang}
 
@@ -470,20 +468,20 @@ This will remove the reversibility check and make the code faster and compatible
 \end{figure}
 We decompose the problem of reverse mode AD into two sub-problems, \textbf{reversing the code} and \textbf{computing} $\frac{\partial \text{[single input]}}{\partial \text{[multiple outputs]}}$.
 Reversing the code is trivial in reversible programming, while the second sub-problem is similar to forward mode automatic differentiation that computes $\frac{\partial \text{[multiple outputs]}}{\partial \text{[single input]}}$.
-Inspired by the Julia package ForwardDiff~\cite{Revels2016}, we use operator overloading rather than source source transformation for better extensibility.
+Inspired by the Julia package ForwardDiff~\cite{Revels2016}, we use operator overloading rather than the source to source transformation for better extensibility.
 We wrap each output variable with a composite type \texttt{GVar} that containing an extra gradient field, and feed it into the reversed generic program.
-Instructions are multiple dispatched to corresponding gradient instructions that updates the gradient field of \texttt{GVar} at the same time. By reversing this gradient program, we can obtain the gradient program for the reversed program $R$ too.
-One can define the adjoint (``adjoint'' here means a reversed program updating gradients) of a primitive instruction as a reversible function on \textbf{either} the function itself or its inverse, because the adjoints of reversible functions are reversible to each other too.
+Instructions are multiple dispatched to corresponding gradient instructions that update the gradient field of \texttt{GVar} at the same time. By reversing this gradient program, we can obtain the gradient program for the reversed program $R$ too.
+One can define the adjoint (``adjoint'' here means a reversed program updating gradients) of a primitive instruction as a reversible function on \textbf{either} the function itself or its reverse since the adjoint of a function's reverse is equivalent to the reverse of the function's adjoint.
 \begin{align}
     f: (\vec x, \vec g_x) &\rightarrow (\vec y, \vec g_x^T\frac{\partial \vec x}{\partial \vec y})\\
     f^{-1}: (\vec y, \vec g_y) &\rightarrow (\vec x, \vec g_y^T\frac{\partial \vec y}{\partial \vec x})
 \end{align}
 It can be easily verified by applying the above two mappings consecutively, which turns out to be an identity mapping considering $\frac{\partial \vec y}{\partial \vec x} \frac{\partial \vec x}{\partial \vec y} = \mathbbm{1}$.
 
-The implementation details is described in \App{app:jacobian}.
+The implementation details are described in \App{app:jacobian}.
 In most languages, operator overloading brings significant overheads of function calls and object allocation and deallocation.
 But in a language with type inference and just in time compiling like Julia, the boundary between two approaches are vague.
-The compiler inlines small functions, packs an array of constant sized immutable objects into a continuous memory and truncates unnecessary branches automatically.
+The compiler inlines small functions, packs an array of constant sized immutable objects into a continuous memory, and truncates unnecessary branches automatically.
 
 \subsection{Hessians}
 Combining forward mode AD and reverse mode AD is a simple yet efficient way to obtain Hessians.
