@@ -265,12 +265,16 @@ Recursively apply this treeverse algorithm $t$ times until the sector size is $1
 Where $T = \eta(t, d)$. By carefully choosing either a $t$ or $d$, the overhead in time and space can be both logarithmic.
 
 On the other side, Bennett's trade-off of reverse computing also has a recursive structure as shown in \Fig{fig:tradeoff} (b). But the program is evenly partitioned into $k$ sectors. The program marches forward ($P$ process) for $k$ steps to obtain the final state $s_{k+1}$, then backward ($Q$ process) from the $k-1$th step to erase the states in between $s_{1<i\leq k}$. Each sector is further divided in to $k$ sub-sectors and recursive run the above \textit{compute-copy-uncompute} process. The time and space complexities are
-\begin{align}
+\begin{align}\label{eq:rev}
     T_r = T\left(\frac{T}{S}\right)^{\frac{\ln(2-(1/k))}{\ln k}}, S_r = \frac{k-1}{\ln k}S\log\frac{T}{S}.
 \end{align}
 Here, the overhead in time is polynomial, which is slightly worse than the treeverse algorithm. Treeverse like partition does not apply here because one can not complete the first sweep to create initial checkpoints without introducing any space overheads in reversible computing. The pseudo-code of Bennett's time-space trade-off algorithm is shown in \Lst{lst:bennett}.
 The first argument \texttt{\{$s_1$,...\}} is the collection of states, \texttt{k} is the number of partitions, \texttt{i} and \texttt{len} are the starting point and length of the working sector. A function call changes variables inplace. ``$\sim$'' is the symbol of uncomputing, which means undoing a function call.
-    Statement \texttt{$s_{i+1} \leftarrow 0$} allocates a zero state and add it to the state collection. Its inverse \texttt{$s_{i+1} \rightarrow 0$} discards a zero cleared state from the collection. The NiLang implementation is in \App{app:bennett-nilang}
+    Statement \texttt{$s_{i+1} \leftarrow 0$} allocates a zero state and add it to the state collection. Its inverse \texttt{$s_{i+1} \rightarrow 0$} discards a zero cleared state from the collection. The NiLang implementation is in \App{app:bennett-nilang}.
+    Another interesting observation is reversible computing is not always more energy efficient irreversible computing. The time to uncompute a unit of memory is exponential to $n$ as $Q_n = (2k-1)^n$, and the computing energy also increases exponentially. On the other side, the amount of energy to erase a memory unit is constant.
+    When $(2k-1)^{n} > 1/\xi$, erasing the memory irreversibly is more energy-efficient, where $\xi$ is the energy ratio between a reversible operation (an instruction or a gate) and its irreversible counterpart.
+For this reason, we think a reversible programming language is more suitable as an eDSL inside an irreversible host language rather than a stand-alone one.
+One can use the reversible operations at the microscopic level like registers and L1 cache level to save energy, and use the existing irreversible software stacks at the macroscopic level like the main memory level to discard information directly.
 
 \begin{figure}
     \centerline{\includegraphics[width=0.88\columnwidth,trim={0 0cm 0 0cm},clip]{tradeoff.pdf}}
@@ -389,7 +393,7 @@ if precondition
 else
     branch B
 end
-@assert branchkeeper ==  postcondition
+assert branchkeeper ==  postcondition
 \end{lstlisting}
 \end{minipage}
 \hfill
