@@ -780,5 +780,26 @@ class PLT(object):
 
             plt.tight_layout()
 
+    def fig10(self, tp='pdf'):
+        # load ba data
+        plt.rcParams['xtick.labelsize'] = 12
+        plt.rcParams['ytick.labelsize'] = 12
+        dk = [(2, 5), (10, 5), (2, 200), (10, 50), (64, 5), (64, 10), (64, 25), (64, 200)]
+        xs = np.array([3.00e+1, 3.30e+2, 1.20e+3, 3.30e+3, 1.07e+4, 2.15e+4, 5.36e+4, 4.29e+5])
+        N = 0
+        data0 = np.array([d*(d+1)/2*k + d*N + k + d*k for d, k in dk])
+        data1 = np.array([2*k+d**2*k+2*d for d, k in dk]) + data0
+        data2 = np.array([2*k+d**2*k+d*k+k+2*np.log2(k) for d, k in dk]) + data0
+        with DataPlt(filename="fig10.%s"%tp, figsize=(5,4)) as dp:
+            plt.plot(xs, data1, marker="o")
+            plt.plot(xs, data2, marker="^")
+            plt.yscale("log")
+            plt.xlabel("# of parameters")
+            plt.ylabel("peak memory")
+            plt.xscale("log")
+            plt.legend(["regular", "reversible"], fontsize=12, ncol=1, loc="lower right")
+            for x, y, t in zip(xs, data1, dk):
+                plt.annotate(t, (x, y), textcoords="offset points", xytext=(0,10) if x<=5.36e4 else (-15, 0), ha="center", va="bottom")
+            plt.tight_layout()
 
 fire.Fire(PLT())

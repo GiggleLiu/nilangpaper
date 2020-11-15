@@ -491,7 +491,7 @@ We will use this approach to compute Hessians in the graph embedding benchmark i
 \subsection{CUDA kernels}
 CUDA programming is playing a significant role in high-performance computing. In Julia, one can write GPU compatible functions in native Julia language with \href{https://github.com/JuliaGPU/KernelAbstractions.jl}{KernelAbstractions}.~\cite{Besard2018}
 Since NiLang does not push variables into stack automatically for users, it is safe to write differentiable GPU kernels with NiLang.
-We will differentiate CUDA kernels with no more than extra 10 lines in the bundle adjustment benchmark in \Sec{sec:ba}.
+We will differentiate CUDA kernels with no more than extra 10 lines in the bundle adjustment benchmark in \Sec{sec:benchmark}.
 
 \section{Benchmarks}\label{sec:benchmark}
 
@@ -499,8 +499,6 @@ We benchmark our framework with the state-of-the-art GP-AD frameworks, including
 Since most tensor based AD software like famous TensorFlow and PyTorch are not designed for the using cases used in our benchmarks, we do not include those package to avoid an unfair comparison.
 In the following benchmarks, the CPU device is Intel(R) Xeon(R) Gold 6230 CPU @ 2.10GHz, and the GPU device is NVIDIA Titan V.
 For NiLang benchmarks, we have turned the reversibility check off to achieve a better performance.
-
-\subsection{Gaussian mixture model and bundle adjustment}\label{sec:ba}
 
 We reproduced the benchmarks for Gaussian mixture model (GMM) and bundle adjustment in ~\citet{Srajer2018} by re-writing the programs in a reversible style. We show the results in \Fig{fig:gmmba}. The Tapenade data is obtained by executing the docker file provided by the original benchmark, which provides a baseline for comparison.
 
@@ -513,13 +511,26 @@ We reproduced the benchmarks for Gaussian mixture model (GMM) and bundle adjustm
 NiLang's objective function is $\sim 2\times$ slower than normal code due to the uncomputing overhead.
 In this case, NiLang does not show advantage to Tapenade in obtaining gradients, the ratio between computing the gradients and the objective function are close.
 This is because the bottleneck of this model is the matrix vector multiplication, traditional AD can already handle this function well.
-We emphasis the extra memory usage in NiLang is approximately 0.5\% of the original program, this should be better than most existing AD frameworks.
+The extra memory used to reverse the program is negligible comparing to the original program as shown in \Fig{fig:gmm-memory}.
+The backward pass is not shown here, it is just two times the reversible program in order to store gradients. 
+The data is obtained by counting the main memory allocations in the program manually. The analytical expression of memory usage in unit of floating point number is
+\begin{align}
+    S &= (2+d^2)k+2d + P, \\
+    S_r &= (3+d^2+d)k+2{\log}_2k + P,
+\end{align}
+where $d$ and $k$ are the size and number of covariance matrices. $P = \frac{d(d+1)}{2}k + k + dk$ is the size of parameter space. The memory of the dataset ($d\times N$) is not included because it will scale as $N$.
+Due to the hardness of estimating peak memory usage, the Tapenade data is missing here. The ForwardDiff memory usage is approximately the original size times the batch size, where the batch size is $12$ by default.
+\begin{figure}
+    \centerline{\includegraphics[width=0.55\columnwidth,trim={0 0cm 0 0},clip]{fig10.pdf}}
+    \caption{Peak memory of running the original and the reversible GMM program. The labels are $(d, k)$ pairs.}\label{fig:gmm-memory}
+\end{figure}
 
-NiLang performs the best on CPU, while having zero allocation during computing local Jacobians of size $15 \times 2$.
+In the bundle adjustment benchmark, NiLang performs the best on CPU.
 We also compiled our adjoint program to GPU with no more than 10 lines of code with KernelAbstractions, which provides another $\sim 200\times$ speed up.
 Parallelizing the adjoint code requires the forward code not reading the same variable simultaneously in different threads, and this requirement is satisfied here.
+The peak memory of the original program and the reversible program are both equal to the size of parameter space because all ``allocation''s happen on registers in this application.
 
-You can find more benchmarks in \App{app:morebenchmarks}, including differentiating sparse matrix dot product and obtaining Hessians in the graph embedding application.
+One can find more benchmarks in \App{app:morebenchmarks}, including differentiating sparse matrix dot product and obtaining Hessians in the graph embedding application.
 
 \section{Discussion}
 In this work, we demonstrate a new approach to back propagates a program called reversible programming AD by designing a reversible eDSL NiLang.
