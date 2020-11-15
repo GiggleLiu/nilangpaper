@@ -2,7 +2,7 @@ using BenchmarkTools
 using NiBundleAdjustment
 using NiBundleAdjustment: vec2cam, vec2scam, compute_reproj_err
 using StaticArrays
-using KernelAbstractions, CuArrays
+using KernelAbstractions, CUDA
 
 include("argparse.jl")
 datafolder = parse()["adbench-folder"]
