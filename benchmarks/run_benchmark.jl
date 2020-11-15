@@ -1,5 +1,8 @@
-using CUDAnative
-device!(6)
+using CUDA
+CUDA.device!(6)
+
+using LinearAlgebra: BLAS
+BLAS.set_num_threads(1)
 
 include("argparse.jl")
 obj = parse()["objective"]
