@@ -727,10 +727,27 @@ class PLT(object):
             plt.tight_layout(w_pad=-0.1)
 
     def fig9(self, tp='pdf'):
-        data = np.loadtxt("benchmarks/data/bench_ba.dat")/1e9
-        #data_t = np.array([1.940e-02, 1.255e-01, 1.769e-01, 3.489e-01, 6.720e-01, 2.935e+00, 6.027e+00])
-        data2 = np.loadtxt("benchmarks/data/bench_gmm.dat")/1e9
-        #data_t2 = np.array([5.484e-03, 1.434e-02, 2.205e-01, 1.497e-01, 4.396e-01, 9.588e-01, 2.586e+00, 2.442e+01])
+        # load ba data
+        data_ = np.loadtxt("benchmarks/data/bench_ba.dat")/1e9
+        data_t = np.array([1.632e6, 1.056e7, 1.540e7, 2.927e7, 5.687e7, 2.481e8, 4.780e8])/1e9
+        data_tg = np.array([1.940e-02, 1.255e-01, 1.769e-01, 3.489e-01, 6.720e-01, 2.935e+00, 6.027e+00])
+        data = np.zeros((data_.shape[0], data_.shape[1]+2))
+        data[:,:2] = data_[:,:2]
+        data[:,2] = data_t
+        data[:,3:5] = data_[:,2:4]
+        data[:,5] = data_tg
+        data[:,6] = data_[:,4]
+
+        # load gmm data
+        data_2 = np.loadtxt("benchmarks/data/bench_gmm.dat")/1e9
+        data_t2 = np.array([1.484e6, 3.747e6, 4.836e7, 3.578e7, 5.314e7, 1.069e8, 2.583e8, 2.200e9])/1e9
+        data_tg2 = np.array([5.484e-03, 1.434e-02, 2.205e-01, 1.497e-01, 4.396e-01, 9.588e-01, 2.586e+00, 2.442e+01])
+        data2 = np.zeros((data_2.shape[0], data_2.shape[1]+2))
+        data2[:,:2] = data_2[:,:2]
+        data2[:,2] = data_t2
+        data2[:,3:5] = data_2[:,2:4]
+        data2[:,5] = data_tg2
+
         plt.rcParams['xtick.labelsize'] = 12
         plt.rcParams['ytick.labelsize'] = 12
         xs = [3.18e4, 2.04e5, 2.87e5, 5.64e5, 1.09e6, 4.75e6, 9.13e6]
