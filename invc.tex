@@ -988,7 +988,7 @@ The later one has a doubled size because \texttt{GVar} has an extra gradient fie
 
 \begin{figure}
     \centerline{\includegraphics[width=0.5\columnwidth,trim={0 0cm 0 0},clip]{fig11.pdf}}
-    \caption{Round-off errors in the final axes of planets as a function of the number of time steps. ``(regular)'' means an irreversible program, ``(reversible)'' means a reversible program with the acceleration computed with \Lst{lst:acc1}, and ``(accumulative)'' means a reversible program with the acceleration computed with \Lst{lst:acc2}.}\label{fig:leapfrog}
+    \caption{Round-off errors in the final axes of planets as a function of the number of time steps. ``(regular)'' means an irreversible program, ``(reversible)'' means a reversible program (\Lst{lst:acc1}), and ``(accumulative)'' means a reversible program with the acceleration computed with accumulative errors (\Lst{lst:acc2}).}\label{fig:leapfrog}
 \end{figure}
 Running reversible programming with the floating pointing number system can introduce round-off errors and make the program not reversible. The quantify the effects, we use the leapfrog integrator to compute the orbitals of planets in our solar system as a benchmark. The leapfrog interations can be represented as
 \begin{align}
