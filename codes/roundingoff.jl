@@ -28,10 +28,10 @@ end
 function rsimulate(::Type{T1}, f, planets, k::Int) where T1
 	nplanets = length(planets)
 	n = (1<<k) + 1
-	v1 = zeros(V3{T1}, (nplanets,2))
-	r1 = zeros(V3{T1}, (nplanets,2))
+	v1 = zeros(V3{T1}, nplanets)
+	r1 = zeros(V3{T1}, nplanets)
 	r, v, p = f(r1, v1, convertelems.(T1, planets); n = n, dt = T1(0.01), G=T1(NBodyLeapFrog.G_year_AU))
-	r[:,mod1(n+1,2)]
+	r
 end
 
 function errors(r, rref)
@@ -44,11 +44,11 @@ function generate(planets, logns)
     els = zeros(length(logns), 3*length(Ts))
 	for (i, T) in enumerate(Ts)
 		rt = rsimulate.(T, NBodyLeapFrog.i_leapfrog, Ref(planets), logns)
-		rt_clean = rsimulate.(T, NBodyLeapFrog.i_leapfrog_clean, Ref(planets), logns)
+		rt_reuse = rsimulate.(T, NBodyLeapFrog.i_leapfrog_reuse, Ref(planets), logns)
 		irt = simulate.(T, NBodyLeapFrog.fast_leapfrog, Ref(planets), logns)
 		els[:,3i-2] = errors.(r_Double64, irt)
-		els[:,3i-1] = errors.(r_Double64, rt_clean)
-		els[:,3i] = errors.(r_Double64, rt)
+		els[:,3i-1] = errors.(r_Double64, rt)
+		els[:,3i] = errors.(r_Double64, rt_reuse)
 	end
 	els
 end

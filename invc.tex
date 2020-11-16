@@ -990,7 +990,13 @@ The later one has a doubled size because \texttt{GVar} has an extra gradient fie
     \centerline{\includegraphics[width=0.5\columnwidth,trim={0 0cm 0 0},clip]{fig11.pdf}}
     \caption{Round-off errors in the final axes of planets as a function of the number of time steps. ``(regular)'' means an irreversible program, ``(reversible)'' means a reversible program with the acceleration computed with \Lst{lst:acc1}, and ``(accumulative)'' means a reversible program with the acceleration computed with \Lst{lst:acc2}.}\label{fig:leapfrog}
 \end{figure}
-Running reversible programming with the floating pointing number system can introduce round-off errors and make the program not reversible. The quantify the effects, we use the leapfrog integrator to compute the orbitals of planets in our solar system as a benchmark.
+Running reversible programming with the floating pointing number system can introduce round-off errors and make the program not reversible. The quantify the effects, we use the leapfrog integrator to compute the orbitals of planets in our solar system as a benchmark. The leapfrog interations can be represented as
+\begin{align}
+    \vec a_i &= G\frac{m_j (\vec x_j-\vec x_i)}{\|\vec x_i - \vec x_j\|^3}\\
+    \vec v_{i+1/2} &= \vec v_{i-1/2} + \vec a_{i} \Delta t\\
+    \vec x_{i+1} &= \vec x_i + \vec v_{i+1/2}\Delta t
+\end{align}
+where $G$ is the gravitational constant and $m_j$ is the mass of $j$th planet, $\vec x$, $\vec v$ and $\vec a$ are location, velocity and acceleration respectively. The first value of velocity is $v_{1/2} = a_0 \Delta t/2$.
 Since the dynamics of our solar system are symplectic and the leapfrog integrator is time-reversible, the reversible program does not have overheads and the evolution time can go arbitrarily long with constant memory.
 We compare the mean error in the final axes of the planets and show the results in \Fig{fig:leapfrog}.
 Errors are computed by comparing with the results computed with high precision floating-point numbers.
@@ -1001,7 +1007,7 @@ In both \texttt{Float64} (double precision floating point) and \texttt{Float32} 
 Hence, simulating reversible programming with floating-point numbers does not necessarily make the results less reliable if one can avoid cumulative errors in the implementation.
 
 \begin{minipage}{.45\textwidth}
-    \begin{lstlisting}[mathescape=true,caption={Compute-uncompute on a new space \texttt{rc}},label={lst:acc1}, frame=tlrb]
+    \begin{lstlisting}[mathescape=true,caption={Compute the acceleration. Compute and uncompute on ancilla \texttt{rc}},label={lst:acc1}, frame=tlrb]
 @i function :(+=)(acceleration)(y!::V3{T}, ra::V3{T}, rb::V3{T}, mb::Real, G) where T
     @routine @invcheckoff begin
         @zeros T d anc1 anc2 anc3 anc4
@@ -1020,7 +1026,7 @@ end
 \end{minipage}
 \hfill
 \begin{minipage}{.45\textwidth}
-    \begin{lstlisting}[mathescape=true,caption={Compute-uncompute repeatedly on the same variable \texttt{rb}.},label={lst:acc2}, frame=tlrb]
+    \begin{lstlisting}[mathescape=true,caption={Compute the acceleration. Compute and uncompute on the input variable \texttt{rb}.},label={lst:acc2}, frame=tlrb]
 @i function :(+=)(acceleration)(y!::V3{T}, ra::V3{T}, rb::V3{T}, mb::Real, G) where T
     @routine @invcheckoff begin
         @zeros T d anc1 anc2 anc3 anc4
