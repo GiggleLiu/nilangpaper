@@ -1,31 +1,58 @@
-# rounding error experiments
+using NBodyLeapFrog, NiLang, DoubleFloats, DelimitedFiles
 
-using NiLang
-using LinearAlgebra
-using Statistics
-
-function e_matmul()
-    is = 2:10
-    errs = map(is) do i
-        n = 1<<i
-        A = randn(n, n)
-        B = randn(n, n)
-        C = zeros(n, n)
-        NiLang.i_mul!(C, A, B)
-        (~NiLang.i_mul!)(C, A, B)
-        #expects = i * eps(Float64) * norm(A, 1) * norm(B, 1)
-        #bA = BigFloat.(A)
-        #bB = BigFloat.(B)
-        #bC = BigFloat.(C)
-        #mulerror = norm(bA*bB .- A*B, 1)
-        res = sum(abs, C)
-        #@show res, expects, mulerror
-        res
+# patch
+for OP in [:PlusEq, :Mis]
+    function (f::PlusEq{typeof(/)})(x::Double64, y::Double64, z::Double64)
+        (x+y/z), y, z
     end
-    return is, errs
+    function (f::MinusEq{typeof(/)})(x::Double64, y::Double64, z::Double64)
+        (x-y/z), y, z
+    end
 end
 
-is, errs = e_matmul()
+function convertelems(::Type{T}, b::Body) where T
+    Body(
+        V3(T(b.r.x), T(b.r.y), T(b.r.z)),
+        V3(T(b.v.x), T(b.v.y), T(b.v.z)),
+        T(b.m)
+    )
+end
 
-using Plots
-plot(1 .<< is, errs; yscale=:log10, xscale=:log10, label="error")
+function simulate(::Type{T1}, f, planets, k::Int) where T1
+	nplanets = length(planets)
+	n = (1<<k) + 1
+	r, v = f(convertelems.(T1, planets); n = n, dt = T1(0.01), G=T1(NBodyLeapFrog.G_year_AU))
+	r[:,end]
+end
+
+function rsimulate(::Type{T1}, f, planets, k::Int) where T1
+	nplanets = length(planets)
+	n = (1<<k) + 1
+	v1 = zeros(V3{T1}, (nplanets,2))
+	r1 = zeros(V3{T1}, (nplanets,2))
+	r, v, p = f(r1, v1, convertelems.(T1, planets); n = n, dt = T1(0.01), G=T1(NBodyLeapFrog.G_year_AU))
+	r[:,mod1(n+1,2)]
+end
+
+function errors(r, rref)
+	sum(NBodyLeapFrog.distance.(r, rref))/length(r)
+end
+
+function generate(planets, logns)
+	r_Double64 = simulate.(Double64, NBodyLeapFrog.fast_leapfrog, Ref(planets), logns)
+    Ts = [Float32, Float64]
+    els = zeros(length(logns), 3*length(Ts))
+	for (i, T) in enumerate(Ts)
+		rt = rsimulate.(T, NBodyLeapFrog.i_leapfrog, Ref(planets), logns)
+		rt_clean = rsimulate.(T, NBodyLeapFrog.i_leapfrog_clean, Ref(planets), logns)
+		irt = simulate.(T, NBodyLeapFrog.fast_leapfrog, Ref(planets), logns)
+		els[:,3i-2] = errors.(r_Double64, irt)
+		els[:,3i-1] = errors.(r_Double64, rt_clean)
+		els[:,3i] = errors.(r_Double64, rt)
+	end
+	els
+end
+
+planets = Bodies.chunit_day2year.(Bodies.set)
+@time els = generate(planets, 2:20)
+writedlm(joinpath(@__DIR__, "leapfrog_errors.dat"), els)

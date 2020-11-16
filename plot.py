@@ -802,4 +802,23 @@ class PLT(object):
                 plt.annotate(t, (x, y), textcoords="offset points", xytext=(0,10) if x<=5.36e4 else (-15, 0), ha="center", va="bottom")
             plt.tight_layout()
 
+    def fig11(self, tp='pdf'):
+        # load ba data
+        data = np.loadtxt("codes/leapfrog_errors.dat")
+        plt.rcParams['xtick.labelsize'] = 12
+        plt.rcParams['ytick.labelsize'] = 12
+        with DataPlt(filename="fig11.%s"%tp, figsize=(5,4)) as dp:
+            xs = 2**np.arange(2, data.shape[0]+2)
+            for i, mk in enumerate(["^", "x", "o", "^", "x", "o"]):
+                plt.plot(xs, data[:,i], marker=mk)
+                
+            plt.yscale("log")
+            plt.xlabel("leapfrog steps")
+            plt.ylabel("round off error")
+            plt.xscale("log")
+            #plt.ylim(1e-16, 1)
+            plt.legend(["Float32 (regular)", "Float32 (reversible)", "Float32 (cummulative)", "Float64 (regular)", "Float64 (reversible)", "Float64 (cummulative)"], fontsize=10, ncol=1, loc="upper left")
+            plt.tight_layout()
+
+
 fire.Fire(PLT())

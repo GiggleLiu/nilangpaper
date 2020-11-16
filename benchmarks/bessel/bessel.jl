@@ -43,19 +43,10 @@ end
     end
 end
 
-@i function ibesselj(out!, ν, z; atol=1e-8)
+@i function ibesselj(out!::T, ν::Int, z::T; atol=1e-8) where T
     @routine @invcheckoff begin
-        k ← 0
-        fact_nu ← zero(ν)
-        halfz ← zero(z)
-        halfz_power_nu ← zero(z)
-        halfz_power_2 ← zero(z)
-        out_anc ← zero(z)
-        anc1 ← zero(z)
-        anc2 ← zero(z)
-        anc3 ← zero(z)
-        anc4 ← zero(z)
-        anc5 ← zero(z)
+        @zeros Int fact_nu, k
+        @zeros T anc1 anc2 anc3 anc4 anc5 out_anc halfz_power_2 halfz_power_nu halfz
 
         halfz += z / 2
         halfz_power_nu += halfz ^ ν
@@ -63,21 +54,56 @@ end
         ifactorial(fact_nu, ν)
 
         anc1 += halfz_power_nu/fact_nu
-        out_anc += identity(anc1)
+        out_anc += anc1
         while (abs(unwrap(anc1)) > atol && abs(unwrap(anc4)) < atol, k!=0)
-            k += identity(1)
+            k += 1
             @routine begin
                 anc5 += k + ν
                 anc2 -= k * anc5
                 anc3 += halfz_power_2 / anc2
             end
             imul(anc1, anc3, anc4)
-            out_anc += identity(anc1)
+            out_anc += anc1
             ~@routine
         end
     end
-    out! += identity(out_anc)
+    out! += 1
     ~@routine
+end
+
+@i function ibesselj2(y!::T, ν, z::T; atol=1e-8) where T
+	if z == 0
+		if v == 0
+			out! += 1
+		end
+	else
+		@routine @invcheckoff begin
+			k ← 0
+			@ones ULogarithmic{T} lz halfz halfz_power_2 s
+			@zeros T out_anc
+			lz *= convert(z)
+			halfz *= lz / 2
+			halfz_power_2 *= halfz ^ 2
+			## s *= (z/2)^ν/ factorial(ν)
+			s *= halfz ^ ν
+			for i=1:ν
+				s /= i
+			end
+			out_anc += convert(s)
+			while (s.log > -25, k!=0) # upto precision e^-25
+				k += 1
+				## s *= 1 / k / (k+ν) * (z/2)^2
+				s *= halfz_power_2 / (k*(k+ν))
+				if k%2 == 0
+					out_anc += convert(s)
+				else
+					out_anc -= convert(s)
+				end
+			end
+		end
+		y! += out_anc
+		~@routine
+	end
 end
 
 function btest(v, z)

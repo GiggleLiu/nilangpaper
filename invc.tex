@@ -318,7 +318,8 @@ By the time of writing, the version of NiLang is v0.7.3.
 
 \subsection{Reversible functions and instructions}
     Mathematically, any irreversible mapping \texttt{y = f(args...)} can be trivially transformed to its reversible form \texttt{y += f(args...)} or \texttt{y $\veebar$= f(args...)} ($\veebar$ is the bit-wise \texttt{XOR}), where \texttt{y} is a pre-emptied variable. But in numeric computing with finite precision, this is not always true. The reversibility of arithmetic instruction is closely related to the number system.
-    For integer and fixed point number system, \texttt{y += f(args...)} and \texttt{y -= f(args...)} are rigorously reversible. For logarithmic number system and tropical number system~\cite{Speyer2009}, \texttt{y *= f(args...)} and \texttt{y /= f(args...)} as reversible (not introducing the zero element). While for floating point numbers, none of the above operations are rigorously reversible. However, for convenience, we ignore the rounding errors in floating point \texttt{+} and \texttt{-} operations and treat them on equal footing with fixed point numbers in the following discussion.
+    For integer and fixed point number system, \texttt{y += f(args...)} and \texttt{y -= f(args...)} are rigorously reversible. For logarithmic number system and tropical number system~\cite{Speyer2009}, \texttt{y *= f(args...)} and \texttt{y /= f(args...)} as reversible (not introducing the zero element). While for floating point numbers, none of the above operations are rigorously reversible.
+    However, for convenience, we ignore the round-off errors in floating-point \texttt{+} and \texttt{-} operations and treat them on equal footing with fixed-point numbers in the following discussion. In \App{app:roundoff}, we will show doing this is safe in most cases provided careful implementation.
 Other reversible operations includes \texttt{SWAP}, \texttt{ROT}, \texttt{NEG} et. al., and this instruction set is extensible.
 One can define a reversible multiplier in NiLang as in \Lst{lst:multiplier}.
 
@@ -976,5 +977,64 @@ Then we write a reversible norm function \texttt{r\_norm} with NiLang and port t
 Except for the speed up in computing time, the memory allocation also decreases to 23KB, which is equal to the sum of the original $x$ and the array used in backpropagation.
 $$(1000\times 8 + 1000\times 8\times 2)/1024 \approx 23$$
 The later one has a doubled size because \texttt{GVar} has an extra gradient field.
+
+\section{Error Analysis}
+
+%\begin{figure}
+%    \centerline{\includegraphics[width=0.7\columnwidth,trim={0 0cm 0 0},clip]{error.pdf}}
+%    \caption{Two types of processes generating round off errors. (a) compute-uncompute on an ancilla for only once and then free it.
+%    (b) Compute-uncompute on the same variable multiple times.}\label{fig:error}
+%\end{figure}
+
+\begin{figure}
+    \centerline{\includegraphics[width=0.5\columnwidth,trim={0 0cm 0 0},clip]{fig11.pdf}}
+    \caption{Round-off errors in the final axes of planets as a function of the number of time steps. ``(regular)'' means an irreversible program, ``(reversible)'' means a reversible program with the acceleration computed with \Lst{lst:acc1}, and ``(accumulative)'' means a reversible program with the acceleration computed with \Lst{lst:acc2}.}\label{fig:leapfrog}
+\end{figure}
+Running reversible programming with the floating pointing number system can introduce round-off errors and make the program not reversible. The quantify the effects, we use the leapfrog integrator to compute the orbitals of planets in our solar system as a benchmark.
+Since the dynamics of our solar system are symplectic and the leapfrog integrator is time-reversible, the reversible program does not have overheads and the evolution time can go arbitrarily long with constant memory.
+We compare the mean error in the final axes of the planets and show the results in \Fig{fig:leapfrog}.
+Errors are computed by comparing with the results computed with high precision floating-point numbers.
+One of the key steps that introduce round-off error is the computation of \texttt{acceleration}. If it is implemented as in \Lst{lst:acc1}, the round-off error does not bring additional effect in the reversible context, hence we see overlapping lines ``(regular)'' and ``(reversible)'' in the figure.
+This is because, when returning a dirty (not exactly zero cleared due to the floating-point round-off error) ancilla to the ancilla pool, the small remaining value will be zero-cleared automatically in NiLang.
+The \texttt{acceleration} function can also be implemented as in \Lst{lst:acc2}, where the same variable \texttt{rb} is repeatedly used for compute and uncompute, the error will accumulate on this variable.
+In both \texttt{Float64} (double precision floating point) and \texttt{Float32} (single precision floating point) benchmarks, the results show a much lower precision.
+Hence, simulating reversible programming with floating-point numbers does not necessarily make the results less reliable if one can avoid cumulative errors in the implementation.
+
+\begin{minipage}{.45\textwidth}
+    \begin{lstlisting}[mathescape=true,caption={Compute-uncompute on a new space \texttt{rc}},label={lst:acc1}, frame=tlrb]
+@i function :(+=)(acceleration)(y!::V3{T}, ra::V3{T}, rb::V3{T}, mb::Real, G) where T
+    @routine @invcheckoff begin
+        @zeros T d anc1 anc2 anc3 anc4
+        rc ← zero(V3{T})
+        d += sqdistance(ra, rb)
+        anc1 += sqrt(d)
+        anc2 += anc1 ^ 3
+        anc3 += G * mb
+        anc4 += anc3 / anc2
+        rc += rb - ra
+    end
+    y! += anc4 * rc
+    ~@routine
+end
+\end{lstlisting}
+\end{minipage}
+\hfill
+\begin{minipage}{.45\textwidth}
+    \begin{lstlisting}[mathescape=true,caption={Compute-uncompute repeatedly on the same variable \texttt{rb}.},label={lst:acc2}, frame=tlrb]
+@i function :(+=)(acceleration)(y!::V3{T}, ra::V3{T}, rb::V3{T}, mb::Real, G) where T
+    @routine @invcheckoff begin
+        @zeros T d anc1 anc2 anc3 anc4
+        d += sqdistance(ra, rb)
+        anc1 += sqrt(d)
+        anc2 += anc1 ^ 3
+        anc3 += G * mb
+        anc4 += anc3 / anc2
+        rb -= ra
+    end
+    y! += anc4 * rb
+    ~@routine
+end
+\end{lstlisting}
+\end{minipage}
 
 \end{document}
