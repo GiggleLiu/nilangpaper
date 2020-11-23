@@ -231,26 +231,40 @@ There have been many prototypes of reversible languages like Janus~\cite{Lutz198
 In the past, the primary motivation to study reversible programming is to support reversible computing devices~\cite{Frank1999} such as adiabatic complementary metal-oxide-semiconductor (CMOS)~\cite{Koller1992}, molecular mechanical computing system~\cite{Merkle2018} and superconducting system~\cite{Likharev1977,Semenov2003,Takeuchi2014,Takeuchi2017}, and these reversible computing devices are orders more energy-efficient. Landauer proves that only when a device does not erase information (i.e. reversible), its energy efficiency can go beyond the thermal dynamic limit.~\cite{Landauer1961,Reeb2014}
 However, these reversible programming languages can not be used directly in real scientific computing, since most of them do not have basic elements like floating point numbers, arrays, and complex numbers. This motivates us to build a new embedded domain-specific language (eDSL) in Julia~\cite{Bezanson2012,Bezanson2017} as a new playground of GP-AD.
 
-    In this paper, we first introduce the language design of NiLang in \Sec{sec:lang}.
+    In this paper, we first compare the time-space trade-off in the optimal checkpointing and the optimal reverse computing in \Sec{sec:timespace}.
+    Then we introduce the language design of NiLang in \Sec{sec:lang}.
     In \Sec{sec:bp}, we explain the implementation of automatic differentiation in NiLang.
     In \Sec{sec:benchmark}, we benchmark the performance of NiLang's AD with other AD software and explain why it is fast.
 
-\section{Reverse computing as an Alternative to Checkpointing}\label{timespace}
+\section{Reverse computing as an Alternative to Checkpointing}\label{sec:timespace}
 
-Both checkpointing and reverse computing can be used to trace back intermediate states.
-Considering an irreversible program with pure forward computing time $T$ and run-time memory $S$, in the checkpointing scheme, the program first takes snapshots of states at certain time steps $S = \{s_{a}, s_b, \ldots\}$ in the forward execution. When retrieving a state $s_k$, the program will check if $s_k \in S$. If so, just return this state, otherwise, return $\max\limits_j s_{j<k} \in S$ and re-compute $s_k$ from $s_j$.
-In the reverse computing scheme, one write the program in a reversible style and retrieve intermediate state $s_k$ by computing one step backward from the next state $s_{k+1}$.
-The most straight forward approach to transpile a regular program to the reversible style is by doing the following transformation.
-\begin{align*}
-    s_1 &\mathrel{+}= f1(s_0)\\
-    s_2 &\mathrel{+}= f2(s_1)\\
-    \ldots\\
-    s_T &\mathrel{+}= f_{T}(s_{T-1})
-\end{align*}
+One can use either checkpointing or reverse computing to trace back intermediate states of a $T$-step computational process $s_1 = f_1(s_0), s_2=f_2(s_1), \ldots, s_T = f_T(s_{T-1})$ with a run-time memory $S$. In the checkpointing scheme, the program first takes snapshots of states at certain time steps $S = \{s_{a}, s_b, \ldots\}, 1\leq a < b < ... \leq T$ by running a forward pass. When retrieving a state $s_k$, if $s_k \in S$, just return this state, otherwise, return $\max\limits_j s_{j<k} \in S$ and re-compute $s_k$ from $s_j$.
+In the reverse computing scheme, one first writes the program in a reversible style.
+Without prior knowledge, a regular program can be transpiled to the reversible style is by doing the transformation in \Lst{lst:transpile}.
 
-It is easy to see, when one wants to trace back states with no time overhead, the checkpointing scheme snapshots the output in every step, and the reverse computing scheme allocates extra storage for storing outputs in every step. Both suffer from a space overhead that linear to time (\Tbl{tbl:timespace}).
-On the otherside, when one wants to achive a minimum space overhead, the checkpointing scheme just recompute everything from beginning $s_0$, hence the time complexity is $O(T^2)$ and the space overhead is zero.
-While in the reverse computing scheme, the minimum space complexity is $O(S\log(T/S))$~\cite{Bennett1989,Levine1990,Perumalla2013}, where the overhead in time is polynomial.
+\begin{minipage}{.45\columnwidth}
+\begin{lstlisting}[mathescape=true,caption={Transpiling a regular code to the reversible code without prior knowledge.}, label={lst:transpile}]
+    $s_1 \mathrel{+}= f_1(s_0)$
+    $s_2 \mathrel{+}= f_2(s_1)$
+    $\ldots$
+    $s_T \mathrel{+}= f_{T}(s_{T-1})$
+\end{lstlisting}
+\end{minipage}
+\begin{minipage}{.45\columnwidth}
+    \begin{lstlisting}[mathescape=true,caption={The reverse of \Lst{lst:transpile}}, label={lst:transpile-rev}]
+    $s_T \mathrel{-}= f_{T}(s_{T-1})$
+    $\ldots$
+    $s_2 \mathrel{-}= f_2(s_1)$
+    $s_1 \mathrel{-}= f_1(s_0)$
+\end{lstlisting}
+\end{minipage}
+
+Then one can visit states in the reversed order by running the reversed program in \Lst{lst:transpile-rev}, which erases the computed results from the tail.
+One may argue that easing through uncomputing is not nessesary here. This is not true for a general reversible program, because the intermediate states might be mutable and used in other parts of the program.
+It is easy to see, both checkpointing and reverse computing can trace back states without time overhead, but both suffer from a space overhead that linear to time (\Tbl{tbl:timespace}).
+The checkpointing scheme snapshots the output in every step, and the reverse computing scheme allocates extra storage for storing outputs in every step.
+On the otherside, only checkpointing can achieve a zero space overhead by recomputing everything from the beginning $s_0$, with a time complexity $O(T^2)$.
+The minimum space complexity in reverse computing is $O(S\log(T/S))$~\cite{Bennett1989,Levine1990,Perumalla2013}, with time complexity $\bigO(T^{1.585})$.
 \begin{table}[h!]\centering
     \scriptsize
 \begin{minipage}{\columnwidth}
@@ -268,28 +282,23 @@ While in the reverse computing scheme, the minimum space complexity is $O(S\log(
 \end{minipage}
 \end{table}
 
-In most cases, one needs to balance the space and the time. Then it comes to how to snapshot states in the checkpointing scheme, and when to use uncomputing to free memory is the reverse computing scheme.
-The most successful checkpointing algorithm that widely used in AD is the treeverse algorithm in \Fig{fig:tradeoff}(a).
-The computational process is binomially partitioned into $d$ sectors. At the beginning of each sector, a snapshot is stored in the main memory.
-The states in the last sector are retrieved by the above space-efficient $O(T^2)$ algorithm. After that, the last checkpoint can be freed.
-The remaining sectors are further partitioned into $d-l+1$ sub-sectors, where $l$ is the sector index counting from the tail. The earlier sectors have more quota of snapshots while the latter sectors have less so that the total number of snapshots remain the same.
+%In most cases, one needs to balance the space and the time. Then it comes to how to snapshot states in the checkpointing scheme, and when to use uncomputing to free memory is the reverse computing scheme.
+The difference in space overheads can be explained by the difference of the optimal checkpointing and optimal reverse computing algorithms.
+The optimal checkpointing algorithm that widely used in AD is the treeverse algorithm in \Fig{fig:tradeoff}(a).
+This algorithm partitions the computational process \textbf{binomially} into $d$ sectors. At the beginning of each sector, the program snapshots the state and push it into a global stack, hence the memory for checkpointing is $dS$.
+The states in the last sector are retrieved by the above space-efficient $O(T^2)$ algorithm. After that, the last snapshot can be freed and the program has one more quota in memory. With the freed memory, the second last sector can be further partition into two sectors.
+Likewise, the $l$th sectors is partitioned into $l$ sub-sectors, where $l$ is the sector index counting from the tail.
 Recursively apply this treeverse algorithm $t$ times until the sector size is $1$. The approximated overhead in time and space are
 \begin{align}
-    T_c = tT, S_c = dS.
+    T_c = tT, S_c = dS,
 \end{align}
-Where $T = \eta(t, d)$. By carefully choosing either a $t$ or $d$, the overhead in time and space can be both logarithmic.
+where $T = \eta(t, d)$ holds. By carefully choosing either a $t$ or $d$, the overhead in time and space can be both logarithmic.
 
-On the other side, Bennett's trade-off of reverse computing also has a recursive structure as shown in \Fig{fig:tradeoff} (b). But the program is evenly partitioned into $k$ sectors. The program marches forward ($P$ process) for $k$ steps to obtain the final state $s_{k+1}$, then backward ($Q$ process) from the $k-1$th step to erase the states in between $s_{1<i\leq k}$. Each sector is further divided in to $k$ sub-sectors and recursive run the above \textit{compute-copy-uncompute} process. The time and space complexities are
+On the other side, the optimal time-space trade-off scheme in reverse computing is the Bennett's algorithm illustrated in \Fig{fig:tradeoff} (b). It evenly \textbf{evenly} partition the program into $k$ sectors. The program marches forward ($P$ process) for $k$ steps to obtain the final state $s_{k+1}$, then backward ($Q$ process) from the $k-1$th step to erase the states in between $s_{1<i<k}$. This process is also called the \textit{compute-copy-uncompute} process. Recursively apply the compute-copy-uncompute process for each sector until each $P/Q$ process contains only one unit computation. the time and space complexities are
 \begin{align}\label{eq:rev}
     T_r = T\left(\frac{T}{S}\right)^{\frac{\ln(2-(1/k))}{\ln k}}, S_r = \frac{k-1}{\ln k}S\log\frac{T}{S}.
 \end{align}
-Here, the overhead in time is polynomial, which is worse than the treeverse algorithm. Treeverse like partition does not apply here because one can not complete the first sweep to create initial checkpoints without introducing any space overheads in reversible computing. The pseudo-code of Bennett's time-space trade-off algorithm is shown in \Lst{lst:bennett}.
-The first argument \texttt{\{$s_1$,...\}} is the collection of states, \texttt{k} is the number of partitions, \texttt{i} and \texttt{len} are the starting point and length of the working sector. A function call changes variables inplace. ``$\sim$'' is the symbol of uncomputing, which means undoing a function call.
-    Statement \texttt{$s_{i+1} \leftarrow 0$} allocates a zero state and add it to the state collection. Its inverse \texttt{$s_{i+1} \rightarrow 0$} discards a zero cleared state from the collection.
-    Another interesting observation is reversible computing is not always more energy efficient irreversible computing. The time to uncompute a unit of memory is exponential to $n$ as $Q_n = (2k-1)^n$, and the computing energy also increases exponentially. On the other side, the amount of energy to erase a memory unit is constant.
-    When $(2k-1)^{n} > 1/\xi$, erasing the memory irreversibly is more energy-efficient, where $\xi$ is the energy ratio between a reversible operation (an instruction or a gate) and its irreversible counterpart.
-For this reason, we think a reversible programming language is more suitable as an eDSL inside an irreversible host language rather than a stand-alone one.
-One can use the reversible operations at the microscopic level like registers and L1 cache level to save energy, and use the existing irreversible software stacks at the macroscopic level like the main memory level to discard information directly.
+Here, the overhead in time is polynomial, which is worse than the treeverse algorithm. The treeverse like partition does not apply here because the first sweep to create initial checkpoints without introducing any space overheads is not possible in reversible computing. The pseudo-code of Bennett's time-space trade-off algorithm is shown in \Lst{lst:bennett}.
 
 \begin{figure}
     \centerline{\includegraphics[width=0.88\columnwidth,trim={0 0cm 0 0cm},clip]{tradeoff.pdf}}
@@ -297,7 +306,10 @@ One can use the reversible operations at the microscopic level like registers an
 \end{figure}
 
 \begin{minipage}{.88\columnwidth}
-    \begin{lstlisting}[mathescape=true,caption={The Bennett's time-space trade-off scheme. Its NiLang implementation is in \App{app:bennett-nilang}.},label={lst:bennett}]
+    \begin{lstlisting}[mathescape=true,caption={The Bennett's time-space trade-off scheme.
+   The first argument \texttt{\{$s_1$,...\}} is the collection of states, \texttt{k} is the number of partitions, \texttt{i} and \texttt{len} are the starting point and length of the working sector. A function call changes variables inplace. ``$\sim$'' is the symbol of uncomputing, which means undoing a function call.
+    Statement \texttt{$s_{i+1} \leftarrow 0$} allocates a zero state and add it to the state collection. Its inverse \texttt{$s_{i+1} \rightarrow 0$} discards a zero cleared state from the collection.
+ Its NiLang implementation is in \App{app:bennett-nilang}.},label={lst:bennett}]
 bennett($\{s_1,...\}$, k, i, len)
     if len == 1
         $s_{i+1}$ ← 0
@@ -554,12 +566,22 @@ The peak memory of the original program and the reversible program are both equa
 One can find more benchmarks in \App{app:morebenchmarks}, including differentiating sparse matrix dot product and obtaining Hessians in the graph embedding application.
 
 \section{Discussion}
-In this work, we demonstrate a new approach to back propagates a program called reversible programming AD by designing a reversible eDSL NiLang.
+In this work, we demonstrate a new approach to back propagates a program called reverse computing AD by designing a reversible eDSL NiLang.
 NiLang is a powerful tool to differentiate code from the source code level so that can be directly useful to machine learning researches. It can generate efficient backward rules, which is exemplified in \App{app:zygote}.
 It can also be used to differentiate reversible neural networks like normalizing flows~\cite{Kobyzev2019} to save memory, e.g. back-propagating NICE network~\cite{Dinh2014} with only constant space overheads.
-Except for the above immediate benefits to the machine learning ecosystem, we also want to emphasize the broader impact of AD on reverse computing.
-AD on reverse computing is related to two of the central issues limiting many machine learning applications. One is how to overcome the memory wall that has been extensively discussed in the main text, and another is how to reduce energy consumption.
-AD on reverse computing provides a software stack that connecting machine learning with further technologies to save energy.
+NiLang is most useful in solving large scale scientic problems memory efficiently. In ~\citet{Liu2020}, people solve the ground state problem of a $28\times 28$ square lattice spinglass by re-writing the quantum simulator with NiLang.
+There are some chanllenges in reverse computing AD too.
+\begin{itemize}
+    \item The native BLAS and convolution operations in NiLang are not optimized for the memory layout, and are too slow comparing with state of the art machine learning libraries. We need a better implementation of these functions in the reversible programming context so that it can be more useful in training traditional deep neural networks.
+    \item Although we show some examples of traning neural networks on GPU, the shared-reading of a variable is not allowed.
+    \item NiLang's IR does not have variable analysis. The uncomputing pass is not always nessesary for the irreversible host language to deallocate memory.
+In many cases, the host language's variable analysis can figure this out, but it is not guarantted.
+\end{itemize}
+
+Another interesting issue is how to make use of reversible computing devices to save energy in machine learning.
+Reversible computing is not always more energy efficient than irreversible computing. In the time-space trade-off scheme in \Sec{sec:timespace}, we show the time to uncompute a unit of memory is exponential to $n$ as $Q_n = (2k-1)^n$, and the computing energy also increases exponentially. On the other side, the amount of energy to erase a unit of memory is a constant.
+When $(2k-1)^{n} > 1/\xi$, erasing the memory irreversibly is more energy-efficient, where $\xi$ is the energy ratio between a reversible operation (an instruction or a gate) and its irreversible counterpart.
+%For this reason, we think a reversible programming language is more suitable as an eDSL inside an irreversible host language rather than a stand-alone one.
 
 \subsubsection*{Acknowledgments}
 The authors are grateful to the people who help improve this work and fundings that sponsored the research. To meet the anonymous criteria, we will add the acknowledgments after the open review session.
