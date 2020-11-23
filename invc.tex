@@ -260,10 +260,10 @@ Without prior knowledge, a regular program can be transpiled to the reversible s
 \end{minipage}
 
 Then one can visit states in the reversed order by running the reversed program in \Lst{lst:transpile-rev}, which erases the computed results from the tail.
-One may argue that easing through uncomputing is not nessesary here. This is not true for a general reversible program, because the intermediate states might be mutable and used in other parts of the program.
+One may argue that easing through uncomputing is not necessary here. This is not true for a general reversible program, because the intermediate states might be mutable and used in other parts of the program.
 It is easy to see, both checkpointing and reverse computing can trace back states without time overhead, but both suffer from a space overhead that linear to time (\Tbl{tbl:timespace}).
 The checkpointing scheme snapshots the output in every step, and the reverse computing scheme allocates extra storage for storing outputs in every step.
-On the otherside, only checkpointing can achieve a zero space overhead by recomputing everything from the beginning $s_0$, with a time complexity $O(T^2)$.
+On the other side, only checkpointing can achieve a zero space overhead by recomputing everything from the beginning $s_0$, with a time complexity $O(T^2)$.
 The minimum space complexity in reverse computing is $O(S\log(T/S))$~\cite{Bennett1989,Levine1990,Perumalla2013}, with time complexity $\bigO(T^{1.585})$.
 \begin{table}[h!]\centering
     \scriptsize
@@ -499,11 +499,11 @@ This will remove the reversibility check and make the code faster and compatible
     %\caption{Automatic differentiation.}\label{fig:autodiff}
 \end{figure}
 We decompose the problem of reverse mode AD into two sub-problems, \textbf{reversing the code} and \textbf{computing} $\frac{\partial \text{[single input]}}{\partial \text{[multiple outputs]}}$.
-Reversing the code is trivial in reversible programming, while the second sub-problem is similar to forward mode automatic differentiation that computes $\frac{\partial \text{[multiple outputs]}}{\partial \text{[single input]}}$.
-Inspired by the Julia package ForwardDiff~\cite{Revels2016}, we use operator overloading rather than the source to source transformation for better extensibility.
-We wrap each output variable with a composite type \texttt{GVar} that containing an extra gradient field, and feed it into the reversed generic program.
-Instructions are multiple dispatched to corresponding gradient instructions that update the gradient field of \texttt{GVar} at the same time. By reversing this gradient program, we can obtain the gradient program for the reversed program $R$ too.
-One can define the adjoint (``adjoint'' here means a reversed program updating gradients) of a primitive instruction as a reversible function on \textbf{either} the function itself or its reverse since the adjoint of a function's reverse is equivalent to the reverse of the function's adjoint.
+Reversing the code is trivial in reversible programming. Computing the gradient here is similar to forward mode automatic differentiation that computes $\frac{\partial \text{[multiple outputs]}}{\partial \text{[single input]}}$.
+Inspired by the Julia package ForwardDiff~\cite{Revels2016}, we use the operator overloading technique to differentiate the program efficiently.
+In the backward pass, we wrap each output variable with a composite type \texttt{GVar} that containing an extra gradient field, and feed it into the reversed generic program.
+Instructions are multiple dispatched to corresponding gradient instructions that update the gradient field of \texttt{GVar} at the meantime of uncomputing. By reversing this gradient program, we can obtain the gradient program for the reversed program too.
+One can define the adjoint (``adjoint'' here means the program for back-propagating gradients) of a primitive instruction as a reversible function on \textbf{either} the function itself or its reverse since the adjoint of a function's reverse is equivalent to the reverse of the function's adjoint.
 \begin{align}
     f: (\vec x, \vec g_x) &\rightarrow (\vec y, \vec g_x^T\frac{\partial \vec x}{\partial \vec y})\\
     f^{-1}: (\vec y, \vec g_y) &\rightarrow (\vec x, \vec g_y^T\frac{\partial \vec y}{\partial \vec x})
@@ -511,7 +511,7 @@ One can define the adjoint (``adjoint'' here means a reversed program updating g
 It can be easily verified by applying the above two mappings consecutively, which turns out to be an identity mapping considering $\frac{\partial \vec y}{\partial \vec x} \frac{\partial \vec x}{\partial \vec y} = \mathbbm{1}$.
 
 The implementation details are described in \App{app:jacobian}.
-In most languages, operator overloading brings significant overheads of function calls and object allocation and deallocation.
+In most languages, operator overloading is accompanied with significant overheads of function calls and object allocation and deallocation.
 But in a language with type inference and just in time compiling like Julia, the boundary between two approaches are vague.
 The compiler inlines small functions, packs an array of constant sized immutable objects into a continuous memory, and truncates unnecessary branches automatically.
 
@@ -568,12 +568,12 @@ One can find more benchmarks in \App{app:morebenchmarks}, including differentiat
 In this work, we demonstrate a new approach to back propagates a program called reverse computing AD by designing a reversible eDSL NiLang.
 NiLang is a powerful tool to differentiate code from the source code level so that can be directly useful to machine learning researches. It can generate efficient backward rules, which is exemplified in \App{app:zygote}.
 It can also be used to differentiate reversible neural networks like normalizing flows~\cite{Kobyzev2019} to save memory, e.g. back-propagating NICE network~\cite{Dinh2014} with only constant space overheads.
-NiLang is most useful in solving large scale scientic problems memory efficiently. In ~\citet{Liu2020}, people solve the ground state problem of a $28\times 28$ square lattice spinglass by re-writing the quantum simulator with NiLang.
-There are some chanllenges in reverse computing AD too.
+NiLang is most useful in solving large scale scientific problems memory efficiently. In ~\citet{Liu2020}, people solve the ground state problem of a $28\times 28$ square lattice spin-glass by re-writing the quantum simulator with NiLang.
+There are some challenges in reverse computing AD too.
 \begin{itemize}
     \item The native BLAS and convolution operations in NiLang are not optimized for the memory layout, and are too slow comparing with state of the art machine learning libraries. We need a better implementation of these functions in the reversible programming context so that it can be more useful in training traditional deep neural networks.
-    \item Although we show some examples of traning neural networks on GPU, the shared-reading of a variable is not allowed.
-    \item NiLang's IR does not have variable analysis. The uncomputing pass is not always nessesary for the irreversible host language to deallocate memory.
+    \item Although we show some examples of training neural networks on GPU, the shared-reading of a variable is not allowed.
+    \item NiLang's IR does not have variable analysis. The uncomputing pass is not always necessary for the irreversible host language to deallocate memory.
 In many cases, the host language's variable analysis can figure this out, but it is not guarantted.
 \end{itemize}
 
