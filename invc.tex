@@ -706,6 +706,95 @@ end
 
 Since the fixed-point number is not reversible under \texttt{*=}, naive checkpointing would require stack operations inside a loop. With reversible thinking, we can convert the fixed-point number to logarithmic numbers to utilize the reversibility of \texttt{*=} as shown in \Lst{lst:power2}. Here, the algorithm to convert a regular fixed-point number to a logarithmic number can be efficient.~\cite{Turner2010}
 
+\section{Language Details}\label{app:detail}
+\subsection{NiLang Compilation}\label{app:compile}
+The compilation of a reversible function to native Julia functions is consisted of three stages: \textit{preprocessing}, \textit{reversing} and \textit{translation} as shown in \Fig{fig:compiling}.
+
+\begin{figure}
+    \centerline{\includegraphics[width=0.95\columnwidth,trim={0cm 0cm 0cm 0cm},clip]{compiling_v2.pdf}}
+    \caption{Compiling the body of the complex valued log function defined in \Lst{lst:complex}.}\label{fig:compiling}
+\end{figure}
+
+In the \textit{preprocessing} stage, the compiler pre-processes human inputs to the reversible NiLang IR.
+The preprocessor removes redundant grammars and expands shortcuts. In the left most code box in \Fig{fig:compiling}, one uses \texttt{@routine <stmt>} statement to record a statement, and \texttt{$\sim$@routine} to insert the corresponding inverse statement for uncomputing.
+The computing-uncomputing macros \texttt{@routine} and \texttt{$\sim$@routine} is expanded in this stage.
+In the \textit{reversing} stage, based on this symmetric and reversible IR, the compiler generates reversed statements.
+In the \textit{translation} stage, the compiler translates this reversible IR as well as its inverse to native Julia code. It adds \texttt{@assignback} before each function call, inserts codes for reversibility check, and handle control flows.
+As a final step, the compiler attaches a return statement that returns all updated input arguments at the end of a function definition.
+Now, the function is ready to execute on the host language.
+
+
+\subsection{NiLang Grammar}\label{app:grammar}
+To define a reversible function one can use ``@i'' plus a standard function definition like bellow
+
+\begin{minipage}{.88\columnwidth}
+\begin{lstlisting}[basicstyle=\small\ttfamily,columns=fullflexible]
+"""
+docstring...
+"""
+@i function f(args..., kwargs...) where {...}
+    <stmts>
+end
+\end{lstlisting}
+\end{minipage}
+
+where the definition of ``<stmts>'' are shown in the grammar page bellow.
+The following is a list of terminologies used in the definition of grammar
+\begin{itemize}
+    \item $ident$, symbols
+    \item $num$, numbers
+    \item $\epsilon$, empty statement
+    \item $JuliaExpr$, native Julia expression
+    \item $[$ $]$,  zero or one repetitions.
+\end{itemize}
+Here, all $JuliaExpr$ should be pure. Otherwise, the reversibility is not guaranteed.
+Dataview is a view of data. It can be a bijective mapping of an object, an item of an array, or a field of an object.
+
+\begin{minipage}{0.6\textwidth}
+    \small
+\input{bnf.tex}
+\end{minipage}
+
+\Tbl{tbl:revstatements} shows the meaning of some selected statements and how they are reversed.
+
+\begin{table}[h!]\centering
+    \footnotesize
+\begin{minipage}{\columnwidth}
+\ra{1.3}
+    \scalebox{1.0}{
+        \begin{tabularx}{\textwidth}{X X X}\toprule
+            \textbf{Statement} & \textbf{Meaning} & \textbf{Inverse}\\
+            \hline
+            \texttt{<f>(<args>...)} & function call & \texttt{($\sim$<f>)(<args>...)}\\
+            \hline
+            \texttt{<f>.(<args>...)} & broadcast a function call & \texttt{<f>.(<args>...)}\\
+            \hline
+            \texttt{<y> += <f>(<args>...)} & inplace add instruction & \texttt{<y> -= <f>(<args>...)}\\
+            \hline
+            \texttt{<y> $\veebar$= <f>(<args>...)} & inplace XOR instruction & \texttt{<y> $\veebar$= <f>(<args>...)}\\
+            \hline
+            \texttt{<a> $\leftarrow$ <expr>} & allocate a new variable & \texttt{<a> $\rightarrow$ <expr>}\\
+            \hline
+            \texttt{begin}\newline \texttt{$\cquad$<stmts>}\newline \texttt{end} & statement block & \texttt{begin}\newline \texttt{$\cquad$ $\sim$(<stmts>)}\newline \texttt{end}\\
+            \hline
+            \texttt{if (<pre>, <post>)}\linebreak \texttt{$\cquad$<stmts1>}\newline \texttt{else}\newline \texttt{$\cquad$<stmts2>}\newline \texttt{end} & if statement & \texttt{if (<post>, <pre>)}\newline \texttt{$\cquad$$\sim$(<stmts1>)}\newline \texttt{else}\newline \texttt{$\cquad$ $\sim$(<stmts2>)}\newline \texttt{end}\\ %$
+            \hline
+            \texttt{while (<pre>, <post>)}\newline \texttt{$\cquad$<stmts>} \newline \texttt{end} & while statement & \texttt{while (<post>, <pre>)}\newline $\cquad$  \texttt{$\sim$(<stmts>)}\newline \texttt{end}\\
+            \hline
+            \texttt{for <i>=<m>:<s>:<n>}\newline $\cquad$\texttt{<stmts>}\newline \texttt{end} & for statement & \texttt{for <i>=<m>:-<s>:<n>}\newline $\cquad$ \texttt{$\sim$(<stmts>)}\newline \texttt{end}\\
+            \bottomrule
+        \end{tabularx}
+    }
+    \caption{Basic statements in NiLang IR.
+    ``$\sim$'' is the symbol for reversing a statement or a function.
+    ``.'' is the symbol for the broadcasting magic in Julia,
+    \texttt{<pre>} stands for precondition, and \texttt{<post>} stands for postcondition
+``\texttt{begin <stmts> end}'' is the code block statement in Julia.
+It can be inverted by reversing the order as well as each element in it.
+}\label{tbl:revstatements}
+\end{minipage}
+\end{table}
+
 \section{Implementation of AD in NiLang}\label{app:jacobian}
 To backpropagate the program, we first reverse the code through source code transformation and then insert the gradient code through operator overloading.
 If we inline all the functions in \Lst{lst:complex2}, the function body would be like \Lst{lst:expand-complex}.
