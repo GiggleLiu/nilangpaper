@@ -322,14 +322,13 @@ bennett($\{s_1,...\}$, k, i, len)
 \end{lstlisting}
 \end{minipage}
 
-The reverse computing does not show any advantage in worse-case complexity comparing with checkpointing.
-But the following traits make it perform better in many practical applications.
-\textit{First}, reverse computing can make use of the reversibility to save memory. The above discussion assumes every operation is irreversible, however, the most program contains a lot of reversible instructions like the multiply-accumulate operation in many BLAS functions and sparse matrix functions. In \App{app:reversibility}, we show how to implement a unitary matrix multiplication without introducing overheads in space and time.
+The reverse computing does not show advantage from the above complexity analysis.
+But we argue the this analysis is from the worst case, which are very different to the practical using cases.
+\textit{First}, reverse computing can make use of the reversibility to save memory. In \App{app:reversibility}, we show how to implement a unitary matrix multiplication without introducing overheads in space and time.
 \textit{Second}, reverse computing does not allocate automatically for users, user can optimize the memory access patterns for their own devices like GPU.
 \textit{Third}, reverse computing is compatible with effective codes, so that it fits better with modern languages. In \App{app:effectivecode}, we show how to manipulate inplace functions on arrays with NiLang.
-\textit{Fourth}, reverse computing can utilize the existing compiler to optimize the code better because it does not automatically introduce global stack operations that harm the purity of functions.
-\textit{Fifth}, reverse computing encourages the user to think reversibly. Reversible thinking can lead the user to a constant memory, constant time overhead implementation of chained multiplication algorithms as shown in \App{app:chainedmul}.
-Transpiling a regular code to a reversible code is not hard, but it is unlikely to provide the user with better performance than optimal checkpointing. Instead, thinking about how to write instructions and control flows reversibly does.
+\textit{Fourth}, reverse computing can utilize the existing compiler to optimize the code because it does not introduce global stack operations that harm the purity of functions.
+\textit{Fifth}, reverse computing encourages users to think reversibly. In \App{app:chainedmul}, we show reversible thinking can lead the user to a constant memory, constant time implementation of chained multiplication algorithms.
 
 \section{Language design}\label{sec:lang}
 
