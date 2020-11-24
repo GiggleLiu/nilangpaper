@@ -1300,7 +1300,7 @@ It can be inverted by reversing the order as well as each element in it.
 \namedseq{Call}{
     \sigma_P, P(id) \Downarrow_p \sigma_P'
 }{
-    \sigma_P, id(e) \Downarrow_p \sigma_P'
+    \sigma_P, x(\overline n) \Downarrow_p \sigma_P'
 }
 
 \namedseq{UnCall}{
@@ -1311,14 +1311,24 @@ It can be inverted by reversing the order as well as each element in it.
 
 \namedseq{ComputeCopyUncompute}{
     \sigma_P, s_1 \Downarrow_p \sigma_P' ~~~~
-    \sigma_P', s_2 \Downarrow_p \sigma_P''~~~~
+    \sigma_P', \textbf{begin} ~~ s_2 \cdots s_n \eend  \Downarrow_p \sigma_P''~~~~
     \sigma_P''', s_1 \Downarrow_p \sigma_P''
 }{
     \sigma_P, \textbf{@routine} ~~
-    s_1 ~~
-    s_2 ~~
+    s_1; ~~
+    s_2 \cdots s_n ~~
     \textbf{$\boldsymbol{\sim}$@routine}\Downarrow_p \sigma_P''
 }
+
+\namedseq{BeginEnd}{
+    \sigma_P, s_1 \Downarrow_p \sigma_P' ~~~~
+    \sigma_P', \textbf{begin} ~~ s_2 \cdots s_n \eend \Downarrow_p \sigma_P''~~~~
+}{
+    \sigma_P, \textbf{begin} ~~
+    s_1 \cdots s_n
+    \eend\Downarrow_p \sigma_P''
+}
+
 
 Since the \textbf{for} loop and \textbf{block} expression is same as the host language Julia, we do not elaborate here.
 
