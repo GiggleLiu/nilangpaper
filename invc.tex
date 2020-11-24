@@ -44,6 +44,7 @@
 \usepackage{float}
 \usepackage[normalem]{ulem}
 \usepackage{makecell}
+\usepackage{longtable}
 \usepackage{indentfirst}
 \usepackage{txfonts}
 \usepackage[epsilon, tsrm, altpo]{backnaur}
@@ -104,6 +105,9 @@ Listing \thelstlisting: #1\hfill%\hfill%
 %\usepackage{CJK}
 %\usepackage[colorlinks, citecolor=blue]{hyperref}
 \DeclareMathOperator*{\argmax}{arg\,max}
+\DeclareMathSymbol{:}{\mathord}{operators}{"3A}
+\let\oldsim\sim
+\renewcommand{\sim}{{\oldsim}}
 
 %%%%%% Shortcut related
 \newcommand{\<}{\langle}
@@ -136,8 +140,10 @@ Listing \thelstlisting: #1\hfill%\hfill%
 \newcommand{\UU}{{\rm U}}
 \newcommand{\thetav}{{\boldsymbol{\theta}}}
 \newcommand{\gammav}{{\boldsymbol{\gamma}}}
-\newcommand{\RDownarrow}{{\Downarrow^{\raisebox{.5pt}{\scriptsize\textcircled{\raisebox{-.4pt} {\tiny R}}}}}}
-\newcommand{\RR}{{\raisebox{.5pt}{\scriptsize\textcircled{\raisebox{-.4pt} {\tiny R}}}}}
+%\newcommand{\RDownarrow}{{\Downarrow^{\raisebox{.5pt}{\scriptsize\textcircled{\raisebox{-.4pt} {\tiny R}}}}}}
+%\newcommand{\RR}{{\raisebox{.5pt}{\scriptsize\textcircled{\raisebox{-.4pt} {\tiny R}}}}}
+\newcommand{\RDownarrowp}{{\Downarrow_p^{-1}}}
+\newcommand{\RR}{{-1}}
 \newcommand{\thetai}{{\theta^\alpha_l}}
 \newcommand{\Expect}{{\mathbb{E}}}
 \newcommand{\Tr}{{\rm Tr}}
@@ -173,11 +179,13 @@ Listing \thelstlisting: #1\hfill%\hfill%
 \newcommand{\braket}[2]{\mbox{$\left\langle #1 | #2 \right\rangle$}}
 \newcommand{\tr}[1]{\mathrm{tr}\mbox{$\left[ #1\right]$}}
 
-\newcommand{\iif}{{\textbf{~if~}}}
+\newcommand{\iif}{{\textbf{if~}}}
 \newcommand{\eelse}{{\textbf{~else~}}}
 \newcommand{\eend}{{\textbf{~end~}}}
-\newcommand{\wwhile}{{\textbf{~while~}}}
-\newcommand{\ffor}{{\textbf{~for~}}}
+\newcommand{\wwhile}{{\textbf{while~}}}
+\newcommand{\ffor}{{\textbf{for~}}}
+\newcommand{\bbegin}{{\textbf{begin~}}}
+\newcommand{\ffunction}{{\textbf{function~}}}
 
 \newcommand{\seq}[3][0.7]{ \begin{minipage}[htpb]{#1\linewidth} \begin{prooftree} \AxiomC{$#2$} \UnaryInfC{$#3$} \end{prooftree} \end{minipage} } 
 \newcommand{\namedseq}[4][0.7]{ \begin{minipage}[htpb]{#1\linewidth} \begin{prooftree} \AxiomC{$#3$} \LeftLabel{#2} \UnaryInfC{$#4$} \end{prooftree} \end{minipage} }
@@ -1184,253 +1192,425 @@ As a final step, the compiler attaches a return statement that returns all updat
 Now, the function is ready to execute on the host language.
 
 
-\subsection{NiLang Grammar}\label{app:grammar}
-To define a reversible function one can use ``@i'' plus a standard function definition like bellow
+\subsection{NiLang Grammar and Operational Semantics}\label{app:grammar}
 
-\begin{minipage}{.88\columnwidth}
-\begin{lstlisting}[basicstyle=\small\ttfamily,columns=fullflexible]
-"""
-docstring...
-"""
-@i function f(args..., kwargs...) where {...}
-    <stmts>
-end
-\end{lstlisting}
-\end{minipage}
+A minimum NiLang's grammar can be defined as
 
-where the definition of ``<stmts>'' are shown in the grammar page bellow.
-The following is a list of terminologies used in the definition of grammar
-\begin{itemize}
-    \item $ident$, symbols
-    \item $num$, numbers
-    \item $\epsilon$, empty statement
-    \item $JuliaExpr$, native Julia expression
-    \item $[$ $]$,  zero or one repetitions.
-\end{itemize}
-Here, all $JuliaExpr$ should be pure. Otherwise, the reversibility is not guaranteed.
-Dataview is a view of data. It can be a bijective mapping of an object, an item of an array, or a field of an object.
+\begin{tabular}[t]{ll}
+    $\overline s$ & multiple statements\\
+    $x, y, z$ & symbols\\
+    $i, n$ & integers \\
+    $e$  & julia expression \\
+    $\sigma_P, e \Downarrow_e v$ & a Julia expression $e$ under environment $\sigma_P$ is interpreted as value $v$ \\
+    $\mathit{chfield(x, y, z)}$ & a Julia function that returns an object similar to $x$, but with field $y$ modified to value $z$\\
+    $\mathit{setindex!(x, z, y)}$ & a Julia function that sets the $y$th element of an array $x$ to the value of $z$ \\
+\end{tabular}
 
 \begin{minipage}{0.6\textwidth}
     \small
 \input{bnf.tex}
 \end{minipage}
 
-\Tbl{tbl:revstatements} shows the meaning of some selected statements and how they are reversed.
-
-\begin{table}[h!]\centering
-    \footnotesize
-\begin{minipage}{\columnwidth}
-\ra{1.3}
-    \scalebox{1.0}{
-        \begin{tabularx}{\textwidth}{X X X}\toprule
-            \textbf{Statement} & \textbf{Meaning} & \textbf{Inverse}\\
-            \hline
-            \texttt{<f>(<args>...)} & function call & \texttt{($\sim$<f>)(<args>...)}\\
-            \hline
-            \texttt{<f>.(<args>...)} & broadcast a function call & \texttt{<f>.(<args>...)}\\
-            \hline
-            \texttt{<y> += <f>(<args>...)} & inplace add instruction & \texttt{<y> -= <f>(<args>...)}\\
-            \hline
-            \texttt{<y> $\veebar$= <f>(<args>...)} & inplace XOR instruction & \texttt{<y> $\veebar$= <f>(<args>...)}\\
-            \hline
-            \texttt{<a> $\leftarrow$ <expr>} & allocate a new variable & \texttt{<a> $\rightarrow$ <expr>}\\
-            \hline
-            \texttt{begin}\newline \texttt{$\cquad$<stmts>}\newline \texttt{end} & statement block & \texttt{begin}\newline \texttt{$\cquad$ $\sim$(<stmts>)}\newline \texttt{end}\\
-            \hline
-            \texttt{if (<pre>, <post>)}\linebreak \texttt{$\cquad$<stmts1>}\newline \texttt{else}\newline \texttt{$\cquad$<stmts2>}\newline \texttt{end} & if statement & \texttt{if (<post>, <pre>)}\newline \texttt{$\cquad$$\sim$(<stmts1>)}\newline \texttt{else}\newline \texttt{$\cquad$ $\sim$(<stmts2>)}\newline \texttt{end}\\ %$
-            \hline
-            \texttt{while (<pre>, <post>)}\newline \texttt{$\cquad$<stmts>} \newline \texttt{end} & while statement & \texttt{while (<post>, <pre>)}\newline $\cquad$  \texttt{$\sim$(<stmts>)}\newline \texttt{end}\\
-            \hline
-            \texttt{for <i>=<m>:<s>:<n>}\newline $\cquad$\texttt{<stmts>}\newline \texttt{end} & for statement & \texttt{for <i>=<m>:-<s>:<n>}\newline $\cquad$ \texttt{$\sim$(<stmts>)}\newline \texttt{end}\\
-            \bottomrule
-        \end{tabularx}
-    }
-    \caption{Basic statements in NiLang IR.
-    ``$\sim$'' is the symbol for reversing a statement or a function.
-    ``.'' is the symbol for the broadcasting magic in Julia,
-    \texttt{<pre>} stands for precondition, and \texttt{<post>} stands for postcondition
-``\texttt{begin <stmts> end}'' is the code block statement in Julia.
-It can be inverted by reversing the order as well as each element in it.
-}\label{tbl:revstatements}
-\end{minipage}
-\end{table}
-\namedseq{AssVar}{
-    \sigma_{P \upharpoonright x}, e \Downarrow_e n_1 ~~~~ n = n_0 \llbracket \odot\rrbracket n_1 ~~~~ \odot \in \{+, -, *, /, \veebar\}
+The operational semantics for the forward evaluation can be expressed as the following.
+\begin{longtable}{ll}
+    \small
+\namedseq[0.45]{BLOCK}{
+    \sigma_P, s_1 \Downarrow_p \sigma_P' ~~~~
+    \sigma_P', \bbegin ~~ s_2 \cdots s_n \eend \Downarrow_p \sigma_P''~~~~
 }{
-    \sigma_P[x \mapsto n_0], x\mathrel{\odot}= e \Downarrow_p \sigma_P[x \mapsto n]
-} 
-
-\namedseq{IfTrue}{
+    \sigma_P, \bbegin ~~
+    s_1 \cdots s_n
+    \eend\Downarrow_p \sigma_P''
+}
+&
+\seq[0.45]{
+    ~~
+}{
+    \sigma_P, \bbegin
+    \eend\Downarrow_p \sigma_P
+}
+\\
+\\
+    \namedseq[0.45]{BLOCK${}^\RR$}{
+    \sigma_P, s_n \RDownarrowp \sigma_P' ~~~~
+    \sigma_P', \bbegin ~~ s_1 \cdots s_{n-1} \eend \RDownarrowp \sigma_P''~~~~
+}{
+    \sigma_P, \bbegin ~~
+    s_1 \cdots s_n
+    \eend\Downarrow_p^\RR \sigma_P''
+}
+~~~~&~~~~
+\seq[0.45]{
+    ~
+}{
+    \sigma_P, \bbegin
+    \eend\RDownarrowp \sigma_P
+}
+\\
+\rule{0pt}{2.5em}
+\\
+\multicolumn{2}{c}{
+\namedseq{FOR}{
+    $\begin{aligned}
+    \sigma_P, e_1 \Downarrow_e n_1 ~~~~
+    \sigma_P, e_2 \Downarrow_e n_2 ~~~~
+    \sigma_P, e_3 \Downarrow_e n_3 ~~~~
+    (n_1 <= n_3) == (n_2 > 0)
+        \\
+    \sigma_P[x\mapsto n_1], \overline s \Downarrow_p \sigma_P' ~~~~
+    \sigma_P', \ffor x=e_1+e_2:e_2:e_3 ~~ \overline s \eend \Downarrow_p \sigma_P''~~~~
+    \end{aligned}$
+}{
+    \sigma_P, \ffor x = e_1:e_2:e_3 ~~
+    \overline s ~~
+    \eend\Downarrow_p \sigma_P''
+}
+}
+\\
+\\
+\multicolumn{2}{c}{
+\namedseq{FOR-EXIT}{
+    \sigma_P, e_1 \Downarrow_e n_1 ~~~~
+    \sigma_P, e_2 \Downarrow_e n_2 ~~~~
+    \sigma_P, e_3 \Downarrow_e n_3 ~~~~
+    (n_1 <= n_3) \mathrel{!}= (n_2 > 0)
+}{
+    \sigma_P, \ffor x = e_1:e_2:e_3 ~~
+    \overline s ~~
+    \eend\Downarrow_p \sigma_P
+}
+}
+\\
+\\
+\multicolumn{2}{c}{
+\namedseq{FOR${}^\RR$}{
+    \sigma_P, \ffor x = e_3:-\!e_2:e_1 ~~
+    \sim\bbegin \overline s \eend ~~
+    \eend\Downarrow_p \sigma_P'
+}{
+    \sigma_P, \ffor x = e_1:e_2:e_3 ~~
+    \overline s ~~
+    \eend\RDownarrowp \sigma_P'
+}
+}
+\\
+\rule{0pt}{2.5em}
+\\
+\multicolumn{2}{c}{
+\namedseq{IF-T}{
     \sigma_{P}, e_1 \Downarrow_e true ~~~~ \sigma_P, s_1 \Downarrow_p \sigma_P' ~~~~ \sigma_P', e_2 \Downarrow_e true
 }{
     \sigma_P, \iif (e_1, e_2)~~ s_1 \eelse s_2 \eend\Downarrow_p \sigma_P'
 }
-
-\namedseq{IfFalse}{
+}
+\\
+\\
+\multicolumn{2}{c}{
+\namedseq{IF-F}{
     \sigma_{P}, e_1 \Downarrow_e false ~~~~ \sigma_P, s_2 \Downarrow_p \sigma_P' ~~~~ \sigma_P', e_2 \Downarrow_e false
 }{
     \sigma_P, \iif (e_1, e_2)~~ s_1 \eelse s_2 \eend\Downarrow_p \sigma_P'
 }
-
-\namedseq{WhileMain}{
+}
+\\
+\\
+\multicolumn{2}{c}{
+\namedseq{IF${}^\RR$}{
+    \sigma_P, \iif (e_2, e_1)~~ \sim \bbegin s_1 \eend \eelse \sim\bbegin s_2\eend \eend\Downarrow_p \sigma_P'
+}{
+    \sigma_P, \iif (e_1, e_2)~~ s_1 \eelse s_2 \eend\RDownarrowp \sigma_P'
+}
+}
+\\
+\rule{0pt}{2.5em}
+\\
+\multicolumn{2}{c}{
+\namedseq{WHILE}{
     \sigma_P, e_1 \Downarrow_e true ~~~~
     \sigma_P, e_2\Downarrow_e false ~~~~ 
-    \sigma_P, s \Downarrow_p \sigma_P' ~~~~
-    \sigma_P', (e_1, e_2, s) \Downarrow_{loop} \sigma_P''
+    \sigma_P, \overline s \Downarrow_p \sigma_P' ~~~~
+    \sigma_P', (e_1, e_2, \overline s) \Downarrow_{loop} \sigma_P''
 }{
-    \sigma_P, \wwhile (e_1, e_2)~~ s \eend\Downarrow_p \sigma_P'
+    \sigma_P, \wwhile (e_1, e_2)~~ \overline s \eend\Downarrow_p \sigma_P'
 }
-
-\namedseq{WhileRec}{
+}
+\\
+\\
+\multicolumn{2}{c}{
+\namedseq{WHILE-REC}{
     \sigma_P, e_2 \Downarrow_e true ~~~~
     \sigma_P, e_1 \Downarrow_e true ~~~~
-    \sigma_P, s \Downarrow_p \sigma_P' ~~~~
-    \sigma_P', (e_1, e_2, s) \Downarrow_{loop} \sigma_P''
+    \sigma_P, \overline s \Downarrow_p \sigma_P' ~~~~
+    \sigma_P', (e_1, e_2, \overline s) \Downarrow_{loop} \sigma_P''
 }{
-    \sigma_P, (e_1, e_2, s) \Downarrow_{loop} \sigma_P''
+    \sigma_P, (e_1, e_2, \overline s) \Downarrow_{loop} \sigma_P''
 }
-
-\namedseq{WhileBase}{
+}
+\\
+\\
+\multicolumn{2}{c}{
+\namedseq{WHILE-EXIT}{
     \sigma_P, e_2 \Downarrow_e true ~~~~
     \sigma_P, e_1 \Downarrow_e false
 }{
-    \sigma_P, (e_1, e_2, s) \Downarrow_{loop} \sigma_P
+    \sigma_P, (e_1, e_2, \overline s) \Downarrow_{loop} \sigma_P
 }
-
-\namedseq{Call}{        
-    $
-    \begin{aligned}
-        F(x_f) = \textbf{function} \; x_f(x_1 \cdots x_n) \; \overline{s} \; \textbf{end}
-        \\
-        \varnothing[x_1 \mapsto  d_1 \cdots x_n \mapsto d_n] , 
-        \textbf{begin} \; \overline{s} \; \textbf{end} \Downarrow_p \sigma_P'
-    \end{aligned}
-    $
+}
+\\
+\\
+\multicolumn{2}{c}{
+\namedseq{WHILE${}^\RR$}{
+    \sigma_P, \wwhile (e_2, e_1)~~ \sim\bbegin\overline s\eend \eend\Downarrow_p \sigma_P'
 }{
-    \sigma_P, x_f(d_1 \cdots d_n) \Downarrow_p \sigma_P'
+    \sigma_P, \wwhile (e_1, e_2)~~ \overline s \eend\RDownarrowp \sigma_P'
 }
-
-\namedseq{UnCall}{
-    \sigma_P', P(id) \Downarrow_p \sigma_P
+}
+\\
+\rule{0pt}{2.5em}
+\\
+\multicolumn{2}{c}{
+\namedseq{UNCOMPUTE}{
+    \sigma_P, s \RDownarrowp \sigma_P'
 }{
-    \sigma_P, ~s \Downarrow_p \sigma_P'
+    \sigma_P, \boldsymbol{\sim}s \Downarrow_p \sigma_P'
 }
-
-\namedseq{ComputeCopyUncompute}{
+}
+\\
+\\
+\multicolumn{2}{c}{
+\namedseq{COMPUTE-COPY-UNCOMPUTE}{
     \sigma_P, s_1 \Downarrow_p \sigma_P' ~~~~
-    \sigma_P', \textbf{begin} ~~ s_2 \cdots s_n \eend  \Downarrow_p \sigma_P''~~~~
-    \sigma_P''', s_1 \Downarrow_p \sigma_P''
+    \sigma_P', \bbegin ~~ \overline s \eend  \Downarrow_p \sigma_P''~~~~
+    \sigma_P'', s_1 \RDownarrowp \sigma_P'''
 }{
     \sigma_P, \textbf{@routine} ~~
     s_1; ~~
-    s_2 \cdots s_n ~~
+    \overline s ~~
     \textbf{$\boldsymbol{\sim}$@routine}\Downarrow_p \sigma_P''
 }
-
-\namedseq{BeginEnd}{
-    \sigma_P, s_1 \Downarrow_p \sigma_P' ~~~~
-    \sigma_P', \textbf{begin} ~~ s_2 \cdots s_n \eend \Downarrow_p \sigma_P''~~~~
-}{
-    \sigma_P, \textbf{begin} ~~
-    s_1 \cdots s_n
-    \eend\Downarrow_p \sigma_P''
 }
-
-
-Since the \textbf{for} loop and \textbf{block} expression is same as the host language Julia, we do not elaborate here.
-
-\namedseq{$+^\RR$}{
-    \sigma_{P \upharpoonright x}, e \Downarrow_e n_1 ~~~~ n = n_0 \llbracket +\rrbracket n_1
-}{
-    \sigma_P[x \mapsto n_0], x\mathrel{-}= e \RDownarrow_p \sigma_P[x \mapsto n]
-} 
-
-\namedseq{$-^\RR$}{
-    \sigma_{P \upharpoonright x}, e \Downarrow_e n_1 ~~~~ n = n_0 \llbracket -\rrbracket n_1
-}{
-    \sigma_P[x \mapsto n_0], x\mathrel{+}= e \RDownarrow_p \sigma_P[x \mapsto n]
-} 
-
-\namedseq{$*^\RR$}{
-    \sigma_{P \upharpoonright x}, e \Downarrow_e n_1 ~~~~ n = n_0 \llbracket /\rrbracket n_1
-}{
-    \sigma_P[x \mapsto n_0], x\mathrel{*}= e \RDownarrow_p \sigma_P[x \mapsto n]
-} 
-
-\namedseq{$/^\RR$}{
-    \sigma_{P \upharpoonright x}, e \Downarrow_e n_1 ~~~~ n = n_0 \llbracket *\rrbracket n_1
-}{
-    \sigma_P[x \mapsto n_0], x\mathrel{/}= e \RDownarrow_p \sigma_P[x \mapsto n]
-} 
-
-\namedseq{$\veebar^\RR$}{
-    \sigma_{P \upharpoonright x}, e \Downarrow_e n_1 ~~~~ n = n_0 \llbracket \veebar\rrbracket n_1
-}{
-    \sigma_P[x \mapsto n_0], x\mathrel{\veebar}= e \RDownarrow_p \sigma_P[x \mapsto n]
-} 
-
-\namedseq{IfTrue${}^\RR$}{
-    \sigma_{P}, e_2 \Downarrow_e true ~~~~ \sigma_P, s_1 \RDownarrow_p \sigma_P' ~~~~ \sigma_P', e_1 \Downarrow_e true
-}{
-    \sigma_P, \iif (e_1, e_2)~~ s_1 \eelse s_2 \eend\RDownarrow_p \sigma_P'
-}
-
-\namedseq{IfFalse${}^\RR$}{
-    \sigma_{P}, e_2 \Downarrow_e false ~~~~ \sigma_P, s_2 \RDownarrow_p \sigma_P' ~~~~ \sigma_P', e_1 \Downarrow_e false
-}{
-    \sigma_P, \iif (e_1, e_2)~~ s_1 \eelse s_2 \eend\RDownarrow_p \sigma_P'
-}
-
-\namedseq{WhileMain${}^{\RR}$}{
-    \sigma_P, e_2 \Downarrow_e true ~~~~
-    \sigma_P, e_1\Downarrow_e false ~~~~ 
-    \sigma_P, s \RDownarrow_p \sigma_P' ~~~~
-    \sigma_P', (e_1, e_2, s) \RDownarrow_{loop} \sigma_P''
-}{
-    \sigma_P, \wwhile (e_1, e_2)~~ s \eend\RDownarrow_p \sigma_P''
-}
-
-\namedseq{WhileRec${}^{\RR}$}{
-    \sigma_P, e_2 \Downarrow_e true ~~~~
-    \sigma_P, e_1 \Downarrow_e true ~~~~
-    \sigma_P, s \RDownarrow_p \sigma_P' ~~~~
-    \sigma_P', (e_1, e_2, s) \RDownarrow_{loop} \sigma_P''
-}{
-    \sigma_P, (e_1, e_2, s) \RDownarrow_{loop} \sigma_P''
-}
-
-\namedseq{WhileBase${}^{\RR}$}{
-    \sigma_P, e_1 \Downarrow_e true ~~~~
-    \sigma_P, e_2 \Downarrow_e false
-}{
-    \sigma_P, (e_1, e_2, s) \Downarrow_p \sigma_P
-}
-
-\namedseq{Call${}^{\RR}$}{
-     F(x_f) = \boldsymbol{function} \; x_f(x_1 \cdots x_n) \; \overline{s} \; \boldsymbol{end}
-     ~~~~
-     \varnothing[x_1 \mapsto  d_1 \cdots x_n \mapsto d_n] , 
-     \boldsymbol{begin} \overline{s} \boldsymbol{end} \Downarrow_p^\RR \sigma_P'
-}{
-    \sigma_P, x_f(d_1 \cdots d_n) \Downarrow_p^\RR \sigma_P'
-}
-
-\namedseq{CoCall${}^{\RR}$}{
-    \sigma_P, P(id) \Downarrow_p \sigma_P'
-}{
-    \sigma_P, \boldsymbol{\sim} s \Downarrow_p \sigma_P'
-}
-
-\namedseq{ComputeCopyUncompute${}^\RR$}{
-    \sigma_P, s_1 \Downarrow_p \sigma_P' ~~~~
-    \sigma_P', s_2 \RDownarrow_p \sigma_P''~~~~
-    \sigma_P''', s_1 \Downarrow_p \sigma_P''
+\\
+\\
+\multicolumn{2}{c}{
+\namedseq{COMPUTE-COPY-UNCOMPUTE${}^\RR$}{
+    %\sigma_P, s_1 \Downarrow_p \sigma_P' ~~~~
+    %\sigma_P', \bbegin ~~ s_2 \cdots s_n \eend  \RDownarrowp \sigma_P''~~~~
+    %\sigma_P''', s_1 \Downarrow_p \sigma_P''
+    \sigma_P, \textbf{@routine} ~~
+    s_1; ~~
+    \sim\bbegin \overline s \eend ~~
+    \textbf{$\boldsymbol{\sim}$@routine}\Downarrow_p \sigma_P''
 }{
     \sigma_P, \textbf{@routine} ~~
-    s_1 ~~
-    s_2 ~~
-    \textbf{$\boldsymbol{\sim}$@routine}\RDownarrow_p \sigma_P''
+    s_1; ~~
+    \overline s ~~
+    \textbf{$\boldsymbol{\sim}$@routine}\RDownarrowp \sigma_P''
 }
+}
+\\
+\rule{0pt}{2.5em}
+\\
+\multicolumn{2}{c}{
+\namedseq{CALL}{        
+    $
+    \begin{aligned}
+        %F(x_f) = \ffunction \; x_f(x_1 \cdots x_n) \; \overline{s} \; \eend
+        %\\
+        \sigma_P, d_i \Downarrow_{get} v_i
+        \\
+        \varnothing[x_1 \mapsto  v_1 \cdots x_n \mapsto v_n] , 
+        %\bbegin \; \overline{s} \; \eend \Downarrow_p \sigma_{P_0}[x_1 \mapsto v_1' \cdots x_n \mapsto v_n']
+        (x_1\cdots x_n) = x_f(x_1\cdots x_n) \Downarrow_e \sigma_{P_0}[x_1 \mapsto v_1' \cdots x_n \mapsto v_n']
+        \\
+        \sigma_{P_{i-1}}, v_i', d_i \Downarrow_{set} \sigma_{P_i}
+    \end{aligned}
+    $
+}{
+    \sigma_P, x_f(d_1 \cdots d_n) \Downarrow_p \sigma_{P_n}
+}
+}
+\\
+\rule{0pt}{0.5em}
+\\
+\multicolumn{2}{c}{
+\namedseq{CALL${}^\RR$}{        
+    \sigma_P, (\sim x_f)(d_1 \cdots d_n) \Downarrow_p \sigma_{P_n}
+}{
+    \sigma_P, x_f(d_1 \cdots d_n) \RDownarrowp \sigma_{P_n}
+}
+}
+\\
+\\
+\namedseq[0.45]{GET-VIEW}{
+    \sigma_P, d \Downarrow_e v
+}{
+    \sigma_P, d \Downarrow_{get} v
+}
+&
+\namedseq[0.45]{SET-VIEW-FIELD}{
+    z ~ fresh~~~~
+    \sigma_P[z\mapsto v], \mathit{chfield}(x, y, z) \Downarrow_e v'
+}{
+    \sigma_P, v, x.y \Downarrow_{set} \sigma_P'[x\mapsto v']
+}
+\\
+\\
+\multicolumn{2}{c}{
+\namedseq{SET-VIEW-ARRAY}{
+    z ~ fresh~~~~
+    \sigma_P[z\mapsto v], \mathit{setindex!}(x, z, y) \Downarrow_e v'
+}{
+    \sigma_P, v, x[y] \Downarrow_{set} \sigma_P'[x\mapsto v']
+}
+}
+\end{longtable}
 
+
+We do not define $d_1 \mathrel{\odot}= x_f(d_1\cdots d_n)$, where $\odot \in \{+, -, *, /, \veebar\}$ here
+because we treat them as a regular function $\mathit{bindfunction}(\odot, f)(d_1, d_2 \cdots d_n)$.
+
+
+%\begin{table}
+%\begin{center}
+%\hskip-2em
+%    \begin{tabular}{ll}
+%    \small
+%    \namedseq[0.45]{BLOCK${}^\RR$}{
+%    \sigma_P, s_n \RDownarrowp \sigma_P' ~~~~
+%    \sigma_P', \bbegin ~~ s_1 \cdots s_{n-1} \eend \RDownarrowp \sigma_P''~~~~
+%}{
+%    \sigma_P, \bbegin ~~
+%    s_1 \cdots s_n
+%    \eend\Downarrow_p^\RR \sigma_P''
+%}
+%&
+%\seq[0.45]{
+%    ~
+%}{
+%    \sigma_P, \bbegin
+%    \eend\RDownarrowp \sigma_P
+%}
+%\vspace{2.5em}
+%\\
+%\multicolumn{2}{c}{
+%\namedseq{FOR${}^\RR$}{
+%    \sigma_P, \ffor x = e_3:-\!e_2:e_1 ~~
+%    \sim\bbegin \overline s \eend ~~
+%    \eend\Downarrow_p \sigma_P'
+%}{
+%    \sigma_P, \ffor x = e_1:e_2:e_3 ~~
+%    \overline s ~~
+%    \eend\RDownarrowp \sigma_P'
+%}
+%}
+%\vspace{2.5em}
+%\\
+%\multicolumn{2}{c}{
+%\namedseq{IF${}^\RR$}{
+%    \sigma_P, \iif (e_2, e_1)~~ \sim \bbegin s_1 \eend \eelse \sim\bbegin s_2\eend \eend\Downarrow_p \sigma_P'
+%}{
+%    \sigma_P, \iif (e_1, e_2)~~ s_1 \eelse s_2 \eend\RDownarrowp \sigma_P'
+%}
+%}
+%\vspace{2.5em}
+%\\
+%\multicolumn{2}{c}{
+%\namedseq{WHILE${}^\RR$}{
+%    \sigma_P, \wwhile (e_2, e_1)~~ \sim\bbegin\overline s\eend \eend\Downarrow_p \sigma_P'
+%}{
+%    \sigma_P, \wwhile (e_1, e_2)~~ \overline s \eend\RDownarrowp \sigma_P'
+%}
+%}
+%\vspace{2.5em}
+%\\
+% 
+%%    \multicolumn{2}{c}{
+%%\namedseq{WHILE-MAIN${}^\RR$}{
+%%    \sigma_P, e_2 \Downarrow_e true ~~~~
+%%    \sigma_P, e_1\Downarrow_e false ~~~~ 
+%%    \sigma_P, \bbegin \overline s \eend \RDownarrowp \sigma_P' ~~~~
+%%        \sigma_P', (e_1, e_2, \overline s) \Downarrow_{loop}^{-1} \sigma_P''
+%%}{
+%%    \sigma_P, \wwhile (e_1, e_2)~~ \overline s \eend\RDownarrowp \sigma_P'
+%%}
+%%}~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+%%\\
+%%\\
+%%    \multicolumn{2}{c}{
+%%\namedseq{WHILE-REC${}^\RR$}{
+%%    \sigma_P, e_1 \Downarrow_e true ~~~~
+%%    \sigma_P, e_2 \Downarrow_e true ~~~~
+%%    \sigma_P, s \Downarrow_p \sigma_P' ~~~~
+%%        \sigma_P', (e_1, e_2, \overline s) \Downarrow_{loop}^{-1} \sigma_P''
+%%}{
+%%    \sigma_P, (e_1, e_2, \overline s) \Downarrow_{loop}^{-1} \sigma_P''
+%%}
+%%}
+%%\\
+%%\\
+%%    \multicolumn{2}{c}{
+%%\namedseq{WHILE-EXIT${}^\RR$}{
+%%    \sigma_P, e_1 \Downarrow_e true ~~~~
+%%    \sigma_P, e_2 \Downarrow_e false
+%%}{
+%%    \sigma_P, (e_1, e_2, \overline s) \Downarrow_{loop}^{-1} \sigma_P
+%%}
+%%}
+%%\\
+%%\\
+%%\multicolumn{2}{c}{
+%%\namedseq{CALL${}^\RR$}{        
+%%    $
+%%    \begin{aligned}
+%%        F(x_f) = \ffunction \; x_f(x_1 \cdots x_n) \; \overline{s} \; \eend \\
+%%        F(\sim x_f) = \ffunction \; (\sim x_f)(x_1 \cdots x_n) \;  \sim \bbegin \overline{s} \eend \; \eend \\
+%%        \sigma_P, (\sim x_f)(d_1 \cdots d_n) \Downarrow_p \sigma_{P_n}
+%%    \end{aligned}
+%%    $
+%%}{
+%%    \sigma_P, x_f(d_1 \cdots d_n) \RDownarrowp \sigma_{P_n}
+%%}
+%%}
+%\multicolumn{2}{c}{
+%\namedseq{CALL${}^\RR$}{        
+%    $
+%    \begin{aligned}
+%        F(x_f) = \ffunction \; x_f(x_1 \cdots x_n) \; \overline{s} \; \eend
+%        \\
+%        \sigma_P, d_i \Downarrow_{get} v_i
+%        \\
+%        \varnothing[x_1 \mapsto  v_1 \cdots x_n \mapsto v_n] , 
+%        \bbegin \; \overline{s} \; \eend \RDownarrowp \sigma_{P_0}[x_1 \mapsto v_1' \cdots x_n \mapsto v_n']
+%        \\
+%        \sigma_{P_{i-1}}, v_i', d_i \Downarrow_{set} \sigma_{P_i}
+%    \end{aligned}
+%    $
+%}{
+%    \sigma_P, x_f(d_1 \cdots d_n) \RDownarrowp \sigma_{P_n}
+%}
+%}
+%\vspace{2.5em}
+%\\
+%\multicolumn{2}{c}{
+%\namedseq{CCU${}^\RR$}{
+%    %\sigma_P, s_1 \Downarrow_p \sigma_P' ~~~~
+%    %\sigma_P', \bbegin ~~ s_2 \cdots s_n \eend  \RDownarrowp \sigma_P''~~~~
+%    %\sigma_P''', s_1 \Downarrow_p \sigma_P''
+%    \sigma_P, \textbf{@routine} ~~
+%    s_1; ~~
+%    \sim\bbegin \overline s \eend ~~
+%    \textbf{$\boldsymbol{\sim}$@routine}\Downarrow_p \sigma_P''
+%}{
+%    \sigma_P, \textbf{@routine} ~~
+%    s_1; ~~
+%    \overline s ~~
+%    \textbf{$\boldsymbol{\sim}$@routine}\RDownarrowp \sigma_P''
+%}
+%}
+%
+%\end{tabular} \end{center} 
+%\end{table}
+%
+%
 
 \end{document}
