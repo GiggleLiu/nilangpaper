@@ -1,0 +1,14 @@
+
+!Statements! <s> ::= !! <\sim\!s> | <e> ( <d*> ) | <x> $\leftarrow$ <e> | <x> $\rightarrow$ <e>
+| @routine <s>; <s*>;  ~@routine
+| if ( <e> , <e> ) <s*>  else <s*>
+| while ( <e> , <e> ) <s*> end
+| for <x> = <e> : <e> : <e> <s*> end
+| begin <s*> end
+
+!Data views! <d> ::= !! <d> . x | <d> [ <e> ] | <d> $\triangleright$ <e>
+| c | x
+
+!Reversible functions! <p> ::= @i function <x> ( <x*> ) s* end
+
+!Whole programs! <P> ::= <p*>

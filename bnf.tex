@@ -1,46 +1,54 @@
+\renewcommand{\bnfpn}[1]{\mathit{#1}}
+\renewcommand{\bnftd}[1]{\textrm{#1}}
+\renewcommand{\bnfts}[1]{\textrm{#1}}
+
 \begin{bnf*}
-    \bnfprod{Stmts}{\bnfsp \bnfes}\\
-    \bnfmore{\bnfor \bnfpn{Stmt}}\\
-    \bnfmore{\bnfor \bnfpn{Stmts} \bnfsp \bnfpn{Stmt}}\\
-    \bnfprod{Stmt}{\bnfpn{BlockStmt}}\\
-    \bnfmore{\bnfor \bnfpn{IfStmt}}\\
-    \bnfmore{\bnfor \bnfpn{WhileStmt}}\\
-    \bnfmore{\bnfor \bnfpn{ForStmt}}\\
-    \bnfmore{\bnfor \bnfpn{InstrStmt}}\\
-    \bnfmore{\bnfor \bnfpn{RevStmt}}\\
-    \bnfmore{\bnfor \bnfpn{AncillaStmt}}\\
-    \bnfmore{\bnfor \bnfpn{TypecastStmt}}\\
-    \bnfmore{\bnfor \bnfpn{@routine} \bnfsp \bnfpn{Stmt}}\\
-    \bnfmore{\bnfor \bnfpn{@safe} \bnfsp \bnftd{$JuliaExpr$}}\\
-    \bnfmore{\bnfor \bnfpn{CallStmt}}\\
-    \bnfprod{BlockStmt}{\bnftd{begin} \bnfsp \bnfpn{Stmts} \bnfsp \bnftd{end}}\\
-    \bnfprod{RevCond}{\bnftd{(} \bnfsp \bnftd{$JuliaExpr$} \bnfsp \bnftd{,} \bnfsp \bnftd{$JuliaExpr$} \bnfsp \bnftd{)}}\\
-    \bnfprod{IfStmt}{\bnftd{if} \bnfsp \bnfpn{RevCond} \bnfsp \bnfpn{Stmts} \bnfsp \bnfts{[} \bnftd{else} \bnfsp \bnfpn{Stmts}\bnfts{]} \bnfsp \bnftd{end}}\\
-    \bnfprod{WhileStmt}{\bnftd{while} \bnfsp \bnfpn{RevCond} \bnfsp \bnfpn{Stmts} \bnfsp \bnftd{end}}\\
-    \bnfprod{Range}{\bnftd{$JuliaExpr$} \bnfsp \bnftd{:} \bnfsp \bnftd{$JuliaExpr$} \bnfsp \bnfts{[} \bnftd{:} \bnfsp \bnftd{$JuliaExpr$}\bnfts{]}}\\
-    \bnfprod{ForStmt}{\bnftd{for} \bnfsp \bnftd{ident} \bnfsp \bnftd{=} \bnfsp \bnfpn{Range} \bnfsp \bnfpn{Stmts} \bnfsp \bnftd{end}}\\
-    \bnfprod{KwArg}{\bnftd{ident} \bnfsp \bnftd{=} \bnfsp \bnftd{$JuliaExpr$}}\\
-    \bnfprod{KwArgs}{\bnfts{[} \bnfpn{KwArgs} \bnfsp \bnftd{,}\bnfts{]} \bnfsp \bnfpn{KwArg}}\\
-    \bnfprod{CallStmt}{\bnftd{$JuliaExpr$} \bnfsp \bnftd{(} \bnfsp \bnfts{[} \bnfpn{DataViews}\bnfts{]} \bnfsp \bnfts{[} \bnftd{;} \bnfsp \bnfpn{KwArgs}\bnfts{]} \bnfsp \bnftd{)}}\\
-    \bnfprod{Constant}{\bnftd{num} \bnfor \bnftd{$\pi$} \bnfor \bnftd{true} \bnfor \bnftd{false}}\\
-    \bnfprod{InstrBinOp}{\bnftd{+=} \bnfor \bnftd{-=} \bnfor \bnftd{$\veebar$=}}\\
-    \bnfprod{InstrTrailer}{\bnfts{[} \bnftd{.}\bnfts{]} \bnfsp \bnftd{(} \bnfsp \bnfts{[} \bnfpn{DataViews}\bnfts{]} \bnfsp \bnftd{)}}\\
-    \bnfprod{InstrStmt}{\bnfpn{DataView} \bnfsp \bnfpn{InstrBinOp} \bnfsp \bnftd{ident} \bnfsp \bnfts{[} \bnfpn{InstrTrailer}\bnfts{]}}\\
-    \bnfprod{RevStmt}{\bnftd{$\sim$} \bnfsp \bnfpn{Stmt}}\\
-    \bnfprod{AncillaStmt}{\bnftd{ident} \bnfsp \bnftd{$\leftarrow$} \bnfsp \bnftd{$JuliaExpr$}}\\
-    \bnfmore{\bnfor \bnftd{ident} \bnfsp \bnftd{$\rightarrow$} \bnfsp \bnftd{$JuliaExpr$}}\\
-    \bnfprod{TypecastStmt}{\bnftd{(} \bnfsp \bnftd{$JuliaExpr$} \bnfsp \bnftd{=>} \bnfsp \bnftd{$JuliaExpr$} \bnfsp \bnftd{)} \bnfsp \bnftd{(} \bnfsp \bnftd{ident} \bnfsp \bnftd{)}}\\
-    \bnfprod{@routine}{\bnftd{@routine} \bnfsp \bnftd{ident} \bnfsp \bnfpn{Stmt}}\\
-    \bnfprod{@safe}{\bnftd{@safe} \bnfsp \bnftd{$JuliaExpr$}}\\
-    \bnfprod{DataViews}{\bnfsp \bnfes}\\
-    \bnfmore{\bnfor \bnfpn{DataView}}\\
-    \bnfmore{\bnfor \bnfpn{DataViews} \bnfsp \bnftd{,} \bnfsp \bnfpn{DataView}}\\
-    \bnfmore{\bnfor \bnfpn{DataViews} \bnfsp \bnftd{,} \bnfsp \bnfpn{DataView} \bnfsp \bnftd{...}}\\
-    \bnfprod{DataView}{\bnfpn{DataView} \bnfsp \bnftd{[} \bnfsp \bnftd{$JuliaExpr$} \bnfsp \bnftd{]}}\\
-    \bnfmore{\bnfor \bnfpn{DataView} \bnfsp \bnftd{.} \bnfsp \bnftd{ident}}\\
-    \bnfmore{\bnfor \bnfpn{DataView} \bnfsp \bnftd{|>} \bnftd{$JuliaExpr$}}\\
-    \bnfmore{\bnfor \bnfpn{DataView} \bnfsp \bnftd{$'$}}\\
-    \bnfmore{\bnfor \bnftd{-} \bnfsp \bnfpn{DataView}}\\
-    \bnfmore{\bnfor \bnfpn{Constant}}\\
-    \bnfmore{\bnfor \bnftd{ident}}\\
+    \input{./nilangcore.tex}
 \end{bnf*}
+
+% \begin{bnf*}
+%     \bnfprod{Stmts}{\bnfsp \bnfes}\\
+%     \bnfmore{\bnfor \bnfpn{Stmt}}\\
+%     \bnfmore{\bnfor \bnfpn{Stmts} \bnfsp \bnfpn{Stmt}}\\
+%     \bnfprod{Stmt}{\bnfpn{BlockStmt}}\\
+%     \bnfmore{\bnfor \bnfpn{IfStmt}}\\
+%     \bnfmore{\bnfor \bnfpn{WhileStmt}}\\
+%     \bnfmore{\bnfor \bnfpn{ForStmt}}\\
+%     \bnfmore{\bnfor \bnfpn{InstrStmt}}\\
+%     \bnfmore{\bnfor \bnfpn{RevStmt}}\\
+%     \bnfmore{\bnfor \bnfpn{AncillaStmt}}\\
+%     \bnfmore{\bnfor \bnfpn{TypecastStmt}}\\
+%     \bnfmore{\bnfor \bnfpn{@routine} \bnfsp \bnfpn{Stmt}}\\
+%     \bnfmore{\bnfor \bnfpn{@safe} \bnfsp \bnftd{$JuliaExpr$}}\\
+%     \bnfmore{\bnfor \bnfpn{CallStmt}}\\
+%     \bnfprod{BlockStmt}{\bnftd{begin} \bnfsp \bnfpn{Stmts} \bnfsp \bnftd{end}}\\
+%     \bnfprod{RevCond}{\bnftd{(} \bnfsp \bnftd{$JuliaExpr$} \bnfsp \bnftd{,} \bnfsp \bnftd{$JuliaExpr$} \bnfsp \bnftd{)}}\\
+%     \bnfprod{IfStmt}{\bnftd{if} \bnfsp \bnfpn{RevCond} \bnfsp \bnfpn{Stmts} \bnfsp \bnfts{[} \bnftd{else} \bnfsp \bnfpn{Stmts}\bnfts{]} \bnfsp \bnftd{end}}\\
+%     \bnfprod{WhileStmt}{\bnftd{while} \bnfsp \bnfpn{RevCond} \bnfsp \bnfpn{Stmts} \bnfsp \bnftd{end}}\\
+%     \bnfprod{Range}{\bnftd{$JuliaExpr$} \bnfsp \bnftd{:} \bnfsp \bnftd{$JuliaExpr$} \bnfsp \bnfts{[} \bnftd{:} \bnfsp \bnftd{$JuliaExpr$}\bnfts{]}}\\
+%     \bnfprod{ForStmt}{\bnftd{for} \bnfsp \bnftd{ident} \bnfsp \bnftd{=} \bnfsp \bnfpn{Range} \bnfsp \bnfpn{Stmts} \bnfsp \bnftd{end}}\\
+%     \bnfprod{KwArg}{\bnftd{ident} \bnfsp \bnftd{=} \bnfsp \bnftd{$JuliaExpr$}}\\
+%     \bnfprod{KwArgs}{\bnfts{[} \bnfpn{KwArgs} \bnfsp \bnftd{,}\bnfts{]} \bnfsp \bnfpn{KwArg}}\\
+%     \bnfprod{CallStmt}{\bnftd{$JuliaExpr$} \bnfsp \bnftd{(} \bnfsp \bnfts{[} \bnfpn{DataViews}\bnfts{]} \bnfsp \bnfts{[} \bnftd{;} \bnfsp \bnfpn{KwArgs}\bnfts{]} \bnfsp \bnftd{)}}\\
+%     \bnfprod{Constant}{\bnftd{num} \bnfor \bnftd{$\pi$} \bnfor \bnftd{true} \bnfor \bnftd{false}}\\
+%     \bnfprod{InstrBinOp}{\bnftd{+=} \bnfor \bnftd{-=} \bnfor \bnftd{$\veebar$=}}\\
+%     \bnfprod{InstrTrailer}{\bnfts{[} \bnftd{.}\bnfts{]} \bnfsp \bnftd{(} \bnfsp \bnfts{[} \bnfpn{DataViews}\bnfts{]} \bnfsp \bnftd{)}}\\
+%     \bnfprod{InstrStmt}{\bnfpn{DataView} \bnfsp \bnfpn{InstrBinOp} \bnfsp \bnftd{ident} \bnfsp \bnfts{[} \bnfpn{InstrTrailer}\bnfts{]}}\\
+%     \bnfprod{RevStmt}{\bnftd{$\sim$} \bnfsp \bnfpn{Stmt}}\\
+%     \bnfprod{AncillaStmt}{\bnftd{ident} \bnfsp \bnftd{$\leftarrow$} \bnfsp \bnftd{$JuliaExpr$}}\\
+%     \bnfmore{\bnfor \bnftd{ident} \bnfsp \bnftd{$\rightarrow$} \bnfsp \bnftd{$JuliaExpr$}}\\
+%     \bnfprod{TypecastStmt}{\bnftd{(} \bnfsp \bnftd{$JuliaExpr$} \bnfsp \bnftd{=>} \bnfsp \bnftd{$JuliaExpr$} \bnfsp \bnftd{)} \bnfsp \bnftd{(} \bnfsp \bnftd{ident} \bnfsp \bnftd{)}}\\
+%     \bnfprod{@routine}{\bnftd{@routine} \bnfsp \bnftd{ident} \bnfsp \bnfpn{Stmt}}\\
+%     \bnfprod{@safe}{\bnftd{@safe} \bnfsp \bnftd{$JuliaExpr$}}\\
+%     \bnfprod{DataViews}{\bnfsp \bnfes}\\
+%     \bnfmore{\bnfor \bnfpn{DataView}}\\
+%     \bnfmore{\bnfor \bnfpn{DataViews} \bnfsp \bnftd{,} \bnfsp \bnfpn{DataView}}\\
+%     \bnfmore{\bnfor \bnfpn{DataViews} \bnfsp \bnftd{,} \bnfsp \bnfpn{DataView} \bnfsp \bnftd{...}}\\
+%     \bnfprod{DataView}{\bnfpn{DataView} \bnfsp \bnftd{[} \bnfsp \bnftd{$JuliaExpr$} \bnfsp \bnftd{]}}\\
+%     \bnfmore{\bnfor \bnfpn{DataView} \bnfsp \bnftd{.} \bnfsp \bnftd{ident}}\\
+%     \bnfmore{\bnfor \bnfpn{DataView} \bnfsp \bnftd{|>} \bnftd{$JuliaExpr$}}\\
+%     \bnfmore{\bnfor \bnfpn{DataView} \bnfsp \bnftd{$'$}}\\
+%     \bnfmore{\bnfor \bnftd{-} \bnfsp \bnfpn{DataView}}\\
+%     \bnfmore{\bnfor \bnfpn{Constant}}\\
+%     \bnfmore{\bnfor \bnftd{ident}}\\
+% \end{bnf*}

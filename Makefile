@@ -1,9 +1,5 @@
-LL  := latexmk
-DEP := $(wildcard *.tex)
-MAIN=invc.tex
+%.tex: %.bnf
+	python mkbnf.py $< $@
 
-main: ${DEP}
-	${LL} -f -pdf ${MAIN} -auxdir=output -outdir=output
-
-show:
-	zathura output/main.pdf
+all: ./nilangcore.tex
+	
