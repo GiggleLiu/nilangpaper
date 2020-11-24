@@ -14,6 +14,7 @@
 \usepackage{upquote}
 \usepackage{subcaption}
 \usepackage{multicol}
+\usepackage{bussproofs}
 \usepackage[framemethod=TikZ]{mdframed}
 \usepackage{wrapfig}
 %\usepackage{caption}
@@ -134,6 +135,8 @@ Listing \thelstlisting: #1\hfill%\hfill%
 \newcommand{\UU}{{\rm U}}
 \newcommand{\thetav}{{\boldsymbol{\theta}}}
 \newcommand{\gammav}{{\boldsymbol{\gamma}}}
+\newcommand{\RDownarrow}{{\Downarrow^{\raisebox{.5pt}{\scriptsize\textcircled{\raisebox{-.4pt} {\tiny R}}}}}}
+\newcommand{\RR}{{\raisebox{.5pt}{\scriptsize\textcircled{\raisebox{-.4pt} {\tiny R}}}}}
 \newcommand{\thetai}{{\theta^\alpha_l}}
 \newcommand{\Expect}{{\mathbb{E}}}
 \newcommand{\Tr}{{\rm Tr}}
@@ -169,6 +172,14 @@ Listing \thelstlisting: #1\hfill%\hfill%
 \newcommand{\braket}[2]{\mbox{$\left\langle #1 | #2 \right\rangle$}}
 \newcommand{\tr}[1]{\mathrm{tr}\mbox{$\left[ #1\right]$}}
 
+\newcommand{\iif}{{\textbf{~if~}}}
+\newcommand{\eelse}{{\textbf{~else~}}}
+\newcommand{\eend}{{\textbf{~end~}}}
+\newcommand{\wwhile}{{\textbf{~while~}}}
+\newcommand{\ffor}{{\textbf{~for~}}}
+
+\newcommand{\seq}[3][0.7]{ \begin{minipage}[htpb]{#1\linewidth} \begin{prooftree} \AxiomC{$#2$} \UnaryInfC{$#3$} \end{prooftree} \end{minipage} } 
+\newcommand{\namedseq}[4][0.7]{ \begin{minipage}[htpb]{#1\linewidth} \begin{prooftree} \AxiomC{$#3$} \LeftLabel{#2} \UnaryInfC{$#4$} \end{prooftree} \end{minipage} }
 \newcommand{\ra}[1]{\renewcommand{\arraystretch}{#1}}
 
 %%%%%% Comment related
@@ -1242,5 +1253,163 @@ It can be inverted by reversing the order as well as each element in it.
 }\label{tbl:revstatements}
 \end{minipage}
 \end{table}
+\namedseq{AssVar}{
+    \sigma_{P \upharpoonright x}, e \Downarrow_e n_1 ~~~~ n = n_0 \llbracket \odot\rrbracket n_1 ~~~~ \odot \in \{+, -, *, /, \veebar\}
+}{
+    \sigma_P[x \mapsto n_0], x\mathrel{\odot}= e \Downarrow_p \sigma_P[x \mapsto n]
+} 
+
+\namedseq{IfTrue}{
+    \sigma_{P}, e_1 \Downarrow_e n+1 ~~~~ \sigma_P, s_1 \Downarrow_p \sigma_P' ~~~~ \sigma_P', e_2 \Downarrow_e n+1
+}{
+    \sigma_P, \iif (e_1, e_2)~~ s_1 \eelse s_2 \eend\Downarrow_p \sigma_P'
+}
+
+\namedseq{IfFalse}{
+    \sigma_{P}, e_1 \Downarrow_e 0 ~~~~ \sigma_P, s_2 \Downarrow_p \sigma_P' ~~~~ \sigma_P', e_2 \Downarrow_e 0
+}{
+    \sigma_P, \iif (e_1, e_2)~~ s_1 \eelse s_2 \eend\Downarrow_p \sigma_P'
+}
+
+\namedseq{WhileMain}{
+    \sigma_P, e_1 \Downarrow_e n+1 ~~~~
+    \sigma_P, e_2\Downarrow_e 0 ~~~~ 
+    \sigma_P, s \Downarrow_p \sigma_P' ~~~~
+    \sigma_P', (e_1, e_2, s) \Downarrow_p \sigma_P''
+}{
+    \sigma_P, \wwhile (e_1, e_2)~~ s \eend\Downarrow_p \sigma_P'
+}
+
+\namedseq{WhileRec}{
+    \sigma_P, e_2 \Downarrow_e n+1 ~~~~
+    \sigma_P, e_1 \Downarrow_e n+1 ~~~~
+    \sigma_P, s \Downarrow_p \sigma_P' ~~~~
+    \sigma_P', (e_1, e_2, s) \Downarrow_p \sigma_P''
+}{
+    \sigma_P, (e_1, e_2, s) \Downarrow_p \sigma_P''
+}
+
+\namedseq{WhileBase}{
+    \sigma_P, e_2 \Downarrow_e n+1 ~~~~
+    \sigma_P, e_1 \Downarrow_e 0
+}{
+    \sigma_P, (e_1, e_2, s) \Downarrow_p \sigma_P
+}
+
+\namedseq{Call}{
+    \sigma_P, P(id) \Downarrow_p \sigma_P'
+}{
+    \sigma_P, id(e) \Downarrow_p \sigma_P'
+}
+
+\namedseq{UnCall}{
+    \sigma_P', P(id) \Downarrow_p \sigma_P
+}{
+    \sigma_P, ~s \Downarrow_p \sigma_P'
+}
+
+\namedseq{ComputeCopyUncompute}{
+    \sigma_P, s_1 \Downarrow_p \sigma_P' ~~~~
+    \sigma_P', s_2 \Downarrow_p \sigma_P''~~~~
+    \sigma_P''', s_1 \Downarrow_p \sigma_P''
+}{
+    \sigma_P, \textbf{@routine} ~~
+    s_1 ~~
+    s_2 ~~
+    \textbf{$\boldsymbol{\sim}$@routine}\Downarrow_p \sigma_P''
+}
+
+Since the \textbf{for} loop and \textbf{block} expression is same as the host language Julia, we do not elaborate here.
+
+\namedseq{$+^\RR$}{
+    \sigma_{P \upharpoonright x}, e \Downarrow_e n_1 ~~~~ n = n_0 \llbracket +\rrbracket n_1
+}{
+    \sigma_P[x \mapsto n_0], x\mathrel{-}= e \RDownarrow_p \sigma_P[x \mapsto n]
+} 
+
+\namedseq{$-^\RR$}{
+    \sigma_{P \upharpoonright x}, e \Downarrow_e n_1 ~~~~ n = n_0 \llbracket -\rrbracket n_1
+}{
+    \sigma_P[x \mapsto n_0], x\mathrel{+}= e \RDownarrow_p \sigma_P[x \mapsto n]
+} 
+
+\namedseq{$*^\RR$}{
+    \sigma_{P \upharpoonright x}, e \Downarrow_e n_1 ~~~~ n = n_0 \llbracket /\rrbracket n_1
+}{
+    \sigma_P[x \mapsto n_0], x\mathrel{*}= e \RDownarrow_p \sigma_P[x \mapsto n]
+} 
+
+\namedseq{$/^\RR$}{
+    \sigma_{P \upharpoonright x}, e \Downarrow_e n_1 ~~~~ n = n_0 \llbracket *\rrbracket n_1
+}{
+    \sigma_P[x \mapsto n_0], x\mathrel{/}= e \RDownarrow_p \sigma_P[x \mapsto n]
+} 
+
+\namedseq{$\veebar^\RR$}{
+    \sigma_{P \upharpoonright x}, e \Downarrow_e n_1 ~~~~ n = n_0 \llbracket \veebar\rrbracket n_1
+}{
+    \sigma_P[x \mapsto n_0], x\mathrel{\veebar}= e \RDownarrow_p \sigma_P[x \mapsto n]
+} 
+
+\namedseq{IfTrue${}^\RR$}{
+    \sigma_{P}, e_2 \Downarrow_e n+1 ~~~~ \sigma_P, s_1 \RDownarrow_p \sigma_P' ~~~~ \sigma_P', e_1 \Downarrow_e n+1
+}{
+    \sigma_P, \iif (e_1, e_2)~~ s_1 \eelse s_2 \eend\RDownarrow_p \sigma_P'
+}
+
+\namedseq{IfFalse${}^\RR$}{
+    \sigma_{P}, e_2 \Downarrow_e 0 ~~~~ \sigma_P, s_2 \RDownarrow_p \sigma_P' ~~~~ \sigma_P', e_1 \Downarrow_e 0
+}{
+    \sigma_P, \iif (e_1, e_2)~~ s_1 \eelse s_2 \eend\RDownarrow_p \sigma_P'
+}
+
+\namedseq{WhileMain${}^{\RR}$}{
+    \sigma_P, e_2 \Downarrow_e n+1 ~~~~
+    \sigma_P, e_1\Downarrow_e 0 ~~~~ 
+    \sigma_P, s \RDownarrow_p \sigma_P' ~~~~
+    \sigma_P', (e_1, e_2, s) \RDownarrow_p \sigma_P''
+}{
+    \sigma_P, \wwhile (e_1, e_2)~~ s \eend\RDownarrow_p \sigma_P''
+}
+
+\namedseq{WhileRec${}^{\RR}$}{
+    \sigma_P, e_2 \Downarrow_e n+1 ~~~~
+    \sigma_P, e_1 \Downarrow_e n+1 ~~~~
+    \sigma_P, s \RDownarrow_p \sigma_P' ~~~~
+    \sigma_P', (e_1, e_2, s) \RDownarrow_p \sigma_P''
+}{
+    \sigma_P, (e_1, e_2, s) \RDownarrow_p \sigma_P''
+}
+
+\namedseq{WhileBase${}^{\RR}$}{
+    \sigma_P, e_1 \Downarrow_e n+1 ~~~~
+    \sigma_P, e_2 \Downarrow_e 0
+}{
+    \sigma_P, (e_1, e_2, s) \Downarrow_p \sigma_P
+}
+
+\namedseq{Call${}^{\RR}$}{
+    \sigma_P, P(id) \Downarrow_p^\RR \sigma_P'
+}{
+    \sigma_P, id(e) \Downarrow_p^\RR \sigma_P'
+}
+
+\namedseq{CoCall${}^{\RR}$}{
+    \sigma_P, P(id) \Downarrow_p \sigma_P'
+}{
+    \sigma_P, \boldsymbol{\sim} s \Downarrow_p \sigma_P'
+}
+
+\namedseq{ComputeCopyUncompute${}^\RR$}{
+    \sigma_P, s_1 \Downarrow_p \sigma_P' ~~~~
+    \sigma_P', s_2 \RDownarrow_p \sigma_P''~~~~
+    \sigma_P''', s_1 \Downarrow_p \sigma_P''
+}{
+    \sigma_P, \textbf{@routine} ~~
+    s_1 ~~
+    s_2 ~~
+    \textbf{$\boldsymbol{\sim}$@routine}\RDownarrow_p \sigma_P''
+}
+
 
 \end{document}
