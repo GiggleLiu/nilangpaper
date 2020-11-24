@@ -1275,7 +1275,7 @@ It can be inverted by reversing the order as well as each element in it.
     \sigma_P, e_1 \Downarrow_e true ~~~~
     \sigma_P, e_2\Downarrow_e false ~~~~ 
     \sigma_P, s \Downarrow_p \sigma_P' ~~~~
-    \sigma_P', (e_1, e_2, s) \Downarrow_{loop} \sigma_P''
+    \sigma_P', (e_1, e_2, s) \Downarrow_p \sigma_P''
 }{
     \sigma_P, \wwhile (e_1, e_2)~~ s \eend\Downarrow_p \sigma_P'
 }
@@ -1284,16 +1284,16 @@ It can be inverted by reversing the order as well as each element in it.
     \sigma_P, e_2 \Downarrow_e true ~~~~
     \sigma_P, e_1 \Downarrow_e true ~~~~
     \sigma_P, s \Downarrow_p \sigma_P' ~~~~
-    \sigma_P', (e_1, e_2, s) \Downarrow_{loop} \sigma_P''
+    \sigma_P', (e_1, e_2, s) \Downarrow_p \sigma_P''
 }{
-    \sigma_P, (e_1, e_2, s) \Downarrow_{loop} \sigma_P''
+    \sigma_P, (e_1, e_2, s) \Downarrow_p \sigma_P''
 }
 
 \namedseq{WhileBase}{
     \sigma_P, e_2 \Downarrow_e true ~~~~
     \sigma_P, e_1 \Downarrow_e false
 }{
-    \sigma_P, (e_1, e_2, s) \Downarrow_{loop} \sigma_P
+    \sigma_P, (e_1, e_2, s) \Downarrow_p \sigma_P
 }
 
 \namedseq{Call}{
@@ -1367,25 +1367,25 @@ Since the \textbf{for} loop and \textbf{block} expression is same as the host la
     \sigma_P, e_2 \Downarrow_e true ~~~~
     \sigma_P, e_1\Downarrow_e false ~~~~ 
     \sigma_P, s \RDownarrow_p \sigma_P' ~~~~
-    \sigma_P', (e_1, e_2, s) \RDownarrow_{loop} \sigma_P''
+    \sigma_P', (e_1, e_2, s) \RDownarrow_p^{loop} \sigma_P''
 }{
-    \sigma_P, \wwhile (e_1, e_2)~~ s \eend\RDownarrow_p \sigma_P''
+    \sigma_P, \wwhile (e_1, e_2)~~ s \eend\RDownarrow_p^{loop} \sigma_P''
 }
 
 \namedseq{WhileRec${}^{\RR}$}{
     \sigma_P, e_2 \Downarrow_e true ~~~~
     \sigma_P, e_1 \Downarrow_e true ~~~~
     \sigma_P, s \RDownarrow_p \sigma_P' ~~~~
-    \sigma_P', (e_1, e_2, s) \RDownarrow_{loop} \sigma_P''
+    \sigma_P', (e_1, e_2, s) \RDownarrow_p^{loop} \sigma_P''
 }{
-    \sigma_P, (e_1, e_2, s) \RDownarrow_{loop} \sigma_P''
+    \sigma_P, (e_1, e_2, s) \RDownarrow_p^{loop} \sigma_P''
 }
 
 \namedseq{WhileBase${}^{\RR}$}{
     \sigma_P, e_1 \Downarrow_e true ~~~~
     \sigma_P, e_2 \Downarrow_e false
 }{
-    \sigma_P, (e_1, e_2, s) \Downarrow_p \sigma_P
+    \sigma_P, (e_1, e_2, s) \Downarrow_p^{loop} \sigma_P
 }
 
 \namedseq{Call${}^{\RR}$}{
