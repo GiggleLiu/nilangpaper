@@ -1194,9 +1194,10 @@ Now, the function is ready to execute on the host language.
 
 \subsection{NiLang Grammar and Operational Semantics}\label{app:grammar}
 
-A minimum NiLang's grammar can be defined as
+A minimum definition of NiLang's grammar is
 
 \begin{tabular}[t]{ll}
+    $s$ & a statement\\
     $\overline s$ & multiple statements\\
     $c$ & a constant\\
     $x, y, z$ & symbols\\
@@ -1214,7 +1215,7 @@ A minimum NiLang's grammar can be defined as
 \input{bnf.tex}
 \end{minipage}
 
-The following operational semantics for the forward and backward evaluation shows how a statement is evalued and reversed.
+The following operational semantics for the forward and backward evaluation shows how a statement is evaluated and reversed.
 
 \begin{longtable}{ll}
     \small
@@ -1427,9 +1428,6 @@ The following operational semantics for the forward and backward evaluation show
 \\
 \multicolumn{2}{c}{
 \namedseq{COMPUTE-COPY-UNCOMPUTE${}^\RR$}{
-    %\sigma_P, s_1 \Downarrow_p \sigma_P' ~~~~
-    %\sigma_P', \bbegin ~~ s_2 \cdots s_n \eend  \RDownarrowp \sigma_P''~~~~
-    %\sigma_P''', s_1 \Downarrow_p \sigma_P''
     \sigma_P, \textbf{@routine} ~~
     s_1; ~~
     \sim\bbegin \overline s \eend ~~
@@ -1520,153 +1518,11 @@ The following operational semantics for the forward and backward evaluation show
 }
 \end{longtable}
 
-
-We do not define primitive instructions like $d_1 \mathrel{\odot}= x_f(d_2\cdots d_n)$, where $\odot \in \{+, -, *, /, \veebar\}$ here
+Here, we do not define primitive instructions like $d_1 \mathrel{\odot}= x_f(d_2\cdots d_n)$, where $\odot \in \{+, -, *, /, \veebar\}$ here
 because these instructions are evaluated as a regular julia function $ prime(\odot, f)(d_1, d_2 \cdots d_n) = (d_1 \odot f(d_2\cdots d_n), d_2 \cdots d_n)$.
-As long as both the target function $ prime(\odot, f)$ and its inverse $\sim prime(\odot, f)$ are properly defined, it can be called in NiLang. On the other side, any non-primitive NiLang function binded to symbol $x_f$ will generate both the function self $x_f$ and its reverse $\sim x_f$, and this function can be used in NiLang.
-The function arguements are data views. A data view is a modifiable memory, which can be a variable, a field of a data view, an array element of a data view or a bijection of a data view. In NiLang, everything is mutable except for constants, where an error will be thrown if a statement tries to modify it.
-
-%\begin{table}
-%\begin{center}
-%\hskip-2em
-%    \begin{tabular}{ll}
-%    \small
-%    \namedseq[0.45]{BLOCK${}^\RR$}{
-%    \sigma_P, s_n \RDownarrowp \sigma_P' ~~~~
-%    \sigma_P', \bbegin ~~ s_1 \cdots s_{n-1} \eend \RDownarrowp \sigma_P''~~~~
-%}{
-%    \sigma_P, \bbegin ~~
-%    s_1 \cdots s_n
-%    \eend\Downarrow_p^\RR \sigma_P''
-%}
-%&
-%\seq[0.45]{
-%    ~
-%}{
-%    \sigma_P, \bbegin
-%    \eend\RDownarrowp \sigma_P
-%}
-%\vspace{2.5em}
-%\\
-%\multicolumn{2}{c}{
-%\namedseq{FOR${}^\RR$}{
-%    \sigma_P, \ffor x = e_3:-\!e_2:e_1 ~~
-%    \sim\bbegin \overline s \eend ~~
-%    \eend\Downarrow_p \sigma_P'
-%}{
-%    \sigma_P, \ffor x = e_1:e_2:e_3 ~~
-%    \overline s ~~
-%    \eend\RDownarrowp \sigma_P'
-%}
-%}
-%\vspace{2.5em}
-%\\
-%\multicolumn{2}{c}{
-%\namedseq{IF${}^\RR$}{
-%    \sigma_P, \iif (e_2, e_1)~~ \sim \bbegin s_1 \eend \eelse \sim\bbegin s_2\eend \eend\Downarrow_p \sigma_P'
-%}{
-%    \sigma_P, \iif (e_1, e_2)~~ s_1 \eelse s_2 \eend\RDownarrowp \sigma_P'
-%}
-%}
-%\vspace{2.5em}
-%\\
-%\multicolumn{2}{c}{
-%\namedseq{WHILE${}^\RR$}{
-%    \sigma_P, \wwhile (e_2, e_1)~~ \sim\bbegin\overline s\eend \eend\Downarrow_p \sigma_P'
-%}{
-%    \sigma_P, \wwhile (e_1, e_2)~~ \overline s \eend\RDownarrowp \sigma_P'
-%}
-%}
-%\vspace{2.5em}
-%\\
-% 
-%%    \multicolumn{2}{c}{
-%%\namedseq{WHILE-MAIN${}^\RR$}{
-%%    \sigma_P, e_2 \Downarrow_e true ~~~~
-%%    \sigma_P, e_1\Downarrow_e false ~~~~ 
-%%    \sigma_P, \bbegin \overline s \eend \RDownarrowp \sigma_P' ~~~~
-%%        \sigma_P', (e_1, e_2, \overline s) \Downarrow_{loop}^{-1} \sigma_P''
-%%}{
-%%    \sigma_P, \wwhile (e_1, e_2)~~ \overline s \eend\RDownarrowp \sigma_P'
-%%}
-%%}~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-%%\\
-%%\\
-%%    \multicolumn{2}{c}{
-%%\namedseq{WHILE-REC${}^\RR$}{
-%%    \sigma_P, e_1 \Downarrow_e true ~~~~
-%%    \sigma_P, e_2 \Downarrow_e true ~~~~
-%%    \sigma_P, s \Downarrow_p \sigma_P' ~~~~
-%%        \sigma_P', (e_1, e_2, \overline s) \Downarrow_{loop}^{-1} \sigma_P''
-%%}{
-%%    \sigma_P, (e_1, e_2, \overline s) \Downarrow_{loop}^{-1} \sigma_P''
-%%}
-%%}
-%%\\
-%%\\
-%%    \multicolumn{2}{c}{
-%%\namedseq{WHILE-EXIT${}^\RR$}{
-%%    \sigma_P, e_1 \Downarrow_e true ~~~~
-%%    \sigma_P, e_2 \Downarrow_e false
-%%}{
-%%    \sigma_P, (e_1, e_2, \overline s) \Downarrow_{loop}^{-1} \sigma_P
-%%}
-%%}
-%%\\
-%%\\
-%%\multicolumn{2}{c}{
-%%\namedseq{CALL${}^\RR$}{        
-%%    $
-%%    \begin{aligned}
-%%        F(x_f) = \ffunction \; x_f(x_1 \cdots x_n) \; \overline{s} \; \eend \\
-%%        F(\sim x_f) = \ffunction \; (\sim x_f)(x_1 \cdots x_n) \;  \sim \bbegin \overline{s} \eend \; \eend \\
-%%        \sigma_P, (\sim x_f)(d_1 \cdots d_n) \Downarrow_p \sigma_{P_n}
-%%    \end{aligned}
-%%    $
-%%}{
-%%    \sigma_P, x_f(d_1 \cdots d_n) \RDownarrowp \sigma_{P_n}
-%%}
-%%}
-%\multicolumn{2}{c}{
-%\namedseq{CALL${}^\RR$}{        
-%    $
-%    \begin{aligned}
-%        F(x_f) = \ffunction \; x_f(x_1 \cdots x_n) \; \overline{s} \; \eend
-%        \\
-%        \sigma_P, d_i \Downarrow_{get} v_i
-%        \\
-%        \varnothing[x_1 \mapsto  v_1 \cdots x_n \mapsto v_n] , 
-%        \bbegin \; \overline{s} \; \eend \RDownarrowp \sigma_{P_0}[x_1 \mapsto v_1' \cdots x_n \mapsto v_n']
-%        \\
-%        \sigma_{P_{i-1}}, v_i', d_i \Downarrow_{set} \sigma_{P_i}
-%    \end{aligned}
-%    $
-%}{
-%    \sigma_P, x_f(d_1 \cdots d_n) \RDownarrowp \sigma_{P_n}
-%}
-%}
-%\vspace{2.5em}
-%\\
-%\multicolumn{2}{c}{
-%\namedseq{CCU${}^\RR$}{
-%    %\sigma_P, s_1 \Downarrow_p \sigma_P' ~~~~
-%    %\sigma_P', \bbegin ~~ s_2 \cdots s_n \eend  \RDownarrowp \sigma_P''~~~~
-%    %\sigma_P''', s_1 \Downarrow_p \sigma_P''
-%    \sigma_P, \textbf{@routine} ~~
-%    s_1; ~~
-%    \sim\bbegin \overline s \eend ~~
-%    \textbf{$\boldsymbol{\sim}$@routine}\Downarrow_p \sigma_P''
-%}{
-%    \sigma_P, \textbf{@routine} ~~
-%    s_1; ~~
-%    \overline s ~~
-%    \textbf{$\boldsymbol{\sim}$@routine}\RDownarrowp \sigma_P''
-%}
-%}
-%
-%\end{tabular} \end{center} 
-%\end{table}
-%
-%
-
-\end{document}
+As long as both the target function $ prime(\odot, f)$ and its inverse $\sim prime(\odot, f)$ are properly defined, it can be called in NiLang. On the other side, any non-primitive NiLang function will generate both the function self $x_f$ and its reverse $\sim x_f$, and this function can be used in NiLang.
+The function arguments are data views. A data view is a modifiable memory, which can be a variable, a field of a data view, an array element of a data view, or a bijection of a data view. In NiLang, everything is mutable except for constants, where an error will be thrown if a statement tries to modify it.
+NiLang does not allow the input data views of a function to map to the same memory, i.e. shared read and write is not allowed.
+If the same variable is used for shared writing, the result might incorrect.
+If the same variable is used for both reading and writing, the program will become irreversible. For example, one can not use \texttt{x -= x} to erase a variable, while coding \texttt{x.y -= x.z} is safe.
+Even if a variables is used for shared reading, it can be dangerous in automatic differentiating. The share read of a variable induces a shared write of its gradient in the adjoint computing. For example, \texttt{y += x * x} will not give the correct gradient, but both \texttt{z ← zero(x); z += x; y += x * z; z -= x; z → zero(x)} and \texttt{y += x \textasciicircum 2} will.\end{document}
