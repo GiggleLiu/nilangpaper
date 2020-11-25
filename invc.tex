@@ -358,7 +358,7 @@ Meanwhile, it has rich features for meta-programming. Its package for pattern ma
 Comparing with a regular reversible programming language, NiLang features array operations, rich number systems including floating-point numbers, complex numbers, fixed-point numbers, and logarithmic numbers.
 It also implements the compute-copy-uncompute~\cite{Bennett1973} macro to increase code reusability.
 Besides the above reversible hardware compatible features, it also has some reversible hardware incompatible features to meet the practical needs. For example, it views the floating-point $\mathrel{+}$ and $\mathrel{-}$ operations as reversible. It also allows users to extend instruction sets and sometimes inserting external statements. These features are not compatible with future reversible hardware.
-NiLang's compiling process, grammar and other language specific details are described in \App{app:lang}.
+NiLang's compiling process, grammar and operational semantics are described in \App{app:lang}.
 The source code is also available online, we will put a link here after the anonymous open review session.
 %\href{https://github.com/GiggleLiu/NiLang.jl}{https://github.com/GiggleLiu/NiLang.jl}, \href{https://github.com/GiggleLiu/NiLangCore.jl}{https://github.com/GiggleLiu/NiLangCore.jl}.
 By the time of writing, the version of NiLang is v0.7.3.
@@ -1175,7 +1175,7 @@ end
 \end{minipage}
 
 \section{Language Details}\label{app:lang}
-\subsection{NiLang Compilation}\label{app:compile}
+\subsection{Compilation}\label{app:compile}
 The compilation of a reversible function to native Julia functions is consisted of three stages: \textit{preprocessing}, \textit{reversing} and \textit{translation} as shown in \Fig{fig:compiling}.
 
 \begin{figure}
@@ -1192,7 +1192,7 @@ As a final step, the compiler attaches a return statement that returns all updat
 Now, the function is ready to execute on the host language.
 
 
-\subsection{NiLang Grammar and Operational Semantics}\label{app:grammar}
+\subsection{Grammar}\label{app:grammar}
 
 A minimum definition of NiLang's grammar is
 
@@ -1215,10 +1215,11 @@ A minimum definition of NiLang's grammar is
 \input{bnf.tex}
 \end{minipage}
 
+\subsection{Operational Semantics}\label{app:grammar}
 The following operational semantics for the forward and backward evaluation shows how a statement is evaluated and reversed.
 
+\begin{small}
 \begin{longtable}{ll}
-    \small
 \namedseq[0.45]{ANCILLA}{
     \sigma_P, e \Downarrow_e v
 }{
@@ -1231,7 +1232,7 @@ The following operational semantics for the forward and backward evaluation show
     \sigma_P[x \mapsto v], x \leftarrow e \Downarrow_p \sigma_P[x \mapsto nothing]
 }
 \\
-\rule{0pt}{2.5em}
+\rule{0pt}{0.5em}
 \\
 \namedseq[0.45]{ANCILLA${}^\RR$}{
     \sigma_P, x \leftarrow e \Downarrow_p \sigma_P'
@@ -1247,8 +1248,6 @@ The following operational semantics for the forward and backward evaluation show
 \\
 \rule{0pt}{2.5em}
 \\
-
-
 \namedseq[0.45]{BLOCK}{
     \sigma_P, s_1 \Downarrow_p \sigma_P' ~~~~
     \sigma_P', \bbegin ~~ s_2 \cdots s_n \eend \Downarrow_p \sigma_P''~~~~
@@ -1258,12 +1257,13 @@ The following operational semantics for the forward and backward evaluation show
     \eend\Downarrow_p \sigma_P''
 }
 &
+    \raisebox{-0.5em}{
 \seq[0.45]{
-    ~~
+    ~
 }{
     \sigma_P, \bbegin
     \eend\Downarrow_p \sigma_P
-}
+}}
 \\
 \\
     \namedseq[0.45]{BLOCK${}^\RR$}{
@@ -1275,11 +1275,13 @@ The following operational semantics for the forward and backward evaluation show
     \eend\Downarrow_p^\RR \sigma_P''
 }
 ~~~~&~~~~
+\raisebox{-0.6em}{
 \seq[0.45]{
-    ~
+    ~~
 }{
     \sigma_P, \bbegin
     \eend\RDownarrowp \sigma_P
+}
 }
 \\
 \rule{0pt}{2.5em}
@@ -1517,9 +1519,10 @@ The following operational semantics for the forward and backward evaluation show
 }
 }
 \end{longtable}
+\end{small}
 
 Here, we do not define primitive instructions like $d_1 \mathrel{\odot}= x_f(d_2\cdots d_n)$, where $\odot \in \{+, -, *, /, \veebar\}$ here
-because these instructions are evaluated as a regular julia function $ prime(\odot, f)(d_1, d_2 \cdots d_n) = (d_1 \odot f(d_2\cdots d_n), d_2 \cdots d_n)$.
+because these instructions are evaluated as a regular julia function $ prime(\odot, f)(d_1, d_2 \cdots d_n) = (d_1 \odot f(d_2\cdots d_n), d_2 \cdots d_n)$ using the rule CALL.
 As long as both the target function $ prime(\odot, f)$ and its inverse $\sim prime(\odot, f)$ are properly defined, it can be called in NiLang. On the other side, any non-primitive NiLang function will generate both the function self $x_f$ and its reverse $\sim x_f$, and this function can be used in NiLang.
 The function arguments are data views. A data view is a modifiable memory, which can be a variable, a field of a data view, an array element of a data view, or a bijection of a data view. In NiLang, everything is mutable except for constants, where an error will be thrown if a statement tries to modify it.
 NiLang does not allow the input data views of a function to map to the same memory, i.e. shared read and write is not allowed.
