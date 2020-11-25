@@ -1196,6 +1196,10 @@ A minimum definition of NiLang's grammar is
 \input{bnf.tex}
 \end{minipage}
 
+
+$\triangleright$ is the pipe operator in Julia. Here, $e$ is a reversible function and $d\triangleright e$ represents a \textbf{bijection} of $d$.
+Function arguments are data views, where a data view is a modifiable memory. It can be a variable, a field of a data view, an array element of a data view, or a bijection of a data view.
+
 \subsection{Operational Semantics}\label{app:grammar}
 The following operational semantics for the forward and backward evaluation shows how a statement is evaluated and reversed.
 
@@ -1404,7 +1408,7 @@ The following operational semantics for the forward and backward evaluation show
     \sigma_P, \textbf{@routine} ~~
     s_1; ~~
     \overline s; ~~
-    \textbf{$\boldsymbol{\sim}$@routine}\Downarrow_p \sigma_P''
+    \textbf{$\boldsymbol{\sim}$@routine}\Downarrow_p \sigma_P'''
 }
 }
 \\
@@ -1414,12 +1418,12 @@ The following operational semantics for the forward and backward evaluation show
     \sigma_P, \textbf{@routine} ~~
     s_1; ~~
     \sim\bbegin \overline s \eend ~~
-    \textbf{$\boldsymbol{\sim}$@routine}\Downarrow_p \sigma_P''
+    \textbf{$\boldsymbol{\sim}$@routine}\Downarrow_p \sigma_P'
 }{
     \sigma_P, \textbf{@routine} ~~
     s_1; ~~
     \overline s; ~~
-    \textbf{$\boldsymbol{\sim}$@routine}\RDownarrowp \sigma_P''
+    \textbf{$\boldsymbol{\sim}$@routine}\RDownarrowp \sigma_P'
 }
 }
 \\
@@ -1493,7 +1497,7 @@ The following operational semantics for the forward and backward evaluation show
 \multicolumn{2}{c}{
 \namedseq{SET-VIEW-BIJECTOR}{
     z ~ fresh~~~~
-    \sigma_P[z\mapsto v], (\sim e)(z) \Downarrow_e v'~~~~
+    \sigma_P[z\mapsto v], z \triangleright (\sim e) \Downarrow_e v'~~~~
     \sigma_P, v', d \Downarrow_{set} \sigma_P'
 }{
     \sigma_P, v, d \triangleright e \Downarrow_{set} \sigma_P'
@@ -1504,9 +1508,8 @@ The following operational semantics for the forward and backward evaluation show
 
 Here, $\mathit{chfield(x, y, z)}$ is a Julia function that returns an object similar to $x$, but with field $y$ modified to value $z$, $\mathit{setindex!(x, z, y)}$ is a Julia function that sets the $y$th element of an array $x$ to the value of $z$.
 We do not define primitive instructions like $d_1 \mathrel{\odot}= x_f(d_2\cdots d_n), \odot \in \{+, -, *, /, \veebar\}$ 
-because these instructions are evaluated as a regular julia function $ prime(\odot, f)(d_1, d_2 \cdots d_n) = (d_1 \odot f(d_2\cdots d_n), d_2 \cdots d_n)$ using the above CALL rule.
-To reverse the call, the reverse julia function $\sim prime(\odot, f)$ should also be properly defined. On the other side, any non-primitive NiLang function defintion will generate two Julia functions $x_f$ and $\sim x_f$ so that this function can be used in NiLang.
-Function arguments are data views, where a data view is a modifiable memory. It can be a variable, a field of a data view, an array element of a data view, or a bijection of a data view. In NiLang, everything is mutable except for constants, where an error will be thrown if a statement tries to modify it.
+because these instructions are evaluated as a regular julia expression $ prime(\odot, x_f)(d_1, d_2 \cdots d_n) = (d_1 \odot x_f(d_2\cdots d_n), d_2 \cdots d_n)$ using the above CALL rule, where $prime(\odot, x_f)$ is a predefined Julia function.
+To reverse the call, the reverse julia function $\sim prime(\odot, x_f)$ should also be properly defined. On the other side, any non-primitive NiLang function defintion will generate two Julia functions $x_f$ and $\sim x_f$ so that it can be used in a recursive definition or other reversible functions.
 When calling a function, NiLang does not allow the input data views mappings to the same memory, i.e. shared read and write is not allowed.
 If the same variable is used for shared writing, the result might incorrect.
 If the same variable is used for both reading and writing, the program will become irreversible. For example, one can not use \texttt{x -= x} to erase a variable, while coding \texttt{x.y -= x.z} is safe.
@@ -1515,7 +1518,7 @@ Even if a variables is used for shared reading, it can be dangerous in automatic
 \subsection{Compilation}\label{app:compile}
 The compilation of a reversible function to native Julia functions is consisted of three stages: \textit{preprocessing}, \textit{reversing} and \textit{translation} as shown in \Fig{fig:compiling}.
 
-\begin{figure}
+\begin{figure}[h]
     \centerline{\includegraphics[width=0.95\columnwidth,trim={0cm 0cm 0cm 0cm},clip]{compiling_v2.pdf}}
     \caption{Compiling the body of the complex valued log function defined in \Lst{lst:complex}.}\label{fig:compiling}
 \end{figure}
