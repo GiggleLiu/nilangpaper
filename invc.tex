@@ -1186,6 +1186,8 @@ A minimum definition of NiLang's grammar is
     $x, y, z$ & symbols\\
     $i, n$ & integers \\
     $e$  & julia expression \\
+    \sigma_P[x \mapsto v] & environemnt with $x$'s value equal to $v$\\
+    \sigma_P[x \mapsto nothing] & environemnt with $x$ undefined\\
     $\sigma_P, e \Downarrow_e v$ & a Julia expression $e$ under environment $\sigma_P$ is interpreted as value $v$ \\
     $\sigma_P, s \Downarrow_p \sigma_P'$ & the evaluation of a statement $s$ under environment $\sigma_P$ generates environment $\sigma_P'$ \\
     $\sigma_P, s \Downarrow_p^{-1} \sigma_P'$ & the reverse evaluation of a statement $s$ under environment $\sigma_P$  generates environment $\sigma_P'$ \\
