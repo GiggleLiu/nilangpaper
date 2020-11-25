@@ -1198,10 +1198,13 @@ A minimum NiLang's grammar can be defined as
 
 \begin{tabular}[t]{ll}
     $\overline s$ & multiple statements\\
+    $c$ & a constant\\
     $x, y, z$ & symbols\\
     $i, n$ & integers \\
     $e$  & julia expression \\
     $\sigma_P, e \Downarrow_e v$ & a Julia expression $e$ under environment $\sigma_P$ is interpreted as value $v$ \\
+    $\sigma_P, s \Downarrow_p v$ & a NiLang statement $s$ under environment $\sigma_P$ is interpreted as value $v$ \\
+    $\sigma_P, s \Downarrow_p^{-1} v$ & a NiLang statement $s$ under environment $\sigma_P$ is reverse-interpreted as value $v$ \\
     $\mathit{chfield(x, y, z)}$ & a Julia function that returns an object similar to $x$, but with field $y$ modified to value $z$\\
     $\mathit{setindex!(x, z, y)}$ & a Julia function that sets the $y$th element of an array $x$ to the value of $z$ \\
 \end{tabular}
@@ -1211,9 +1214,40 @@ A minimum NiLang's grammar can be defined as
 \input{bnf.tex}
 \end{minipage}
 
-The operational semantics for the forward evaluation can be expressed as the following.
+The following operational semantics for the forward and backward evaluation shows how a statement is evalued and reversed.
+
 \begin{longtable}{ll}
     \small
+\namedseq[0.45]{ANCILLA}{
+    \sigma_P, e \Downarrow_e v
+}{
+    \sigma_P[x \mapsto nothing], x \rightarrow e \Downarrow_p \sigma_P[x \mapsto v]
+}
+&
+\seq[0.45]{
+    \sigma_P, e \Downarrow_e v
+}{
+    \sigma_P[x \mapsto v], x \leftarrow e \Downarrow_p \sigma_P[x \mapsto nothing]
+}
+\\
+\rule{0pt}{2.5em}
+\\
+\namedseq[0.45]{ANCILLA${}^\RR$}{
+    \sigma_P, x \leftarrow e \Downarrow_p \sigma_P'
+}{
+    \sigma_P, x \rightarrow e \RDownarrowp \sigma_P'
+}
+&
+\seq[0.45]{
+    \sigma_P, x \rightarrow e \Downarrow_p \sigma_P'
+}{
+    \sigma_P, x \leftarrow e \RDownarrowp \sigma_P'
+}
+\\
+\rule{0pt}{2.5em}
+\\
+
+
 \namedseq[0.45]{BLOCK}{
     \sigma_P, s_1 \Downarrow_p \sigma_P' ~~~~
     \sigma_P', \bbegin ~~ s_2 \cdots s_n \eend \Downarrow_p \sigma_P''~~~~
@@ -1385,7 +1419,7 @@ The operational semantics for the forward evaluation can be expressed as the fol
 }{
     \sigma_P, \textbf{@routine} ~~
     s_1; ~~
-    \overline s ~~
+    \overline s; ~~
     \textbf{$\boldsymbol{\sim}$@routine}\Downarrow_p \sigma_P''
 }
 }
@@ -1403,7 +1437,7 @@ The operational semantics for the forward evaluation can be expressed as the fol
 }{
     \sigma_P, \textbf{@routine} ~~
     s_1; ~~
-    \overline s ~~
+    \overline s; ~~
     \textbf{$\boldsymbol{\sim}$@routine}\RDownarrowp \sigma_P''
 }
 }
@@ -1434,9 +1468,9 @@ The operational semantics for the forward evaluation can be expressed as the fol
 \\
 \multicolumn{2}{c}{
 \namedseq{CALL${}^\RR$}{        
-    \sigma_P, (\sim x_f)(d_1 \cdots d_n) \Downarrow_p \sigma_{P_n}
+    \sigma_P, (\sim x_f)(d_1 \cdots d_n) \Downarrow_p \sigma_{P}'
 }{
-    \sigma_P, x_f(d_1 \cdots d_n) \RDownarrowp \sigma_{P_n}
+    \sigma_P, x_f(d_1 \cdots d_n) \RDownarrowp \sigma_{P}'
 }
 }
 \\
@@ -1447,28 +1481,50 @@ The operational semantics for the forward evaluation can be expressed as the fol
     \sigma_P, d \Downarrow_{get} v
 }
 &
-\namedseq[0.45]{SET-VIEW-FIELD}{
-    z ~ fresh~~~~
-    \sigma_P[z\mapsto v], \mathit{chfield}(x, y, z) \Downarrow_e v'
+\namedseq[0.45]{SET-VIEW-SYM}{
 }{
-    \sigma_P, v, x.y \Downarrow_{set} \sigma_P'[x\mapsto v']
+    \sigma_P, v, x \Downarrow_{set} \sigma_P[x\mapsto v]
 }
 \\
 \\
 \multicolumn{2}{c}{
 \namedseq{SET-VIEW-ARRAY}{
     z ~ fresh~~~~
-    \sigma_P[z\mapsto v], \mathit{setindex!}(x, z, y) \Downarrow_e v'
+    \sigma_P[z\mapsto v], \mathit{setindex!}(d, z, x) \Downarrow_e v'~~~~
+    \sigma_P, v', d \Downarrow_{set} \sigma_P'
 }{
-    \sigma_P, v, x[y] \Downarrow_{set} \sigma_P'[x\mapsto v']
+    \sigma_P, v, d[x] \Downarrow_{set} \sigma_P'
+}
+}
+\\
+\\
+\multicolumn{2}{c}{
+\namedseq{SET-VIEW-FIELD}{
+    z ~ fresh~~~~
+    \sigma_P[z\mapsto v], \mathit{chfield}(d, x, z) \Downarrow_e v'~~~~
+    \sigma_P, v', d \Downarrow_{set} \sigma_P'
+}{
+    \sigma_P, v, d.x \Downarrow_{set} \sigma_P'
+}
+}
+\\
+\\
+\multicolumn{2}{c}{
+\namedseq{SET-VIEW-BIJECTOR}{
+    z ~ fresh~~~~
+    \sigma_P[z\mapsto v], (\sim e)(z) \Downarrow_e v'~~~~
+    \sigma_P, v', d \Downarrow_{set} \sigma_P'
+}{
+    \sigma_P, v, d \triangleright e \Downarrow_{set} \sigma_P'
 }
 }
 \end{longtable}
 
 
-We do not define $d_1 \mathrel{\odot}= x_f(d_1\cdots d_n)$, where $\odot \in \{+, -, *, /, \veebar\}$ here
-because we treat them as a regular function $\mathit{bindfunction}(\odot, f)(d_1, d_2 \cdots d_n)$.
-
+We do not define primitive instructions like $d_1 \mathrel{\odot}= x_f(d_2\cdots d_n)$, where $\odot \in \{+, -, *, /, \veebar\}$ here
+because these instructions are evaluated as a regular julia function $ prime(\odot, f)(d_1, d_2 \cdots d_n) = (d_1 \odot f(d_2\cdots d_n), d_2 \cdots d_n)$.
+As long as both the target function $ prime(\odot, f)$ and its inverse $\sim prime(\odot, f)$ are properly defined, it can be called in NiLang. On the other side, any non-primitive NiLang function binded to symbol $x_f$ will generate both the function self $x_f$ and its reverse $\sim x_f$, and this function can be used in NiLang.
+The function arguements are data views. A data view is a modifiable memory, which can be a variable, a field of a data view, an array element of a data view or a bijection of a data view. In NiLang, everything is mutable except for constants, where an error will be thrown if a statement tries to modify it.
 
 %\begin{table}
 %\begin{center}
